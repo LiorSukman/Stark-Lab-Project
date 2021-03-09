@@ -1,8 +1,6 @@
 .git
 **/clustersData
 **/clustersData_default
-**/clustersData_hybrid_200
-**/clustersData_hybrid_500
 **/Data
 dirs
 dirs.txt
@@ -10,3 +8,4 @@ dirs.txt
 **/saved_models
 **/data_sets
 **/graphs
+**/.idea
