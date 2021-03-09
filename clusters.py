@@ -1,20 +1,23 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 
 class Spike(object):
-    def __init__(self, data = None):
-        self.data = data # Will contain data from 8 channels each with 32 samples
+    def __init__(self, data=None):
+        self.data = data  # Will contain data from 8 channels each with 32 samples
 
     def is_punit(self):
         """
         The function checks if a spike is of a positive-unit and returns the result
         """
-        median = 0 # reference value, it is assumed that the spikes are alligned to zero
-        avg_spike = np.mean(self.data, axis = 0) # we look at all channels as one wave, should consider checking each channel separately
-        avg_spike = avg_spike[3:-3] # in some cases the hyperpolarization at the edges was stronger than the depolarization, causing wrong conclusion 
+        median = 0  # reference value, it is assumed that the spikes are aligned to zero
+        avg_spike = np.mean(self.data, axis=0)  # we look at all channels as one wave, should consider checking each
+        # channel separately
+        avg_spike = avg_spike[3:-3]  # in some cases the hyperpolarization at the edges was stronger than the
+        # depolarization, causing wrong conclusion
         abs_diff = np.absolute(avg_spike - median)
-        arg_max = np.argmax(abs_diff, axis = 0) # the axis specification has no effect, just for clarification
+        arg_max = np.argmax(abs_diff, axis=0)  # the axis specification has no effect, just for clarification
         if avg_spike[arg_max] > median:
             return True
         return False
@@ -33,42 +36,46 @@ class Spike(object):
             plt.plot([j for j in range(32)], self.data[i, :])
         plt.show()
 
+
 class Cluster(object):
-    def __init__(self, label = -1, filename = None, numWithinFile = None, shank = None, spikes = []):
+    def __init__(self, label=-1, filename=None, num_within_file=None, shank=None, spikes=None):
         self.label = label
-        self.filename = filename # recording session
-        self.numWithinFile = numWithinFile # cluster ID
-        self.shank = shank # shank number
-        self.spikes = spikes # list of Spike
-        self.np_spikes = None # np array of spikes, used for optimization
+        self.filename = filename  # recording session
+        self.num_within_file = num_within_file  # cluster ID
+        self.shank = shank  # shank number
+        self.spikes = spikes  # list of Spike
+        self.np_spikes = None  # np array of spikes, used for optimization
 
     def add_spike(self, spike):
         """
         The function receives a spike to append to the cluster (unit)
         """
-        self.spikes.append(spike)
+        if self.spikes is not None:
+            self.spikes.append(spike)
+        else:
+            self.spikes = [spike]
 
     def get_unique_name(self):
         """
         The function returns a unique name based on the cluster's fields
         """
-        return self.filename + "_" + str(self.shank) + "_" + str(self.numWithinFile)
+        return self.filename + "_" + str(self.shank) + "_" + str(self.num_within_file)
 
     def calc_mean_waveform(self):
         """
         The function calculates the mean waveform (i.e. average spike of the cluster)
         """
-        if self.np_spikes is None: # for faster processing
+        if self.np_spikes is None:  # for faster processing
             self.finalize_spikes()
-        return Spike(data = self.np_spikes.mean(axis = 0))
+        return Spike(data=self.np_spikes.mean(axis=0))
 
     def fix_punits(self):
         """
         The function checks if the cluster/unit is a positive-unit and flips it if so
         This is determined by the mean waveform
         """
-        meanSpike = self.calc_mean_waveform()
-        if meanSpike.is_punit():
+        mean_spike = self.calc_mean_waveform()
+        if mean_spike.is_punit():
             self.np_spikes = self.np_spikes * -1
 
     def finalize_spikes(self):
@@ -79,4 +86,18 @@ class Cluster(object):
         self.np_spikes = np.empty(shape)
         for i, spike in enumerate(self.spikes):
             self.np_spikes[i] = spike.get_data()
-        
+
+    def save_cluster(self, path):
+        if self.np_spikes is None:  # for faster processing
+            self.finalize_spikes()
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        np.save(path + self.get_unique_name() + str(self.label), self.spikes)
+
+    def load_cluster(self, path):
+        self.spikes = np.load(path)
+        path_elements = path.split('\\')[-1].split('_')
+        self.filename = path_elements[0]
+        self.shank = path_elements[1]
+        self.num_within_file = path_elements[2]
+        self.label = path_elements[3]
