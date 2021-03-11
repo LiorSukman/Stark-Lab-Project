@@ -6,33 +6,36 @@ from clusters import Spike
 # sa - sum of absolutes
 reduction_types = ['ss', 'sa']
 
-class Time_Lag_Feature(object):
+
+class TimeLagFeature(object):
     """
     This feature calculates the time difference between the main channel and all other channels in terms of
     maximal depolarization, and the following after hyperpolarization.
     The feature only takes into consideration channels that have crossed a ceratin threshold, dtermined by the 
     maximal depolarization of the main channel.
     """
-    def __init__(self, type_dep = 'ss', type_hyp = 'ss', ratio = 0.25):
+
+    def __init__(self, type_dep='ss', type_hyp='ss', ratio=0.25):
         assert type_dep in reduction_types and type_hyp in reduction_types
-        
+
         # Reduction types
         self.type_dep = type_dep
         self.type_hyp = type_hyp
 
-        self.ratio = ratio # Indicates the percantage of the maximum depolarization that will be considered as a threshold
+        # Indicates the percentage of the maximum depolarization that will be considered as a threshold
+        self.ratio = ratio
 
         self.name = 'time lag feature'
 
-    def calculateFeature(self, spikeList):
+    def calculate_feature(self, spike_lst):
         """
         inputs:
-        spikeList: A list of Spike object that the feature will be calculated upon.
+        spike_lst: A list of Spike object that the feature will be calculated upon.
 
         returns:
         A matrix in which entry (i, j) refers to the j metric of Spike number i.
         """
-        result = [self.calc_feature_spike(spike.get_data()) for spike in spikeList]
+        result = [self.calc_feature_spike(spike.get_data()) for spike in spike_lst]
         result = np.asarray(result)
         return result
 
@@ -43,31 +46,30 @@ class Time_Lag_Feature(object):
 
         The function calculates different time lag features of the spike
 
-        returns:
-        a list containing the following values:
-            -dep_red: the reduction of the depolarization vactor (i.e the vector that indicates the time difference of maximal depolarization between each channel and the main channel)
-            -dep_sd: the standard deviation of the depolarization vector
-            -hyp_red: the reduction of the hyperpolarization vector
-            -hyp_sd: the standard deviation of the hyperpolarization vector
+        returns: a list containing the following values: -dep_red: the reduction of the depolarization vector (i.e
+        the vector that indicates the time difference of maximal depolarization between each channel and the main
+        channel) -dep_sd: the standard deviation of the depolarization vector -hyp_red: the reduction of the
+        hyperpolarization vector - hyp_sd: the standard deviation of the hyperpolarization vector
         """
         # remove channels with lower depolarization than required
-        deps = np.min(spike, axis = 1) # max depolarization of each channel
+        deps = np.min(spike, axis=1)  # max depolarization of each channel
         max_dep = np.min(deps)
         fix_inds = deps <= self.ratio * max_dep
-        dep_ind = np.argmin(spike, axis = 1)
+        dep_ind = np.argmin(spike, axis=1)
         spike = spike[fix_inds]
 
-        # find timesteps for depolarizrion in ok chanells, filter again to assure depolariztion is reached before the end
-        dep_ind = np.argmin(spike, axis = 1)
-        fix_inds = dep_ind < 31 # if max depolariztion is reached at the end, it indicates noise
+        # find timestamps for depolarization in ok channels, filter again to assure depolarization is reached before the
+        # end
+        dep_ind = np.argmin(spike, axis=1)
+        fix_inds = dep_ind < 31  # if max depolarization is reached at the end, it indicates noise
         dep_ind = dep_ind[fix_inds]
         spike = spike[fix_inds]
-        if spike.shape[0] == 0: # if no channel passes filtering return zeros
+        if spike.shape[0] == 0:  # if no channel passes filtering return zeros
             return [0, 0, 0, 0]
 
         # offset according to the main channel
-        main_chn = np.argmin(spike) // 32 # set main channel to be the one with highest depolariztion
-        dep_rel = dep_ind - dep_ind[main_chn] # offsetting
+        main_chn = np.argmin(spike) // 32  # set main channel to be the one with highest depolariztion
+        dep_rel = dep_ind - dep_ind[main_chn]  # offsetting
 
         # calculate sd of depolarization time differences
         dep_sd = np.std(dep_rel)
@@ -75,30 +77,29 @@ class Time_Lag_Feature(object):
         # calculate reduction
         if self.type_dep == 'ss':
             dep_red = np.sum(dep_rel ** 2)
-        else: #i.e sa
+        else:  # i.e sa
             dep_red = np.sum(np.absolute(dep_rel))
 
-        # find hyperpolarization indeces
+        # find hyperpolarization indices
         hyp_ind = []
         for i, channel in enumerate(spike):
             trun_channel = channel[dep_ind[i] + 1:]
             hyp_ind.append(trun_channel.argmax() + dep_ind[i] + 1)
         hyp_ind = np.asarray(hyp_ind)
 
-        # repeat calulations                 
+        # repeat calculations
         hyp_rel = hyp_ind - hyp_ind[main_chn]
         hyp_sd = np.std(hyp_rel)
         if self.type_hyp == 'ss':
             hyp_red = np.sum(hyp_rel ** 2)
-        else: #i.e sa
+        else:  # i.e sa
             hyp_red = np.sum(np.absolute(hyp_rel))
-        
+
         return [dep_red, dep_sd, hyp_red, hyp_sd]
 
-    def get_headers(self):
+    @property
+    def headers(self):
         """
         Returns a list of titles of the different metrics
         """
         return ['dep_red', 'dep_sd', 'hyp_red', 'hyp_sd']
-
-    

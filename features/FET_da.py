@@ -5,28 +5,30 @@ import numpy as np
 # sa - sum of absolutes
 reduction_types = ['ss', 'sa']
 
-#Direction_Agreeableness
+
+# Direction_Agreeableness
 class DA(object):
     """
     This feature estimates the amount of agreement in terms of directionality in relation to zero. 
     This feature pertains to the number of channels that are in agreement at each time sample, but not to the actual
     values of different channels (for this type of analysis see the ChannelContrastFeature).
     """
-    def __init__(self, red_type = 'ss'):
+
+    def __init__(self, red_type='ss'):
         assert red_type in reduction_types
         self.red_type = red_type
 
         self.name = 'direction agreeableness feature'
 
-    def calculateFeature(self, spikeList):
+    def calculate_feature(self, spike_lst):
         """
         inputs:
-        spikeList: A list of Spike object that the feature will be calculated upon.
+        spike_lst: A list of Spike object that the feature will be calculated upon.
 
         returns:
         A matrix in which entry (i, j) refers to the j metric of Spike number i.
         """
-        result = [self.calc_feature_spike(spike.get_data()) for spike in spikeList]
+        result = [self.calc_feature_spike(spike.get_data()) for spike in spike_lst]
         result = np.asarray(result)
 
         return result
@@ -36,22 +38,22 @@ class DA(object):
         inputs:
         spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
 
-        The function calculates the direction agreebleness of the given spike
+        The function calculates the direction agreeableness of the given spike
 
         returns:
-        a tupple containing the sum of squares of the da vector and it's standard deviation
+        a tuple containing the sum of squares of the da vector and it's standard deviation
         """
-        median = np.median(spike) # The median value in terms of amplitude across all channels
+        median = np.median(spike)  # The median value in terms of amplitude across all channels
         direction = spike >= median
         counter = np.sum(direction, axis=0)
 
-        # Iterating over the channels and calculating a direction agreebleness value
+        # Iterating over the channels and calculating a direction agreeableness value
         for ind in range(counter.shape[0]):
             temp = counter[ind]
             counter[ind] = temp if temp <= 4 else 8 - temp
 
         # Reduce the da vector based on the chosen reduction type
-        if self.red_type == 'ss': 
+        if self.red_type == 'ss':
             res = np.sum(counter ** 2)
         else:
             res = np.sum(counter)
@@ -61,8 +63,6 @@ class DA(object):
 
         return [res, sd]
 
-    def get_headers(self):
-        """
-        Returns a list of titles of the different metrics
-        """
+    @property
+    def headers(self):
         return ['da', 'da_sd']

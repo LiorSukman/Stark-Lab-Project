@@ -7,14 +7,14 @@ from read_data import read_all_directories
 from clusters import Spike, Cluster
 
 # import the different features
-from features.FET_time_lag import Time_Lag_Feature
+from features.FET_time_lag import TimeLagFeature
 from features.FET_spd import SPD
 from features.FET_da import DA
 from features.FET_depolarization_graph import DepolarizationGraph
 from features.FET_channel_contrast_feature import ChannelContrast
 from features.FET_geometrical_estimation import GeometricalEstimation
 
-features = [Time_Lag_Feature(), SPD(), DA(), DepolarizationGraph(), ChannelContrast(), GeometricalEstimation()]
+features = [TimeLagFeature(), SPD(), DA(), DepolarizationGraph(), ChannelContrast(), GeometricalEstimation()]
 
 TEMP_PATH = 'temp_state\\'
 
@@ -73,7 +73,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
     # define headers for saving later 
     headers = []
     for feature in features:
-        headers += feature.get_headers()
+        headers += feature.headers
     headers += ['label']
 
     for clusters in clusters_generator:
@@ -83,13 +83,13 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
             cluster.fix_punits()
             # print('Dividing data to chunks...')
             relevant_data = get_list_of_relevant_waveforms_from_cluster(cluster, spikes_in_waveform=chunk_sizes)
-            for chunk_size, relData in zip(chunk_sizes, relevant_data):
+            for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
                 feature_mat_for_cluster = None
                 is_first_feature = True
                 for feature in features:
                     # print('processing feature ' + feature.name + '...')
                     # start_time = time.time()
-                    mat_result = feature.calculateFeature(relData)  # calculates the features, returns a matrix
+                    mat_result = feature.calculate_feature(rel_data)  # calculates the features, returns a matrix
                     # end_time = time.time()
                     # print('processing took %.4f seconds' % (end_time - start_time))
                     if is_first_feature:
@@ -100,7 +100,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
                     is_first_feature = False
 
                 # Append the label for the cluster
-                labels = np.ones((len(relData), 1)) * cluster.label
+                labels = np.ones((len(rel_data), 1)) * cluster.label
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, labels), axis=1)
 
                 # Save the data to a separate file (one for each cluster)
