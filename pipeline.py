@@ -19,7 +19,7 @@ features = [TimeLagFeature(), SPD(), DA(), DepolarizationGraph(), ChannelContras
 TEMP_PATH = 'temp_state\\'
 
 
-def get_list_of_relevant_waveforms_from_cluster(cluster, spikes_in_waveform=[200]):
+def create_chunks(cluster, spikes_in_waveform=[200]):
     """
     inputs:
     cluster: an object of type Cluster; holding all the information for a specific unit
@@ -82,7 +82,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
             # print('Fixing punits...')
             cluster.fix_punits()
             # print('Dividing data to chunks...')
-            relevant_data = get_list_of_relevant_waveforms_from_cluster(cluster, spikes_in_waveform=chunk_sizes)
+            relevant_data = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
             for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
                 feature_mat_for_cluster = None
                 is_first_feature = True

@@ -11,7 +11,7 @@ NUM_SAMPLES = 32
 def get_next_spike(spk_file):
     """
     input:
-    spkFile: file descriptor; the file from which to read
+    spk_file: file descriptor; the file from which to read
 
     return:
     spike: Spike object; containing the next spike in the file
@@ -27,6 +27,21 @@ def get_next_spike(spk_file):
     spike = Spike()
     spike.data = data
     return spike
+
+
+def get_next_time(res_file):
+    """
+    input:
+    res_file: file descriptor; the file from which to read
+
+    return:
+    timing: int; the timing of the next spike
+    """
+    # TODO: maybe need to handle eof or \n
+    timing = res_file.readline()
+    timing = int(timing)
+
+    return timing
 
 
 def get_next_cluster_num(clu_file):
@@ -177,21 +192,27 @@ def read_directory(path, cell_class_mat, i):
 
     start = time.time()
     try:
-        spkFile = open(path + "\\" + name + ".spk." + str(i), 'rb')  # file containing spikes
-        cluFile = open(path + "\\" + name + ".clu." + str(i))  # file containing cluster mapping of spikes
+        spk_file = open(path + "\\" + name + ".spk." + str(i), 'rb')  # file containing spikes
+        clu_file = open(path + "\\" + name + ".clu." + str(i))  # file containing cluster mapping of spikes
+        res_file = open(path + "\\" + name + ".res." + str(i))  # file containing spike timings
     except FileNotFoundError:  # if shank recording doesn't exsist exit
-        print(path + "\\" + name + ".spk." + str(i) + ' and/or ' + path + "\\" + name + ".clu." + str(i) + ' not found')
+        print(path + "\\" + name + ".spk." + str(i) +
+              ' and/or ' + path + "\\" + name + ".clu." + str(i) +
+              'and/or ' + path + "\\" + name + ".res." + str(i) + ' not found')
         return []
 
     # Read the first line of the cluster file (contains num of clusters)
-    get_next_cluster_num(cluFile)
-    spike = get_next_spike(spkFile)
+    get_next_cluster_num(clu_file)
+    spike = get_next_spike(spk_file)
+    timing = get_next_time(res_file)
     while spike is not None:  # for each spike
-        clu_num = get_next_cluster_num(cluFile)  # cluster ID
+        assert timing is not None
+        clu_num = get_next_cluster_num(clu_file)  # cluster ID
 
         # clusters 0 and 1 are artefacts and noise by convention
         if clu_num == 0 or clu_num == 1:
-            spike = get_next_spike(spkFile)
+            spike = get_next_spike(spk_file)
+            timing = get_next_time(res_file)
             continue
 
         assert clu_num is not None
@@ -199,23 +220,25 @@ def read_directory(path, cell_class_mat, i):
 
         # Check if cluster exists in dictionary and create if not
         if full_name not in clusters:
-            new_cluster = create_cluster(name, clu_num, (i), cell_class_mat)
+            new_cluster = create_cluster(name, clu_num, i, cell_class_mat)
 
             # Check to see if the cluster we are trying to create is one that doesn't appear in shankclu (i.e has a
             # label of -2)
             if new_cluster is None:
-                spike = get_next_spike(spkFile)
+                spike = get_next_spike(spk_file)
+                timing = get_next_time(res_file)
                 continue
 
             clusters[full_name] = new_cluster
             clusters_list.append(new_cluster)
 
-        clusters[full_name].add_spike(spike)
-        spike = get_next_spike(spkFile)
+        clusters[full_name].add_spike(spike, timing)
+        spike = get_next_spike(spk_file)
+        timing = get_next_time(res_file)
 
     print("Finished File %s with index %d" % (name, i))
-    spkFile.close()
-    cluFile.close()
+    spk_file.close()
+    clu_file.close()
 
     end = time.time()
     print(str(end - start) + " total")

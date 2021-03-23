@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+SAMPLE_RATE = 20_000
+
 
 class Spike(object):
     def __init__(self, data=None):
@@ -38,15 +40,16 @@ class Spike(object):
 
 
 class Cluster(object):
-    def __init__(self, label=-1, filename=None, num_within_file=None, shank=None, spikes=None):
+    def __init__(self, label=-1, filename=None, num_within_file=None, shank=None, spikes=None, timings=None):
         self.label = label
         self.filename = filename  # recording session
         self.num_within_file = num_within_file  # cluster ID
         self.shank = shank  # shank number
         self.spikes = spikes  # list of Spike
         self.np_spikes = None  # np array of spikes, used for optimization
+        self.timings = timings
 
-    def add_spike(self, spike):
+    def add_spike(self, spike, time):
         """
         The function receives a spike to append to the cluster (unit)
         """
@@ -54,6 +57,12 @@ class Cluster(object):
             self.spikes.append(spike)
         else:
             self.spikes = [spike]
+
+        if self.timings is not None:
+            # we divide by the sample rate to get the time in seconds and multiply by 1000 to get the time in ms
+            self.timings.append(1000 * time / SAMPLE_RATE)
+        else:
+            self.timings = [1000 * time / SAMPLE_RATE]
 
     def get_unique_name(self):
         """
@@ -92,9 +101,11 @@ class Cluster(object):
             self.finalize_spikes()
         if not os.path.isdir(path):
             os.mkdir(path)
-        np.save(path + self.get_unique_name() + str(self.label), self.spikes)
+        np.save(path + self.get_unique_name() + str(self.label) + 'spikes', self.spikes)
+        np.save(path + self.get_unique_name() + str(self.label) + 'timings', np.array(self.timings))
 
     def load_cluster(self, path):
+        # TODO adapt for the timings
         self.spikes = np.load(path)
         path_elements = path.split('\\')[-1].split('_')
         self.filename = path_elements[0]

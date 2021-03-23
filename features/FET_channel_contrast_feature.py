@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class ChannelContrast():
+class ChannelContrast(object):
     """
     This feature estimates the actual agreement between different channels in relation to zero. While the DAFeature
     only deals in the absolute number of channels that are in disagreement, this feature expands on that and aspires to actually model
