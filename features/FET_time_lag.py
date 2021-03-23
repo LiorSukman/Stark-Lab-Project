@@ -11,7 +11,7 @@ class TimeLagFeature(object):
     """
     This feature calculates the time difference between the main channel and all other channels in terms of
     maximal depolarization, and the following after hyperpolarization.
-    The feature only takes into consideration channels that have crossed a ceratin threshold, dtermined by the 
+    The feature only takes into consideration channels that have crossed a certain threshold, determined by the
     maximal depolarization of the main channel.
     """
 
