@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import time
 import argparse
+from os import listdir
+from os.path import isfile, join
 
 from read_data import read_all_directories
 from clusters import Spike, Cluster
@@ -17,6 +19,28 @@ from features.FET_geometrical_estimation import GeometricalEstimation
 features = [TimeLagFeature(), SPD(), DA(), DepolarizationGraph(), ChannelContrast(), GeometricalEstimation()]
 
 TEMP_PATH = 'temp_state\\'
+
+
+def load_clusters(load_path):
+    files = set([f for f in listdir(load_path) if isfile(join(load_path, f))])
+    clusters = set()
+    for file in files:
+        path_elements = file.split('\\')[-1].split('_')
+        if path_elements[-1] == 'timings':
+            continue
+        unique_name = path_elements[0]
+        if unique_name not in clusters:
+            clusters.add(unique_name)
+        else:
+            raise Exception('Duplicate file in load path')
+        cluster = Cluster()
+        cluster.load_cluster(file)
+        timing_file = file.replace('spikes', 'timings')
+        cluster.load_cluster(timing_file)
+
+        assert cluster.assert_legal()
+
+        yield {unique_name: cluster}
 
 
 def create_chunks(cluster, spikes_in_waveform=[200]):
@@ -68,7 +92,10 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
 
     The function creates csv files with the features for the different units 
     """
-    clusters_generator = read_all_directories(path, mat_file)
+    if load_path is None:
+        clusters_generator = read_all_directories(path, mat_file)
+    else:
+        clusters_generator = load_clusters(load_path)
 
     # define headers for saving later 
     headers = []
@@ -78,7 +105,8 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
 
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
-            cluster.save_cluster(TEMP_PATH)
+            if load_path is None:
+                cluster.save_cluster(TEMP_PATH)
             # print('Fixing punits...')
             cluster.fix_punits()
             # print('Dividing data to chunks...')
@@ -125,9 +153,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dirs_file = args.dirs_file
-    chunk_sizes = args.chunk_sizes
+    arg_chunk_sizes = args.chunk_sizes
     save_path = args.save_path
-    load_path = args.load_path
+    arg_load_path = args.load_path
     spv_mat = args.spv_mat
 
-    run(dirs_file, chunk_sizes, save_path, spv_mat, load_path)
+    run(dirs_file, arg_chunk_sizes, save_path, spv_mat, arg_load_path)

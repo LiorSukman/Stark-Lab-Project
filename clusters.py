@@ -101,14 +101,28 @@ class Cluster(object):
             self.finalize_spikes()
         if not os.path.isdir(path):
             os.mkdir(path)
-        np.save(path + self.get_unique_name() + str(self.label) + 'spikes', self.spikes)
-        np.save(path + self.get_unique_name() + str(self.label) + 'timings', np.array(self.timings))
+        np.save(path + self.get_unique_name() + '_' + str(self.label) + '_' + 'spikes', self.spikes)
+        np.save(path + self.get_unique_name() + '_' + str(self.label) + '-' + 'timings', np.array(self.timings))
 
     def load_cluster(self, path):
-        # TODO adapt for the timings
-        self.spikes = np.load(path)
         path_elements = path.split('\\')[-1].split('_')
-        self.filename = path_elements[0]
-        self.shank = path_elements[1]
-        self.num_within_file = path_elements[2]
-        self.label = path_elements[3]
+        if path_elements[-1] == 'spikes':
+            self.spikes = np.load(path)
+            self.np_spikes = np.load(path)
+            self.filename = path_elements[0]
+            self.shank = path_elements[1]
+            self.num_within_file = path_elements[2]
+            self.label = path_elements[3]
+        elif path_elements[-1] == 'timings':
+            self.timings = np.load(path)
+
+    def assert_legal(self):
+        if self.label == -1 or\
+                self.filename is None or\
+                self.num_within_file is None or\
+                self.shank is None or\
+                self.spikes is None or\
+                self.np_spikes is None or\
+                self.timings is None:
+            return False
+        return True
