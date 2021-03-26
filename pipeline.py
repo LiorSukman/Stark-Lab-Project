@@ -1,22 +1,15 @@
 import pandas as pd
 import numpy as np
-import time
 import argparse
 from os import listdir
 from os.path import isfile, join
 
 from read_data import read_all_directories
-from clusters import Spike, Cluster
+from clusters import Spike
 
 # import the different features
-from features.FET_time_lag import TimeLagFeature
-from features.FET_spd import SPD
-from features.FET_da import DA
-from features.FET_depolarization_graph import DepolarizationGraph
-from features.FET_channel_contrast_feature import ChannelContrast
-from features.FET_geometrical_estimation import GeometricalEstimation
-
-features = [TimeLagFeature(), SPD(), DA(), DepolarizationGraph(), ChannelContrast(), GeometricalEstimation()]
+from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names
+from features.temporal_features_calc import calc_temporal_features, get_temporal_features_names
 
 TEMP_PATH = 'temp_state\\'
 
@@ -98,9 +91,8 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
         clusters_generator = load_clusters(load_path)
 
     # define headers for saving later 
-    headers = []
-    for feature in features:
-        headers += feature.headers
+    headers = get_spatial_features_names()
+    headers += get_temporal_features_names()
     headers += ['label']
 
     for clusters in clusters_generator:
@@ -110,22 +102,12 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
             # print('Fixing punits...')
             cluster.fix_punits()
             # print('Dividing data to chunks...')
+            # TODO: upsample here
             relevant_data = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
+            temporal_features_mat = calc_temporal_features()
             for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
-                feature_mat_for_cluster = None
-                is_first_feature = True
-                for feature in features:
-                    # print('processing feature ' + feature.name + '...')
-                    # start_time = time.time()
-                    mat_result = feature.calculate_feature(rel_data)  # calculates the features, returns a matrix
-                    # end_time = time.time()
-                    # print('processing took %.4f seconds' % (end_time - start_time))
-                    if is_first_feature:
-                        feature_mat_for_cluster = mat_result
-                    else:
-                        feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
-
-                    is_first_feature = False
+                feature_mat_for_cluster = calc_spatial_features(rel_data)
+                feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, temporal_features_mat), axis=1)
 
                 # Append the label for the cluster
                 labels = np.ones((len(rel_data), 1)) * cluster.label
