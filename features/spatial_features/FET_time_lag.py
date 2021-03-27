@@ -1,5 +1,4 @@
 import numpy as np
-from clusters import Spike
 
 # There are two options of reduction for the da vector:
 # ss - sum of squares
@@ -55,7 +54,6 @@ class TimeLagFeature(object):
         deps = np.min(spike, axis=1)  # max depolarization of each channel
         max_dep = np.min(deps)
         fix_inds = deps <= self.ratio * max_dep
-        dep_ind = np.argmin(spike, axis=1)
         spike = spike[fix_inds]
 
         # find timestamps for depolarization in ok channels, filter again to assure depolarization is reached before the

@@ -1,27 +1,28 @@
 import numpy as np
 
 
+def find_dominant_channel(spike):
+    """
+    inputs:
+    spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+
+    returns:
+    the channel that contains the maximum depolarization and the sample in which that depolarization occurs
+    """
+    arg_min_channel = spike.min(axis=1).argmin()
+    arg_min_time = spike.min(axis=0).argmin()
+    return arg_min_channel, arg_min_time
+
+
 class ChannelContrast(object):
     """
     This feature estimates the actual agreement between different channels in relation to zero. While the DAFeature
-    only deals in the absolute number of channels that are in disagreement, this feature expands on that and aspires to actually model
-    the pattern of disagrement using dot products between dhifferent channels and the main channel.
+    only deals in the absolute number of channels that are in disagreement, this feature expands on that and aspires to
+     actually model the pattern of disagrement using dot products between dhifferent channels and the main channel.
     """
 
     def __init__(self):
         self.name = 'channel contrast feature'
-
-    def find_dominant_channel(self, spike):
-        """
-        inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
-        
-        returns:
-        the channel that contains the maximum depolarization and the sample in which that depolarization occurs
-        """
-        arg_min_channel = spike.min(axis=1).argmin()
-        arg_min_time = spike.min(axis=0).argmin()
-        return arg_min_channel, arg_min_time
 
     def calculate_feature(self, spike_lst):
         """
@@ -35,7 +36,7 @@ class ChannelContrast(object):
         for i, spike in enumerate(spike_lst):
 
             # Find the dominant channel
-            dominant_channel, dom_time = self.find_dominant_channel(spike.data)
+            dominant_channel, dom_time = find_dominant_channel(spike.data)
             reduced_arr = spike.data / 100
 
             # Iterate over the other channels and check the contrast wrt the dominant one

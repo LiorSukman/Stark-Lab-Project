@@ -3,8 +3,9 @@ import numpy as np
 
 class SPD(object):
     """
-    This feature calculates the numbers of channels that have crossed a certain threshold (determined by the main channel),
-    and scales the values of the maximum depolarization of these channels according to the maximal depolarization of the main channel.
+    This feature calculates the numbers of channels that have crossed a certain threshold (determined by the main
+     channel), and scales the values of the maximum depolarization of these channels according to the maximal
+    depolarization of the main channel.
     """
 
     def __init__(self, ratio=0.5):

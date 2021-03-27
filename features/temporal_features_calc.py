@@ -1,11 +1,11 @@
 import numpy as np
 import scipy.signal as signal
 
-from temporal_features.FET_DKL import DKL
-from temporal_features.FET_jump_index import Jump
-from temporal_features.FET_PSD import PSD
-from temporal_features.FET_rise_time import RiseTime
-from temporal_features.FET_unif_dist import UnifDist
+from features.temporal_features.FET_DKL import DKL
+from features.temporal_features.FET_jump_index import Jump
+from features.temporal_features.FET_PSD import PSD
+from features.temporal_features.FET_rise_time import RiseTime
+from features.temporal_features.FET_unif_dist import UnifDist
 
 features = [DKL(), Jump(), PSD(), RiseTime(), UnifDist()]
 
@@ -15,8 +15,7 @@ def calc_temporal_histogram(time_lst, bins):
         hist = np.histogram(time_lst - time_lst[i], bins=bins)
         ret += hist
 
-    return hist
-
+    return ret
 
 def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, cdf_range=30, jmp_min=50, jmp_max=1200):
     feature_mat_for_cluster = None

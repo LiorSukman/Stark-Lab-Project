@@ -117,8 +117,7 @@ class Cluster(object):
             self.timings = np.load(path)
 
     def assert_legal(self):
-        if self.label == -1 or\
-                self.filename is None or\
+        if self.filename is None or\
                 self.num_within_file is None or\
                 self.shank is None or\
                 self.spikes is None or\

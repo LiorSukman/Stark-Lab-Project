@@ -37,9 +37,11 @@ def get_next_time(res_file):
     return:
     timing: int; the timing of the next spike
     """
-    # TODO: maybe need to handle eof or \n
     timing = res_file.readline()
-    timing = int(timing)
+    try:
+        timing = int(timing)
+    except ValueError:
+        timing = None
 
     return timing
 

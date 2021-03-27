@@ -1,11 +1,11 @@
 import numpy as np
 
-from spatial_features.FET_time_lag import TimeLagFeature
-from spatial_features.FET_spd import SPD
-from spatial_features.FET_da import DA
-from spatial_features.FET_depolarization_graph import DepolarizationGraph
-from spatial_features.FET_channel_contrast_feature import ChannelContrast
-from spatial_features.FET_geometrical_estimation import GeometricalEstimation
+from features.spatial_features.FET_time_lag import TimeLagFeature
+from features.spatial_features.FET_spd import SPD
+from features.spatial_features.FET_da import DA
+from features.spatial_features.FET_depolarization_graph import DepolarizationGraph
+from features.spatial_features.FET_channel_contrast_feature import ChannelContrast
+from features.spatial_features.FET_geometrical_estimation import GeometricalEstimation
 
 features = [TimeLagFeature(), SPD(), DA(), DepolarizationGraph(), ChannelContrast(), GeometricalEstimation()]
 
@@ -23,18 +23,18 @@ def match_spike(spike, wavelet):
     return wvlt
 
 def match_chunk(chunk, wavelet):
-    ret = chunk.copy()
+    ret = np.zeros(chunk.shape)
     for i, channel in enumerate(chunk):
         ret[i] = match_spike(channel, wavelet)
 
     return ret
 
-def wavelet_function(center, len):
+def wavelet_function(center, length):
     pass
 
 def wavelet_transform(chunks):
-    wavelet = lambda center: wavelet_function(center, chunks.shape[-1])
-    ret = chunks.copy()
+    def wavelet(center): wavelet_function(center, chunks.shape[-1])
+    ret = np.zeros(chunks.shape)
     for i, chunk in enumerate(chunks):
         ret[i] = match_chunk(chunk, wavelet)
 

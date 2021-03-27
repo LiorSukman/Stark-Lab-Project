@@ -5,7 +5,7 @@ from os import listdir
 from os.path import isfile, join
 
 from read_data import read_all_directories
-from clusters import Spike
+from clusters import Spike, Cluster
 
 # import the different features
 from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names
@@ -36,11 +36,11 @@ def load_clusters(load_path):
         yield {unique_name: cluster}
 
 
-def create_chunks(cluster, spikes_in_waveform=[200]):
+def create_chunks(cluster, spikes_in_waveform=(200,)):
     """
     inputs:
     cluster: an object of type Cluster; holding all the information for a specific unit
-    spikes_in_waveform: list of non-negative integers (default = [200]); representing the different chunk sizes
+    spikes_in_waveform: tuple of non-negative integers (default = [200]); representing the different chunk sizes
     value of zero means taking the unit-based approach (i.e. a single chunk for each cluster)
 
     returns:
@@ -72,6 +72,12 @@ def create_chunks(cluster, spikes_in_waveform=[200]):
 
     return ret
 
+def only_save(path, mat_file):
+    clusters_generator = read_all_directories(path, mat_file)
+    for clusters in clusters_generator:
+        for cluster in clusters:  # for each unit
+            cluster.fix_punits()
+            cluster.save_cluster(TEMP_PATH)
 
 def run(path, chunk_sizes, csv_folder, mat_file, load_path):
     """
@@ -97,14 +103,14 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
 
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
-            if load_path is None:
-                cluster.save_cluster(TEMP_PATH)
             # print('Fixing punits...')
             cluster.fix_punits()
+            if load_path is None:
+                cluster.save_cluster(TEMP_PATH)
             # print('Dividing data to chunks...')
             # TODO: upsample here
             relevant_data = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
-            temporal_features_mat = calc_temporal_features()
+            temporal_features_mat = calc_temporal_features(cluster.timings)
             for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
                 feature_mat_for_cluster = calc_spatial_features(rel_data)
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, temporal_features_mat), axis=1)
@@ -130,6 +136,8 @@ if __name__ == "__main__":
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=None,
                         help='path to load clusters from, make sure directory exists')
+    parser.add_argument('--calc_features', type=bool, default=False,
+                        help='path to load clusters from, make sure directory exists')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
 
     args = parser.parse_args()
@@ -140,4 +148,7 @@ if __name__ == "__main__":
     arg_load_path = args.load_path
     spv_mat = args.spv_mat
 
-    run(dirs_file, arg_chunk_sizes, save_path, spv_mat, arg_load_path)
+    if args.calc_features:
+        run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path)
+    else:
+        only_save(dirs_file, spv_mat)

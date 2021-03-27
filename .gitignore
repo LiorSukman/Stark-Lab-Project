@@ -2,8 +2,7 @@
 **/clustersData
 **/clustersData_default
 **/Data
-dirs
-dirs.txt
+**/temp_state
 **/__pycache__
 **/saved_models
 **/data_sets

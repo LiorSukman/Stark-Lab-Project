@@ -36,7 +36,8 @@ class RiseCoef(object):
         dep = spike[dep_ind]
         if dep_ind == len(spike):  # if max depolarization is reached at the end, it indicates noise
             raise Exception('Max depolarization reached at final timestamp')
-        line = np.linspace(dep, spike[-1], num = len(spike) - dep_ind + 1)  # make sure the spike is actually a single dimensional array
+        # make sure the spike is actually a single dimensional array
+        line = np.linspace(dep, spike[-1], num=len(spike) - dep_ind + 1)
 
         trun_spike = spike[dep_ind:]
         rise_coef = (trun_spike - line).argmax()

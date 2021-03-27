@@ -1,0 +1,48 @@
+Data\es25nov11_3
+Data\es25nov11_5
+Data\es25nov11_12
+Data\es25nov11_9
+Data\es25nov11_13
+Data\es04feb12_1
+Data\es09feb12_2 1
+Data\es09feb12_3 1
+Data\es27mar12_2 3 4
+Data\es27mar12_3 3 4
+Data\es27mar12.012 4
+Data\es27mar12.013 3 4
+Data\es12mar12_2
+Data\es17mar12_1 4
+Data\es17mar12_2 4
+Data\es25mar12_6 4
+Data\es20may12_1 2 3
+Data\m371r2_3 1 2 3
+Data\es21may12_1 2 3 4
+Data\m361r2_13 3 4
+Data\m361r2_17
+Data\m361r2_20
+Data\m361r2_34 1 3
+Data\m258r1_7
+Data\m258r1_42
+Data\m258r1_44
+Data\m258r1_48 1 2
+Data\m531r1_10
+Data\m531r1_11
+Data\m531r1_29 2
+Data\m531r1_31 2
+Data\m531r1_32 2
+Data\m531r1_34 2
+Data\m531r1_35 2
+Data\m531r1_36 2
+Data\m531r1_38 2
+Data\m531r1_40 2
+Data\m531r1_41 2
+Data\m531r1_42 2
+Data\m531r1_43 2
+Data\m649r1_3 3
+Data\m649r1_5
+Data\m649r1_14 2 3
+Data\m649r1_16
+Data\m649r1_17
+Data\m649r1_19
+Data\m649r1_21
+Data\m649r1_22
