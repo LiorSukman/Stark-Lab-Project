@@ -1,17 +1,19 @@
 import numpy as np
 import math
 
+from constants import NUM_CHANNELS, TIMESTEPS, UPSAMPLE, COORDINATES
 
 class GeometricalEstimation(object):
     """
-    This feature estimates the geometrical location of the signal at each time sample and gives and perofrms various calculations 
-    that are based on these estimates.
+    This feature estimates the geometrical location of the signal at each time sample and gives and perofrms various
+    calculations that are based on these estimates.
     These calculations pertain to the change in location of the geometrical estimations.
     """
 
     def __init__(self):
         self.name = 'Geometrical estimation'
 
+    @staticmethod
     def euclidean_dist(self, point_a, point_b):
         """
         inputs:
@@ -23,6 +25,7 @@ class GeometricalEstimation(object):
         """
         return math.sqrt((point_a[0] - point_b[0]) ** 2 + (point_a[1] - point_b[1]) ** 2)
 
+    @staticmethod
     def calculate_geo_estimation(self, channels_at_time, coordinates):
         """
         inputs:
@@ -32,18 +35,17 @@ class GeometricalEstimation(object):
         returns:
         (geo_x, geo_y): A tuple containing the X and Y coordinates of the geometrical estimation
         """
-        # TODO check why it is not used
-        max_val = channels_at_time.max()
-
         total = 0
-        for i in range(8):
+        for i in range(NUM_CHANNELS):
             entry = channels_at_time[i]
             if entry < 0:
                 entry *= -1
             total += entry
         channels_at_time = channels_at_time / total
-        geo_x = sum([coordinates[i][0] * channels_at_time[i] for i in range(8)])  # Estimation for the X coordinate
-        geo_y = sum([coordinates[i][1] * channels_at_time[i] for i in range(8)])  # Estimation for the Y coordinate
+        # Estimation for the X coordinate
+        geo_x = sum([coordinates[i][0] * channels_at_time[i] for i in range(NUM_CHANNELS)])
+        # Estimation for the Y coordinate
+        geo_y = sum([coordinates[i][1] * channels_at_time[i] for i in range(NUM_CHANNELS)])
         return geo_x, geo_y
 
     def calculate_shifts_2d(self, geo_avgs):
@@ -55,12 +57,13 @@ class GeometricalEstimation(object):
         a vector of dimensions (1, 31) where entry i represnts the shift in terms of euclidean distance between
             the geometrical estimation between sample i and sample i-1
         """
-        shifts = np.zeros((1, 31))
-        for i in range(1, 32):
+        shifts = np.zeros((1, TIMESTEPS * UPSAMPLE - 1))
+        for i in range(1, TIMESTEPS * UPSAMPLE):
             shifts[0][i - 1] = self.euclidean_dist((geo_avgs[i - 1][0], geo_avgs[i - 1][1]),
                                                    (geo_avgs[i][0], geo_avgs[i][1]))
         return shifts
 
+    @staticmethod
     def calculate_shifts_1d(self, geo_avgs, d):
         """
         inputs:
@@ -71,8 +74,8 @@ class GeometricalEstimation(object):
         a vector of dimensions (1, 31) where entry i represents the shift in terms of euclidean distance between
             one of the dimensions of the geometrical estimation between sample i and sample i-1
         """
-        shifts = np.zeros((1, 31))
-        for i in range(1, 32):
+        shifts = np.zeros((1, TIMESTEPS * UPSAMPLE - 1))
+        for i in range(1, TIMESTEPS * UPSAMPLE):
             shifts[0][i - 1] = geo_avgs[i][d] - geo_avgs[i - 1][d]
         return shifts
 
@@ -101,15 +104,15 @@ class GeometricalEstimation(object):
         A matrix in which entry (i, j) refers to the j metric of Spike number i.
         """
         result = np.zeros((len(spike_lst), 3))
-        coordinates = [(0, 0), (-9, 20), (8, 40), (-13, 60), (12, 80), (-17, 100), (16, 120), (-21, 140)]
+        coordinates = COORDINATES
 
         for j, spike in enumerate(spike_lst):
-            geo_avgs = np.zeros((32, 2))
+            geo_avgs = np.zeros((TIMESTEPS * UPSAMPLE, 2))
 
             arr = spike.get_data()
-            for i in range(32):
-                channels = arr[:, i] * (
-                    -1)  # channels that are positive need to be considered in reverse in terms of average claculation
+            for i in range(TIMESTEPS * UPSAMPLE):
+                # channels that are positive need to be considered in reverse in terms of average calculation
+                channels = arr[:, i] * (-1)
                 geo_avgs[i, 0], geo_avgs[i, 1] = self.calculate_geo_estimation(channels, coordinates)
 
             shifts_2d = self.calculate_shifts_2d(geo_avgs)

@@ -1,13 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-
-SAMPLE_RATE = 20_000
+from constants import SAMPLE_RATE, NUM_CHANNELS, TIMESTEPS
 
 
 class Spike(object):
     def __init__(self, data=None):
-        self.data = data  # Will contain data from 8 channels each with 32 samples
+        self.data = data  # Will contain data from 8 channels each with multiple samples over time (originally 32)
 
     def is_punit(self):
         """
@@ -34,8 +33,9 @@ class Spike(object):
         return self.data
 
     def plot_spike(self):
-        for i in range(8):
-            plt.plot([j for j in range(32)], self.data[i, :])
+        for i in range(NUM_CHANNELS):
+            # we don't use constants to allow use after upsampling
+            plt.plot(np.arange(self.data.shape[1]), self.data[i, :])
         plt.show()
 
 
@@ -91,7 +91,7 @@ class Cluster(object):
         """
         The function transforms the spike list to a single numpy array, this is used for faster processing later on
         """
-        shape = (len(self.spikes), 8, 32)
+        shape = (len(self.spikes), NUM_CHANNELS, TIMESTEPS)
         self.np_spikes = np.empty(shape)
         for i, spike in enumerate(self.spikes):
             self.np_spikes[i] = spike.get_data()

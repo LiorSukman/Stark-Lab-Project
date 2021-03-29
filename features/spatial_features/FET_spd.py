@@ -1,5 +1,6 @@
 import numpy as np
 
+from constants import TIMESTEPS, UPSAMPLE
 
 class SPD(object):
     """
@@ -29,7 +30,7 @@ class SPD(object):
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is a matrix with the dimensions of (NUM_CHANNELS, TIMESTEPS * UPSAMPLE)
 
         The function calculates the spatial dispersion of the given spike
 
@@ -38,7 +39,7 @@ class SPD(object):
             the spatial dispersion vector
         """
         dep = np.min(spike, axis=1)
-        main_chn = np.argmin(spike) // 32  # Finding the main channel
+        main_chn = np.argmin(spike) // (TIMESTEPS * UPSAMPLE)  # Finding the main channel
         rel_dep = dep / dep[main_chn]  # Scaling according to the main channel
         count = np.count_nonzero(rel_dep > self.ratio)
         sd = np.std(rel_dep)

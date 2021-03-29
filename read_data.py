@@ -1,11 +1,11 @@
 import numpy as np
 import time
-from clusters import Spike, Cluster
 import scipy.io
 
+from clusters import Spike, Cluster
+from constants import NUM_CHANNELS, TIMESTEPS
+
 NUM_BYTES = 2  # number of bytes to read each time from the spk files, based on the data format of 16 bit integers
-NUM_CHANNELS = 8
-NUM_SAMPLES = 32
 
 
 def get_next_spike(spk_file):
@@ -16,8 +16,8 @@ def get_next_spike(spk_file):
     return:
     spike: Spike object; containing the next spike in the file
     """
-    data = np.zeros((NUM_CHANNELS, NUM_SAMPLES))
-    for i in range(NUM_SAMPLES):
+    data = np.zeros((NUM_CHANNELS, TIMESTEPS))
+    for i in range(TIMESTEPS):
         for j in range(NUM_CHANNELS):
             num = spk_file.read(NUM_BYTES)
             if not num:

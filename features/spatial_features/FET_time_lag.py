@@ -1,5 +1,7 @@
 import numpy as np
 
+from constants import TIMESTEPS, UPSAMPLE
+
 # There are two options of reduction for the da vector:
 # ss - sum of squares
 # sa - sum of absolutes
@@ -41,7 +43,7 @@ class TimeLagFeature(object):
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is a matrix with the dimensions of (NUM_CHANNELS, TIMESTEPS * UPSAMPLE)
 
         The function calculates different time lag features of the spike
 
@@ -59,14 +61,16 @@ class TimeLagFeature(object):
         # find timestamps for depolarization in ok channels, filter again to assure depolarization is reached before the
         # end
         dep_ind = np.argmin(spike, axis=1)
-        fix_inds = dep_ind < 31  # if max depolarization is reached at the end, it indicates noise
+        # if max depolarization is reached at the end, it indicates noise
+        fix_inds = dep_ind < (TIMESTEPS * UPSAMPLE - 1)
         dep_ind = dep_ind[fix_inds]
         spike = spike[fix_inds]
-        if spike.shape[0] == 0:  # if no channel passes filtering return zeros
+        if spike.shape[0] <= 1:  # if no channel passes filtering return zeros (or if only one channel)
             return [0, 0, 0, 0]
 
         # offset according to the main channel
-        main_chn = np.argmin(spike) // 32  # set main channel to be the one with highest depolariztion
+        # set main channel to be the one with highest depolariztion
+        main_chn = np.argmin(spike) // (TIMESTEPS * UPSAMPLE)
         dep_rel = dep_ind - dep_ind[main_chn]  # offsetting
 
         # calculate sd of depolarization time differences

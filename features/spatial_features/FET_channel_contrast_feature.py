@@ -1,10 +1,12 @@
 import numpy as np
 
+from constants import NUM_CHANNELS
+
 
 def find_dominant_channel(spike):
     """
     inputs:
-    spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+    spike: the spike to be processed; it is a matrix with the dimensions of (NUM_CHANNELS, TIMESTEPS)
 
     returns:
     the channel that contains the maximum depolarization and the sample in which that depolarization occurs
@@ -24,6 +26,7 @@ class ChannelContrast(object):
     def __init__(self):
         self.name = 'channel contrast feature'
 
+    @staticmethod
     def calculate_feature(self, spike_lst):
         """
         inputs:
@@ -32,17 +35,22 @@ class ChannelContrast(object):
         returns:
         A matrix in which entry (i, j) refers to the j metric of Spike number i.
         """
-        result = np.zeros((len(spike_lst), 2))
+        result = np.zeros((len(spike_lst), 1))
         for i, spike in enumerate(spike_lst):
 
             # Find the dominant channel
             dominant_channel, dom_time = find_dominant_channel(spike.data)
-            reduced_arr = spike.data / 100
+            reduced_arr = spike.data / spike.data.shape[1]
 
             # Iterate over the other channels and check the contrast wrt the dominant one
-            res = np.zeros((1, 8))
-            for j in range(8):
+            res = np.zeros((1, NUM_CHANNELS))
+            for j in range(NUM_CHANNELS):
                 if j != dominant_channel:
+                    """
+                    TODO: consider just looking at the nonagreeing steps (i.e. instead of
+                    reduced_arr[dominant_channel] use reduced_arr[dominant_channel] *
+                    ((reduced_arr[j] * reduced_arr[dominant_channel]) < 0)
+                    """
                     dot = np.dot(reduced_arr[j], reduced_arr[dominant_channel])
 
                     # if there is a contrast write it, o.w write zero

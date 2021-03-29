@@ -1,5 +1,7 @@
 import numpy as np
 
+from constants import NUM_CHANNELS
+
 # There are two options of reduction for the da vector:
 # ss - sum of squares
 # sa - sum of absolutes
@@ -36,7 +38,7 @@ class DA(object):
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is a matrix with the dimensions of (NUM_CHANNELS, TIMESTEPS * UPSAMPLE)
 
         The function calculates the direction agreeableness of the given spike
 
@@ -50,7 +52,7 @@ class DA(object):
         # Iterating over the channels and calculating a direction agreeableness value
         for ind in range(counter.shape[0]):
             temp = counter[ind]
-            counter[ind] = temp if temp <= 4 else 8 - temp
+            counter[ind] = temp if temp <= NUM_CHANNELS // 2 else NUM_CHANNELS - temp
 
         # Reduce the da vector based on the chosen reduction type
         if self.red_type == 'ss':

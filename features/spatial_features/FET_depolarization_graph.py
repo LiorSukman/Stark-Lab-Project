@@ -1,6 +1,8 @@
 import numpy as np
 import math
+from collections import deque
 
+from constants import NUM_CHANNELS, COORDINATES
 
 class Graph(object):
     """
@@ -12,7 +14,7 @@ class Graph(object):
         self.end_nodes = end_nodes
         self.graph_matrix = graph_matrix
         self.reversed = False
-        self.edges = self._get_all_edges()
+        self.num_edges, self.edges = self._get_all_edges()
 
     def flip_graph(self):
         """
@@ -26,10 +28,8 @@ class Graph(object):
         returns:
         The average weight in the graph
         """
-        total = 0
-        counter = 0
-        total = sum(e[2] for e in self.edges)
-        counter = len(self.edges)
+        total = sum(sum(e[2] for e in self.edges[v]) for v in self.edges)
+        counter = self.num_edges
 
         if counter == 0:
             return 0
@@ -42,8 +42,8 @@ class Graph(object):
         a list of all edges in the graph. each edge is represented using a tupple:
             (from node, to node, weight of edge)
         """
-        edges = []
-
+        edges = dict()
+        counter = 0
         # Check to see if the graph is currently reversed and determine what is the value that will
         # be used to indicate that an edge doesn't exist
         if self.reversed:
@@ -51,13 +51,17 @@ class Graph(object):
         else:
             not_exist = -1
 
-        for i in range(256):
-            for j in range(256):
+        for i in range(NUM_CHANNELS):
+            for j in range(NUM_CHANNELS):
                 if self.graph_matrix[i, j] != not_exist:
-                    edges.append((i, j, self.graph_matrix[i, j]))
-        return edges
+                    if i in edges:
+                        edges[i].append((i, j, self.graph_matrix[i, j]))
+                    else:
+                        edges[i] = [(i, j, self.graph_matrix[i, j])]
+                    counter += 1
+        return counter, edges
 
-    def _bellman_ford(self, src_node):
+    def _dag_shortest_path(self, src_node):
         """
         An implementation of the Bellman Ford algorithm to find shortest distances in a graph
 
@@ -67,19 +71,22 @@ class Graph(object):
         returns:
         A list of size |nodes| containing the minimal distance from the source node to each other node
         """
-        size_v = 256  # this is |V|
-        dists = [float('inf') for i in range(size_v)]
+        size_v = NUM_CHANNELS  # this is |V|
+        dists = [float('inf') for _ in range(size_v)]
         dists[src_node] = 0
 
         edges = self.edges
+        q = deque()
+        q += edges[src_node]
+        visited = {src_node}
 
-        for i in range(size_v - 1):
-            for edge in edges:
-                u = edge[0]
-                v = edge[1]
-                weight = edge[2]
-                if dists[v] > dists[u] + weight:
-                    dists[v] = dists[u] + weight
+        while len(q) > 0:
+            origin, dest, w = q.popleft()
+            if dists[dest] > dists[origin] + w:
+                dists[dest] = dists[origin] + w
+            if dest not in visited:
+                visited.add(dest)
+                q += edges[dest]
 
         return dists
 
@@ -104,7 +111,7 @@ class Graph(object):
         """
         total_min_dist = float('inf')
         for src_node in self.start_nodes:
-            short_dists = self._bellman_ford(src_node)
+            short_dists = self._dag_shortest_path(src_node)
             min_dist = self._find_minimum_dist_to_end_nodes(short_dists)
             if min_dist < total_min_dist:
                 total_min_dist = min_dist
@@ -123,14 +130,16 @@ class Graph(object):
 
 class DepolarizationGraph(object):
     """
-    This feature tries to estimate the way the signal traverses between the different channels. This traversal is modeled
-    into a graph, where each node indicates a channel in a certain time, and each edge represents the speed in which the 
-    signal travels between the two channels that comprise it.
+    This feature tries to estimate the way the signal traverses between the different channels. This traversal is
+    modeled into a graph, where each node indicates a channel in a certain time, and each edge represents the speed in
+    which the signal travels between the two channels that comprise it.
     """
 
-    def __init__(self):
+    def __init__(self, thr=0.3):
         self.name = 'depolarization graph'
+        self.thr = thr
 
+    @staticmethod
     def euclidean_dist(self, point_a, point_b):
         """
         inputs:
@@ -150,26 +159,12 @@ class DepolarizationGraph(object):
         returns:
         A 2D matrix in which a cell (i, j) contains the distance from coordinate i to coordinate j
         """
-        distances = np.zeros((8, 8))
-        for i in range(8):
-            for j in range(8):
+        distances = np.zeros((NUM_CHANNELS, NUM_CHANNELS))
+        for i in range(NUM_CHANNELS):
+            for j in range(NUM_CHANNELS):
                 distances[i, j] = self.euclidean_dist(coordinates[i], coordinates[j])
 
         return distances
-
-    def get_indices_with_one(self, arr):
-        """
-        inputs:
-        arr: a 2 dimensional matrix
-
-        returns:
-        the number of cells in the matrix that contain the value 1
-        """
-        lst = []
-        for i in range(len(arr)):
-            if arr[i] == 1:
-                lst.append(i)
-        return lst
 
     def calculate_feature(self, spike_lst):
         """
@@ -179,50 +174,35 @@ class DepolarizationGraph(object):
         returns:
         A matrix in which entry (i, j) refers to the j metric of Spike number i.
         """
-        # Determine the (x,y) coordinates of the 8 different channels and calculate the distances matrix
-        coordinates = [(0, 0), (-9, 20), (8, 40), (-13, 60), (12, 80), (-17, 100), (16, 120), (-21, 140)]
+        # Determine the (x,y) coordinates of the NUM_CHANNELS different channels and calculate the distances matrix
+        coordinates = COORDINATES
         dists = self.calculate_distances_matrix(coordinates)
         result = np.zeros((len(spike_lst), 3))
 
         for index, spike in enumerate(spike_lst):
             arr = spike.data
-            min_val = arr.min()
-            threshold = 0.3 * min_val  # Setting the threshold to be 0.3 the size of max depolarization
+            dep_val = arr.min()
+            threshold = self.thr * dep_val  # Setting the threshold to be self.thr the size of max depolarization
 
-            # Determine where the maximum depolarization resides wrt each channel (that surpasses the threshold)
-            depolarization_status = np.zeros((8, 32))
-            for i in range(8):
-                max_dep_index = arr[i].argmin()
-                if arr[i, max_dep_index] <= threshold:
-                    depolarization_status[i, max_dep_index] = 1
-
-            # Find the channels that have reached max depolarization in each timestamp
-            ds = depolarization_status
             g_temp = []
-            for j in range(32):
-                indices = self.get_indices_with_one(ds[:, j])
-                if len(indices) > 0:
-                    g_temp.append((j, indices))
+            for i in range(NUM_CHANNELS):
+                max_dep_index = arr[i].argmin()
+                if arr[i, max_dep_index] <= threshold:  # <= as we are looking at negative values
+                    g_temp.append((i, max_dep_index))
+            g_temp.sort(key=lambda x: x[1])
 
-            # Build the actual graph
-            graph_matrix = np.ones((256, 256)) * (-1)
-            start_nodes = g_temp[0][1]
-            end_nodes = g_temp[len(g_temp) - 1][1]
-            for i in range(len(g_temp) - 1):
-                # each entry in g_temp is of the form (timestamp, list of indices)
-                from_timestamp = g_temp[i][0]
-                for fromNode in g_temp[i][1]:
-                    to_timestamp = g_temp[i + 1][0]
-                    for to_node in g_temp[i + 1][1]:
-                        velocity = dists[fromNode, to_node] / (to_timestamp - from_timestamp)
-                        graph_matrix[fromNode + from_timestamp * 8][to_node + to_timestamp * 8] = velocity
+            graph_matrix = np.ones((NUM_CHANNELS, NUM_CHANNELS)) * (-1)
+            for i, (channel1, timestep1) in enumerate(g_temp):
+                for channel2, timestep2 in g_temp[i + 1:]:
+                    if timestep2 != timestep1:
+                        velocity = dists[channel1, channel2] / (timestep2 - timestep1)
+                        graph_matrix[channel1][channel2] = velocity
 
-            # Build the actual graph based on the data that was collected in the previous stage
-            initial_time = g_temp[0][0]  # Time of first channel reaching depolarization
-            end_time = g_temp[len(g_temp) - 1][0]  # Time of last channel reaching depolarization
+            assert len(g_temp) > 0
             # The first nodes that reached depolarization
-            start_nodes = [node + initial_time * 8 for node in start_nodes]
-            end_nodes = [node + end_time * 8 for node in end_nodes]  # The last nodes that reached depolarization
+            start_nodes = [channel for (channel, timestep) in g_temp if timestep == g_temp[0][1]]
+            # The last nodes that reached depolarization
+            end_nodes = [channel for (channel, timestep) in g_temp if timestep == g_temp[-1][1]]
             graph = Graph(start_nodes, end_nodes, graph_matrix)
 
             # Calculate features from the graph
@@ -238,16 +218,3 @@ class DepolarizationGraph(object):
         Returns a list of titles of the different metrics
         """
         return ["graph_avg_speed", "graph_slowest_path", "graph_fastest_path"]
-
-
-"""
-if __name__ == "__main__":
-    f = DepolarizationGraph()
-    mat = np.ones((8, 8)) * -1
-    mat[0, 1] = 5
-    mat[1, 2] = 2
-    mat[0, 2] = 3
-    G = Graph([0], [2], mat)
-    print(G.shortestDistanceFromSrcToEnd())
-    print(G.longestDistanceFromSrcToEnd())
-"""

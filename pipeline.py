@@ -1,11 +1,13 @@
 import pandas as pd
 import numpy as np
+import scipy.signal as signal
 import argparse
 from os import listdir
 from os.path import isfile, join
 
 from read_data import read_all_directories
 from clusters import Spike, Cluster
+from constants import UPSAMPLE
 
 # import the different features
 from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names
@@ -64,7 +66,7 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
             if k == 0:  # cluster size is larger than the number of spikes in this cluster, same as chunk size of 0
                 ret.append([cluster.calc_mean_waveform()])
                 continue
-            chunks = np.array_split(spikes, k)  # split the data into k chunks of minimal size of
+            chunks = np.array_split(spikes, k)  # split the data into k chunks of minimal size of chunk_size
             res = []
             for chunk in chunks:
                 res.append(Spike(data=chunk.mean(axis=0)))  # take the average spike
@@ -72,12 +74,14 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
 
     return ret
 
+
 def only_save(path, mat_file):
     clusters_generator = read_all_directories(path, mat_file)
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
             cluster.fix_punits()
             cluster.save_cluster(TEMP_PATH)
+
 
 def run(path, chunk_sizes, csv_folder, mat_file, load_path):
     """
@@ -104,12 +108,14 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
             # print('Fixing punits...')
-            cluster.fix_punits()
             if load_path is None:
+                cluster.fix_punits()
                 cluster.save_cluster(TEMP_PATH)
             # print('Dividing data to chunks...')
-            # TODO: upsample here
             relevant_data = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
+            # upsample
+            relevant_data = [Spike(data=signal.resample(spike, UPSAMPLE * spike.shape[1], axis=1))
+                             for spike in relevant_data]
             temporal_features_mat = calc_temporal_features(cluster.timings)
             for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
                 feature_mat_for_cluster = calc_spatial_features(rel_data)
