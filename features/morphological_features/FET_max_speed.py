@@ -1,10 +1,15 @@
 import numpy as np
 
-
-# TODO fix all descriptions, maybe change the name of the file
 # TODO the feature was calculated on the normalized spike (divided by sum of squares), should I?
 
 def calc_der(spike):
+    """
+    inputs:
+    spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
+
+    returns:
+    The first order derivative of the spike calculated according to y'(t)=y(t+1)-y(t)
+    """
     # TODO consider dividing by something of the time
     # TODO consider using np.gradient
     first_der = np.convolve(spike, [1, -1], mode='valid')
@@ -14,10 +19,14 @@ def calc_der(spike):
 
 class MaxSpeed(object):
     """
-    TODO add description
+    This feature times the duration after the depolarization in which the repolarization is at-least in the pace at the
+    start*
+    * start as defined by the class's field.
     """
 
     def __init__(self, start=131):
+        # the index from which we shall start looking (remember that the spikes are alligned to have maximal
+        # depolarization at ~128
         self.start = start
 
     def calculate_feature(self, spike_lst):
@@ -35,18 +44,18 @@ class MaxSpeed(object):
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates...
+        The function calculates the max speed feature as described above
 
-        returns: a list containing...
+        returns: a list containing the max speed value
         """
         der = calc_der(spike)
         der_roi = der[self.start:]
 
         ret = der_roi[der_roi < der_roi[0]].argmax()
 
-        return ret
+        return [ret]
 
     @property
     def headers(self):

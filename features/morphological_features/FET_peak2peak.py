@@ -1,11 +1,10 @@
 import numpy as np
 
 
-# TODO fix all descriptions, maybe change the name of the file
-
 class Peak2Peak(object):
     """
-    TODO add description
+    This feature evaluates the time and electrical difference between the lowest point (maximal depolarization) and
+    highest point (maximal hyperpolarization).
     """
 
     def __init__(self):
@@ -23,14 +22,16 @@ class Peak2Peak(object):
         result = np.asarray(result)
         return result
 
+    @staticmethod
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates...
+        The function calculates the measurements as described above (also see return statement)
 
-        returns: a list containing...
+        returns: a list containing peak_2_peak (electrical difference between depolarization and hyperpolarization and
+        through_2_peak (time difference between depolarization and hyperpolarization in terms of index difference)
         """
         # find timestamps for depolarization in ok channels, filter again to assure depolarization is reached before the
         # end
@@ -46,7 +47,7 @@ class Peak2Peak(object):
         peak_2_peak = hyp - dep
         trough_2_peak = hyp_ind - dep_ind
 
-        return peak_2_peak, trough_2_peak
+        return [peak_2_peak, trough_2_peak]
 
     @property
     def headers(self):

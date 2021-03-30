@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 import scipy.signal as signal
 import argparse
 from os import listdir
@@ -11,6 +12,7 @@ from constants import UPSAMPLE
 
 # import the different features
 from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names
+from features.morphological_features_calc import calc_morphological_features, get_morphological_features_names
 from features.temporal_features_calc import calc_temporal_features, get_temporal_features_names
 
 TEMP_PATH = 'temp_state\\'
@@ -19,11 +21,11 @@ TEMP_PATH = 'temp_state\\'
 def load_clusters(load_path):
     files = set([TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))])
     clusters = set()
-    for file in files:
+    for file in tqdm(files):
         path_elements = file.split('\\')[-1].split('__')
         if 'timing' in path_elements[-1]:
             continue
-        unique_name = '_'.join(path_elements[:4])
+        unique_name = path_elements[0]
         if unique_name not in clusters:
             clusters.add(unique_name)
         else:
@@ -34,7 +36,6 @@ def load_clusters(load_path):
         cluster.load_cluster(timing_file)
 
         assert cluster.assert_legal()
-        print(cluster.label)
         yield [cluster]
 
 
@@ -100,7 +101,8 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
         clusters_generator = load_clusters(load_path)
 
     # define headers for saving later 
-    headers = []  # get_spatial_features_names()
+    #headers = get_spatial_features_names()
+    headers = get_morphological_features_names()
     headers += get_temporal_features_names()
     headers += ['label']
 
@@ -114,13 +116,15 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
             # print('Dividing data to chunks...')
             relevant_data = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
             temporal_features_mat = calc_temporal_features(cluster.timings)
-            temporal_features_mat = np.concatenate((temporal_features_mat, [[cluster.label]]), axis=1)
-            """for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
+            for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
                 # upsample
-                rel_data = [Spike(data=signal.resample(spike, UPSAMPLE * spike.shape[1], axis=1))
-                    for spike.data in rel_data]
-                feature_mat_for_cluster = calc_spatial_features(rel_data)
-                feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, temporal_features_mat), axis=1)
+                rel_data = [Spike(data=signal.resample(spike.data, UPSAMPLE * spike.data.shape[1], axis=1))
+                            for spike in rel_data]
+                #spatial_features_mat = calc_spatial_features(rel_data)
+                morphological_features_mat = calc_morphological_features(rel_data)
+                #feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
+                #                                          temporal_features_mat), axis=1)
+                feature_mat_for_cluster = np.concatenate((morphological_features_mat, temporal_features_mat), axis=1)
 
                 # Append the label for the cluster
                 labels = np.ones((len(rel_data), 1)) * cluster.label
@@ -129,10 +133,10 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
                 # Save the data to a separate file (one for each cluster)
                 path = csv_folder + str(chunk_size) + '\\' + cluster.get_unique_name() + ".csv"
                 df = pd.DataFrame(data=feature_mat_for_cluster)
-                df.to_csv(path_or_buf=path, index=False, header=headers)  # save to csv"""
-            path = csv_folder + cluster.get_unique_name() + ".csv"
+                df.to_csv(path_or_buf=path, index=False, header=headers)  # save to csv
+            """path = csv_folder + cluster.get_unique_name() + ".csv"
             df = pd.DataFrame(data=temporal_features_mat)
-            df.to_csv(path_or_buf=path, index=False, header=headers)
+            df.to_csv(path_or_buf=path, index=False, header=headers)"""
             print('saved clusters to csv')
 
 
@@ -144,9 +148,9 @@ if __name__ == "__main__":
                         default=[0, 200, 500])
     parser.add_argument('--save_path', type=str, default='clustersData\\',
                         help='path to save csv files to, make sure the directory exists')
-    parser.add_argument('--load_path', type=str, default=None,
+    parser.add_argument('--load_path', type=str, default='temp_state\\',
                         help='path to load clusters from, make sure directory exists')
-    parser.add_argument('--calc_features', type=bool, default=False,
+    parser.add_argument('--calc_features', type=bool, default=True,
                         help='path to load clusters from, make sure directory exists')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
 

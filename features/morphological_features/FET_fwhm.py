@@ -1,15 +1,14 @@
 import numpy as np
 
 
-# TODO fix all descriptions, maybe change the name of the file
-
 class FWHM(object):
     """
-    TODO add description
+    This feature times the duration in which the recording shows some ratio of the maximal depolarization (0.5 at
+    default). This gives a sense of the length of the spike.
     """
 
     def __init__(self, ratio=0.5):
-        self.ratio = ratio
+        self.ratio = ratio  # the threshold ratio of the max depolarization
 
     def calculate_feature(self, spike_lst):
         """
@@ -26,11 +25,11 @@ class FWHM(object):
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates...
+        The function calculates the fwhm value as described above.
 
-        returns: a list containing...
+        returns: a list containing the fwh mvalue
         """
         # find timestamps for depolarization in ok channels, filter again to assure depolarization is reached before the
         # end
@@ -42,7 +41,7 @@ class FWHM(object):
         inds = spike <= self.ratio * dep
         fwhm = inds.sum()
 
-        return fwhm
+        return [fwhm]
 
     @property
     def headers(self):

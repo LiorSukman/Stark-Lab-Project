@@ -1,11 +1,17 @@
 import numpy as np
 
-
-# TODO fix all descriptions, maybe change the name of the file
 # TODO consider all parameters, d&c had different values in the report and the file
 # TODO the feature was calculated on the normalized spike (divided by sum of squares), should I?
 
 def calc_second_der(spike):
+    """
+    inputs:
+    spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
+
+    returns:
+    The second order derivative of the spike calculated according to y'(t)=y(t+1)-y(t)
+    """
+    # TODO: this is the same as in FET_smile_cry, might want to create util
     # TODO consider dividing by something of the time
     # TODO consider using np.gradient
     first_der = np.convolve(spike, [1, -1], mode='valid')
@@ -19,12 +25,16 @@ def calc_second_der(spike):
 
 class BreakMeasurement(object):
     """
-    TODO add description
+    This feature aims at the quantification of the pre-depolarization "bump". Lower values generally indicate the
+    exsistence of a "bump" while higher values indicate its abscence.
     """
 
-    def __init__(self, start=-7, end=-3, eps=0, mul_const=20):
-        self.start = start
-        self.end = end
+    def __init__(self, start=-48, end=-13, eps=0, mul_const=20):
+        # the start and end constants correspond to 0.3ms to 0.085ms before depolarization based on a sampling rate of
+        # 20kHz and an upsampling by a factor of 8.
+        self.start = start  # start of the region of interest in relation to the depolarization
+        self.end = end  # end of the region of interest in relation to the depolarization
+        # constants used for the calculation of the final value
         self.eps = eps
         self.mul_const = mul_const
 
@@ -43,11 +53,11 @@ class BreakMeasurement(object):
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates...
+        The function calculates the break measurement as described above
 
-        returns: a list containing...
+        returns: a list containing the break measurement
         """
         dep_ind = np.argmin(spike)
         der = calc_second_der(spike)
@@ -55,7 +65,7 @@ class BreakMeasurement(object):
 
         ret = self.mul_const * np.log(np.exp(np.sum(roi)) - 1 + self.eps)
 
-        return ret
+        return [ret]
 
     @property
     def headers(self):

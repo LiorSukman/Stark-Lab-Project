@@ -1,10 +1,16 @@
 import numpy as np
 
-
-# TODO fix all descriptions, maybe change the name of the file
 # TODO the feature was calculated on the normalized spike (divided by sum of squares), should I?
 
 def calc_second_der(spike):
+    """
+    inputs:
+    spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
+
+    returns:
+    The second order derivative of the spike calculated according to y'(t)=y(t+1)-y(t)
+    """
+    # TODO: this is the same as in FET_break, might want to create util
     # TODO consider dividing by something of the time
     # TODO consider using np.gradient
     first_der = np.convolve(spike, [1, -1], mode='valid')
@@ -18,12 +24,15 @@ def calc_second_der(spike):
 
 class SmileCry(object):
     """
-    TODO add description
+    This feature sums the second derivative in a window after the depolarization. This should allow us to asses the
+    convexity of the spike in this section.
     """
 
     def __init__(self, start=170, end=230):
-        self.start = start
-        self.end = end
+        # the start and end constants correspond to 0.26ms to 0.64ms after depolarization based on a sampling rate of
+        # 20kHz and an upsampling by a factor of 8 (assuming depolarization is reached at the 128th timestep).
+        self.start = start  # start of the region of interest in relation to the depolarization
+        self.end = end  # end of the region of interest in relation to the depolarization
 
     def calculate_feature(self, spike_lst):
         """
@@ -40,18 +49,18 @@ class SmileCry(object):
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates...
+        The function calculates the smile-cry feature as described above.
 
-        returns: a list containing...
+        returns: a list containing the smile-cry value
         """
         der = calc_second_der(spike)
         roi = der[self.start: self.end]
 
         ret = np.sum(roi)
 
-        return ret
+        return [ret]
 
     @property
     def headers(self):

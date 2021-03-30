@@ -33,10 +33,10 @@ def wavelet_function(center, length):
     pass
 
 def wavelet_transform(chunks):
-    def wavelet(center): wavelet_function(center, chunks.shape[-1])
-    ret = np.zeros(chunks.shape)
+    def wavelet(center): wavelet_function(center, chunks[0].shape[-1])
+    ret = []
     for i, chunk in enumerate(chunks):
-        ret[i] = match_chunk(chunk, wavelet)
+        ret.append(match_chunk(chunk, wavelet))
 
     return ret
 

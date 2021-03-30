@@ -1,11 +1,10 @@
 import numpy as np
 
 
-# TODO fix all descriptions, maybe change the name of the file
-
 class RiseCoef(object):
     """
-    TODO add description
+    This feature finds the most distant point in the spike from the linear line connecting the depolarization with the
+    final value of the recording (only looking from the depolarization and on)
     """
 
     def __init__(self):
@@ -23,14 +22,15 @@ class RiseCoef(object):
         result = np.asarray(result)
         return result
 
+    @staticmethod
     def calc_feature_spike(self, spike):
         """
         inputs:
-        spike: the spike to be processed; it is a matrix with the dimensions of (8, 32)
+        spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates...
+        The function calculates the rise coefficint as described above.
 
-        returns: a list containing...
+        returns: a list containing the value of the rise coefficient
         """
         dep_ind = np.argmin(spike)
         dep = spike[dep_ind]
@@ -42,7 +42,7 @@ class RiseCoef(object):
         trun_spike = spike[dep_ind:]
         rise_coef = (trun_spike - line).argmax()
 
-        return rise_coef
+        return [rise_coef]
 
     @property
     def headers(self):

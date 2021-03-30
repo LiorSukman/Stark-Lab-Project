@@ -108,13 +108,13 @@ class Cluster(object):
     def load_cluster(self, path):
         path_elements = path.split('\\')[-1].split('__')
         if 'spikes' in path_elements[-1]:
-            print(path_elements)
+            unique_name_elements = path_elements[0].split('_')
             self.spikes = np.load(path)
             self.np_spikes = np.load(path)
-            self.filename = path_elements[0]
-            self.shank = path_elements[1]
-            self.num_within_file = path_elements[2]
-            self.label = path_elements[3]
+            self.filename = str.join('_', unique_name_elements[-4: -3])
+            self.shank = unique_name_elements[-2]
+            self.num_within_file = unique_name_elements[-1]
+            self.label = path_elements[-2]
         elif 'timing' in path_elements[-1]:
             self.timings = np.load(path)
 
