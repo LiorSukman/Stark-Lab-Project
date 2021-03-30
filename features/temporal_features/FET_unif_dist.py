@@ -25,8 +25,9 @@ class UnifDist(object):
             start_band = rhs[:self.resolution * self.cdf_range]
             start_cdf = np.cumsum(start_band) / np.sum(start_band)
         uniform_cdf = np.linspace(0, 1, len(start_cdf))
-        unif_dist = (start_cdf - uniform_cdf) / len(start_cdf)
-        return unif_dist
+        unif_dist = (start_cdf - uniform_cdf).sum() / len(start_cdf)
+
+        return [[unif_dist]]
 
     def set_fields(self, resolution, cdf_range, **kwargs):
         self.resolution = resolution

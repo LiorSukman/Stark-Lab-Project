@@ -28,7 +28,7 @@ class DKL(object):
         uniform = np.ones(len(start_cdf)) / len(start_cdf)
         dkl = stats.entropy(start_cdf, uniform)  # TODO maybe on the mid-band as well?
 
-        return dkl
+        return [[dkl]]
 
     def set_fields(self, resolution, cdf_range, **kwargs):
         self.resolution = resolution

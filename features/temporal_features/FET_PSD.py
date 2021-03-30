@@ -25,7 +25,7 @@ class PSD(object):
         der_pxx = np.abs(np.gradient(pxx))  # TODO check if there really can be negative values here
         der_centeroid = np.sum(f * der_pxx) / np.sum(der_pxx)  # TODO maybe it shoud be the || of pxx
 
-        return centeroid, der_centeroid
+        return [[centeroid, der_centeroid]]
 
     def set_fields(self, **kwargs):
         pass

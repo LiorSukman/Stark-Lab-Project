@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.signal as signal
+from constants import MIN_TIME_LIST
+import matplotlib.pyplot as plt
 
 from features.temporal_features.FET_DKL import DKL
 from features.temporal_features.FET_jump_index import Jump
@@ -12,7 +14,7 @@ features = [DKL(), Jump(), PSD(), RiseTime(), UnifDist()]
 def calc_temporal_histogram(time_lst, bins):
     ret = np.zeros(len(bins) - 1)
     for i in range(len(time_lst)):
-        hist = np.histogram(time_lst - time_lst[i], bins=bins)
+        hist, _ = np.histogram(time_lst - time_lst[i], bins=bins)
         ret += hist
 
     return ret
@@ -20,15 +22,25 @@ def calc_temporal_histogram(time_lst, bins):
 def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, cdf_range=30, jmp_min=50, jmp_max=1200):
     feature_mat_for_cluster = None
 
+    if len(time_lst) < MIN_TIME_LIST:
+        return np.zeros((1, len(get_temporal_features_names())))  # TODO: rethink the values returned here
+
     time_lst = np.array(time_lst)
+
     N = 2 * resolution * bin_range + 1
     bins = np.linspace(-bin_range, bin_range, N)
     histogram = calc_temporal_histogram(time_lst, bins)
     histogram = signal.resample(histogram, upsample * N)
-    rhs = histogram[len(histogram) / 2:]
-    start_band = rhs[:resolution * cdf_range]
+    rhs = histogram[len(histogram) // 2:]
+    start_band = rhs[:resolution * cdf_range * upsample]
     start_cdf = np.cumsum(start_band) / np.sum(start_band)
-    mid_band = rhs[resolution * jmp_min: resolution * jmp_max + 1]  # TODO: do it only in jump if not required elsewhere
+    # TODO: do it only in jump if not required elsewhere
+    mid_band = rhs[resolution * jmp_min * upsample: resolution * jmp_max * upsample + 1]
+
+    """plt.plot(histogram)
+    plt.show()
+    plt.plot(start_cdf)
+    plt.show()"""
 
     for feature in features:
         feature.set_fields(resolution=2, cdf_range=30, jmp_min=50, jmp_max=1200)

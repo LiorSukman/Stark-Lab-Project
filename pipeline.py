@@ -17,13 +17,13 @@ TEMP_PATH = 'temp_state\\'
 
 
 def load_clusters(load_path):
-    files = set([f for f in listdir(load_path) if isfile(join(load_path, f))])
+    files = set([TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))])
     clusters = set()
     for file in files:
-        path_elements = file.split('\\')[-1].split('_')
-        if path_elements[-1] == 'timings':
+        path_elements = file.split('\\')[-1].split('__')
+        if 'timing' in path_elements[-1]:
             continue
-        unique_name = path_elements[0]
+        unique_name = '_'.join(path_elements[:4])
         if unique_name not in clusters:
             clusters.add(unique_name)
         else:
@@ -34,8 +34,8 @@ def load_clusters(load_path):
         cluster.load_cluster(timing_file)
 
         assert cluster.assert_legal()
-
-        yield {unique_name: cluster}
+        print(cluster.label)
+        yield [cluster]
 
 
 def create_chunks(cluster, spikes_in_waveform=(200,)):
@@ -49,7 +49,6 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
     a list of size |spikes_in_waveform|, each element is a list of chunks 
     """
     ret = []
-
     # for each chunk size create the data
     for chunk_size in spikes_in_waveform:
         if chunk_size == 0:  # unit based approach
@@ -59,7 +58,7 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
             ret.append(cluster.spikes)
         else:  # chunk based approach
             if cluster.np_spikes is None:  # this is done for faster processing
-                cluster.finalize_spikes()
+                cluster.finalize_cluster()
             spikes = cluster.np_spikes
             np.random.shuffle(spikes)
             k = spikes.shape[0] // chunk_size  # number of chunks
@@ -101,23 +100,25 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
         clusters_generator = load_clusters(load_path)
 
     # define headers for saving later 
-    headers = get_spatial_features_names()
+    headers = []  # get_spatial_features_names()
     headers += get_temporal_features_names()
     headers += ['label']
 
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
+            print('Processing cluster:' + cluster.get_unique_name())
             # print('Fixing punits...')
             if load_path is None:
                 cluster.fix_punits()
                 cluster.save_cluster(TEMP_PATH)
             # print('Dividing data to chunks...')
             relevant_data = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
-            # upsample
-            relevant_data = [Spike(data=signal.resample(spike, UPSAMPLE * spike.shape[1], axis=1))
-                             for spike in relevant_data]
             temporal_features_mat = calc_temporal_features(cluster.timings)
-            for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
+            temporal_features_mat = np.concatenate((temporal_features_mat, [[cluster.label]]), axis=1)
+            """for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
+                # upsample
+                rel_data = [Spike(data=signal.resample(spike, UPSAMPLE * spike.shape[1], axis=1))
+                    for spike.data in rel_data]
                 feature_mat_for_cluster = calc_spatial_features(rel_data)
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, temporal_features_mat), axis=1)
 
@@ -128,7 +129,10 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
                 # Save the data to a separate file (one for each cluster)
                 path = csv_folder + str(chunk_size) + '\\' + cluster.get_unique_name() + ".csv"
                 df = pd.DataFrame(data=feature_mat_for_cluster)
-                df.to_csv(path_or_buf=path, index=False, header=headers)  # save to csv
+                df.to_csv(path_or_buf=path, index=False, header=headers)  # save to csv"""
+            path = csv_folder + cluster.get_unique_name() + ".csv"
+            df = pd.DataFrame(data=temporal_features_mat)
+            df.to_csv(path_or_buf=path, index=False, header=headers)
             print('saved clusters to csv')
 
 

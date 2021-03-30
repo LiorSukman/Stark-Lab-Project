@@ -75,7 +75,7 @@ class Cluster(object):
         The function calculates the mean waveform (i.e. average spike of the cluster)
         """
         if self.np_spikes is None:  # for faster processing
-            self.finalize_spikes()
+            self.finalize_cluster()
         return Spike(data=self.np_spikes.mean(axis=0))
 
     def fix_punits(self):
@@ -87,7 +87,7 @@ class Cluster(object):
         if mean_spike.is_punit():
             self.np_spikes = self.np_spikes * -1
 
-    def finalize_spikes(self):
+    def finalize_cluster(self):
         """
         The function transforms the spike list to a single numpy array, this is used for faster processing later on
         """
@@ -95,25 +95,27 @@ class Cluster(object):
         self.np_spikes = np.empty(shape)
         for i, spike in enumerate(self.spikes):
             self.np_spikes[i] = spike.get_data()
+        self.timings = np.array(self.timings)
 
     def save_cluster(self, path):
         if self.np_spikes is None:  # for faster processing
-            self.finalize_spikes()
+            self.finalize_cluster()
         if not os.path.isdir(path):
             os.mkdir(path)
-        np.save(path + self.get_unique_name() + '_' + str(self.label) + '_' + 'spikes', self.spikes)
-        np.save(path + self.get_unique_name() + '_' + str(self.label) + '-' + 'timings', np.array(self.timings))
+        np.save(path + self.get_unique_name() + '__' + str(self.label) + '__' + 'spikes', self.np_spikes)
+        np.save(path + self.get_unique_name() + '__' + str(self.label) + '__' + 'timings', self.timings)
 
     def load_cluster(self, path):
-        path_elements = path.split('\\')[-1].split('_')
-        if path_elements[-1] == 'spikes':
+        path_elements = path.split('\\')[-1].split('__')
+        if 'spikes' in path_elements[-1]:
+            print(path_elements)
             self.spikes = np.load(path)
             self.np_spikes = np.load(path)
             self.filename = path_elements[0]
             self.shank = path_elements[1]
             self.num_within_file = path_elements[2]
             self.label = path_elements[3]
-        elif path_elements[-1] == 'timings':
+        elif 'timing' in path_elements[-1]:
             self.timings = np.load(path)
 
     def assert_legal(self):
@@ -123,5 +125,6 @@ class Cluster(object):
                 self.spikes is None or\
                 self.np_spikes is None or\
                 self.timings is None:
+            print(self.filename, self.num_within_file, self.shank)
             return False
         return True

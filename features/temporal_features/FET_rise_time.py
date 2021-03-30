@@ -25,7 +25,8 @@ class RiseTime(object):
             start_band = rhs[:self.resolution * self.cdf_range]
             start_cdf = np.cumsum(start_band) / np.sum(start_band)
         ach_rise_time = (start_cdf > 1 / math.e).argmax()
-        return ach_rise_time
+
+        return [[ach_rise_time]]
 
     def set_fields(self, resolution, cdf_range, **kwargs):
         self.resolution = resolution

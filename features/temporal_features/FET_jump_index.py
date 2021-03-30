@@ -26,7 +26,8 @@ class Jump(object):
         jmp_line = np.linspace(mid_band[0], mid_band[-1], len(mid_band))
         # TODO after assuring this is ok change 5000 to number of samples and make the 50 part of the class
         ach_jmp = 50 * np.log(np.sum((mid_band - jmp_line) ** 2) / 5000)
-        return ach_jmp
+
+        return [[ach_jmp]]
 
     def set_fields(self, resolution, jmp_min, jmp_max, **kwargs):
         self.resolution = resolution
