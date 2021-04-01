@@ -29,13 +29,12 @@ class BreakMeasurement(object):
     exsistence of a "bump" while higher values indicate its abscence.
     """
 
-    def __init__(self, start=-48, end=-13, eps=0, mul_const=20):
+    def __init__(self, start=-48, end=-13, mul_const=20):
         # the start and end constants correspond to 0.3ms to 0.085ms before depolarization based on a sampling rate of
         # 20kHz and an upsampling by a factor of 8.
         self.start = start  # start of the region of interest in relation to the depolarization
         self.end = end  # end of the region of interest in relation to the depolarization
         # constants used for the calculation of the final value
-        self.eps = eps
         self.mul_const = mul_const
 
     def calculate_feature(self, spike_lst):
@@ -63,7 +62,7 @@ class BreakMeasurement(object):
         der = calc_second_der(spike)
         roi = der[dep_ind + self.start: dep_ind + self.end]
 
-        ret = self.mul_const * np.log(np.exp(np.sum(roi)) - 1 + self.eps)
+        ret = self.mul_const * np.log(np.exp(np.sum(roi)))
 
         return [ret]
 

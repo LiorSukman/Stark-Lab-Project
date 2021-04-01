@@ -52,8 +52,7 @@ class MaxSpeed(object):
         """
         der = calc_der(spike)
         der_roi = der[self.start:]
-
-        ret = der_roi[der_roi < der_roi[0]].argmax()
+        ret = (der_roi > der_roi[0]).sum()
 
         return [ret]
 

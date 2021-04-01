@@ -1,4 +1,5 @@
 import numpy as np
+from clusters import Spike
 
 from features.morphological_features.FET_break import BreakMeasurement
 from features.morphological_features.FET_fwhm import FWHM
@@ -14,10 +15,12 @@ features = [BreakMeasurement(), FWHM(), MaxSpeed(), Peak2Peak(), RiseCoef(), Smi
 
 
 def get_main_chnnels(chunks):
-    ret = np.zeros((chunks.shape[0], chunks.shape[-1]))
+    ret = []
 
     for i, chunk in enumerate(chunks):
-        ret[i] = np.argmin(chunk) // chunks.shape[-1]  # set main channel to be the one with highest depolariztion
+        chunk_data = chunk.get_data()
+        main_channel = np.argmin(chunk_data) // chunk_data.shape[-1]
+        ret.append(Spike(data=chunk_data[main_channel]))  # set main channel to be the one with highest depolariztion
 
     return ret
 

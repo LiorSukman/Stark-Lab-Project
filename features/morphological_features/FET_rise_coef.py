@@ -8,7 +8,7 @@ class RiseCoef(object):
     """
 
     def __init__(self):
-        pass
+        self.name = 'rise_coefficient'
 
     def calculate_feature(self, spike_lst):
         """
@@ -22,7 +22,6 @@ class RiseCoef(object):
         result = np.asarray(result)
         return result
 
-    @staticmethod
     def calc_feature_spike(self, spike):
         """
         inputs:
@@ -37,7 +36,7 @@ class RiseCoef(object):
         if dep_ind == len(spike):  # if max depolarization is reached at the end, it indicates noise
             raise Exception('Max depolarization reached at final timestamp')
         # make sure the spike is actually a single dimensional array
-        line = np.linspace(dep, spike[-1], num=len(spike) - dep_ind + 1)
+        line = np.linspace(dep, spike[-1], num=len(spike) - dep_ind)
 
         trun_spike = spike[dep_ind:]
         rise_coef = (trun_spike - line).argmax()

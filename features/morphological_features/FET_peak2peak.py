@@ -8,7 +8,7 @@ class Peak2Peak(object):
     """
 
     def __init__(self):
-        pass
+        self.name = 'peak_to_peak'
 
     def calculate_feature(self, spike_lst):
         """
@@ -22,7 +22,6 @@ class Peak2Peak(object):
         result = np.asarray(result)
         return result
 
-    @staticmethod
     def calc_feature_spike(self, spike):
         """
         inputs:
@@ -37,8 +36,8 @@ class Peak2Peak(object):
         # end
         dep_ind = np.argmin(spike)
         dep = spike[dep_ind]
-        if dep_ind == len(spike):  # if max depolarization is reached at the end, it indicates noise
-            raise Exception('Max depolarization reached at final timestamp')
+        if dep_ind == len(spike) - 1:  # if max depolarization is reached at the end, it indicates noise
+            return [0, 0]
 
         trun_spike = spike[dep_ind + 1:]
         hyp_ind = trun_spike.argmax() + dep_ind + 1

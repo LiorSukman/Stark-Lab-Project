@@ -3,6 +3,7 @@ import numpy as np
 from tqdm import tqdm
 import scipy.signal as signal
 import argparse
+import os
 from os import listdir
 from os.path import isfile, join
 
@@ -19,9 +20,9 @@ TEMP_PATH = 'temp_state\\'
 
 
 def load_clusters(load_path):
-    files = set([TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))])
+    files_list = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))]
     clusters = set()
-    for file in tqdm(files):
+    for file in tqdm(files_list):
         path_elements = file.split('\\')[-1].split('__')
         if 'timing' in path_elements[-1]:
             continue
@@ -101,7 +102,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
         clusters_generator = load_clusters(load_path)
 
     # define headers for saving later 
-    #headers = get_spatial_features_names()
+    # headers = get_spatial_features_names()
     headers = get_morphological_features_names()
     headers += get_temporal_features_names()
     headers += ['label']
@@ -120,18 +121,23 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
                 # upsample
                 rel_data = [Spike(data=signal.resample(spike.data, UPSAMPLE * spike.data.shape[1], axis=1))
                             for spike in rel_data]
-                #spatial_features_mat = calc_spatial_features(rel_data)
+                # spatial_features_mat = calc_spatial_features(rel_data)
                 morphological_features_mat = calc_morphological_features(rel_data)
-                #feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
+                # feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
                 #                                          temporal_features_mat), axis=1)
-                feature_mat_for_cluster = np.concatenate((morphological_features_mat, temporal_features_mat), axis=1)
+                feature_mat_for_cluster = np.concatenate(
+                    (morphological_features_mat,
+                     np.repeat(temporal_features_mat, len(morphological_features_mat), axis=0)), axis=1)
 
                 # Append the label for the cluster
                 labels = np.ones((len(rel_data), 1)) * cluster.label
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, labels), axis=1)
 
                 # Save the data to a separate file (one for each cluster)
-                path = csv_folder + str(chunk_size) + '\\' + cluster.get_unique_name() + ".csv"
+                path = csv_folder + str(chunk_size)
+                if not os.path.isdir(path):
+                    os.mkdir(path)
+                path += '\\' + cluster.get_unique_name() + ".csv"
                 df = pd.DataFrame(data=feature_mat_for_cluster)
                 df.to_csv(path_or_buf=path, index=False, header=headers)  # save to csv
             """path = csv_folder + cluster.get_unique_name() + ".csv"
