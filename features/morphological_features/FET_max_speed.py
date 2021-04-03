@@ -29,6 +29,8 @@ class MaxSpeed(object):
         # depolarization at ~128
         self.start = start
 
+        self.name = 'max speed'
+
     def calculate_feature(self, spike_lst):
         """
         inputs:

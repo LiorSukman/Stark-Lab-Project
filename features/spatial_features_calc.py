@@ -1,4 +1,6 @@
 import numpy as np
+import time
+from constants import VERBOS
 
 from features.spatial_features.FET_time_lag import TimeLagFeature
 from features.spatial_features.FET_spd import SPD
@@ -44,11 +46,15 @@ def calc_spatial_features(chunks):
     feature_mat_for_cluster = None
     wavelets = wavelet_transform(chunks)
     for feature in features:
+        start_time = time.time()
         mat_result = feature.calculate_feature(wavelets)  # calculates the features, returns a matrix
         if feature_mat_for_cluster is None:
             feature_mat_for_cluster = mat_result
         else:
             feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
+        end_time = time.time()
+        if VERBOS:
+            print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
 
     return feature_mat_for_cluster
 

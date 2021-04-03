@@ -10,6 +10,8 @@ class FWHM(object):
     def __init__(self, ratio=0.5):
         self.ratio = ratio  # the threshold ratio of the max depolarization
 
+        self.name = 'FWHM'
+
     def calculate_feature(self, spike_lst):
         """
         inputs:

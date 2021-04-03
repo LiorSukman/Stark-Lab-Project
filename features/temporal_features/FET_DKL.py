@@ -13,6 +13,8 @@ class DKL(object):
         self.resolution = resolution
         self.cdf_range = cdf_range
 
+        self.name = 'D_KL'
+
     def calculate_feature(self, start_cdf=None, rhs=None, **kwargs):
         """
         inputs:
@@ -26,7 +28,10 @@ class DKL(object):
             start_band = rhs[:self.resolution * self.cdf_range]
             start_cdf = np.cumsum(start_band) / np.sum(start_band)
         uniform = np.ones(len(start_cdf)) / len(start_cdf)
-        dkl = stats.entropy(start_cdf, uniform)  # TODO maybe on the mid-band as well?
+        dkl = stats.entropy(np.where(start_cdf > 0, start_cdf, 0), uniform)  # TODO maybe on the mid-band as well?
+        if dkl == float('inf'):
+            print(start_cdf)
+            raise AssertionError
 
         return [[dkl]]
 

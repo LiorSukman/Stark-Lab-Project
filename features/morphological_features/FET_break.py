@@ -37,6 +37,8 @@ class BreakMeasurement(object):
         # constants used for the calculation of the final value
         self.mul_const = mul_const
 
+        self.name = 'break measurement'
+
     def calculate_feature(self, spike_lst):
         """
         inputs:

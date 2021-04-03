@@ -12,6 +12,8 @@ class RiseTime(object):
         self.resolution = resolution
         self.cdf_range = cdf_range
 
+        self.name = 'rise time'
+
     def calculate_feature(self, start_cdf=None, rhs=None, **kwargs):
         """
         inputs:

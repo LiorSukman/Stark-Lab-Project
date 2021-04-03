@@ -9,7 +9,7 @@ class PSD(object):
     """
 
     def __init__(self):
-        pass
+        self.name = 'Power Spectral Density'
 
     def calculate_feature(self, rhs, **kwargs):
         """

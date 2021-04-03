@@ -6,10 +6,11 @@ import argparse
 import os
 from os import listdir
 from os.path import isfile, join
+import time
 
 from read_data import read_all_directories
 from clusters import Spike, Cluster
-from constants import UPSAMPLE
+from constants import UPSAMPLE, VERBOS
 
 # import the different features
 from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names
@@ -23,6 +24,7 @@ def load_clusters(load_path):
     files_list = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))]
     clusters = set()
     for file in tqdm(files_list):
+        start_time = time.time()
         path_elements = file.split('\\')[-1].split('__')
         if 'timing' in path_elements[-1]:
             continue
@@ -37,6 +39,10 @@ def load_clusters(load_path):
         cluster.load_cluster(timing_file)
 
         assert cluster.assert_legal()
+
+        end_time = time.time()
+        if VERBOS:
+            print(f"cluster loading took {end_time - start_time:.3f} seconds")
         yield [cluster]
 
 
@@ -115,7 +121,11 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
                 cluster.fix_punits()
                 cluster.save_cluster(TEMP_PATH)
             # print('Dividing data to chunks...')
+            start_time = time.time()
             relevant_data = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
+            end_time = time.time()
+            if VERBOS:
+                print(f"chunk creation took {end_time - start_time:.3f} seconds")
             temporal_features_mat = calc_temporal_features(cluster.timings)
             for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
                 # upsample

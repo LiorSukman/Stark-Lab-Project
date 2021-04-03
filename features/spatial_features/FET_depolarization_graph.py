@@ -136,8 +136,9 @@ class DepolarizationGraph(object):
     """
 
     def __init__(self, thr=0.3):
-        self.name = 'depolarization graph'
         self.thr = thr
+
+        self.name = 'depolarization graph'
 
     @staticmethod
     def euclidean_dist(self, point_a, point_b):

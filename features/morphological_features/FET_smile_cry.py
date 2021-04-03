@@ -34,6 +34,8 @@ class SmileCry(object):
         self.start = start  # start of the region of interest in relation to the depolarization
         self.end = end  # end of the region of interest in relation to the depolarization
 
+        self.name = 'smile-cry'
+
     def calculate_feature(self, spike_lst):
         """
         inputs:

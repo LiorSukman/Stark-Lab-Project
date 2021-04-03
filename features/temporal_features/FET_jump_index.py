@@ -12,6 +12,8 @@ class Jump(object):
         self.jmp_min = jmp_min
         self.jmp_max = jmp_max
 
+        self.name = 'jump index'
+
     def calculate_feature(self, mid_band=None, rhs=None, **kwargs):
         """
         inputs:
