@@ -56,9 +56,9 @@ class GetAcc(object):
         inputs:
         spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates the break measurement as described above
+        The function calculates the get acc feature as described above
 
-        returns: a list containing the break measurement
+        returns: a list containing the get acc feature
         """
         dep_ind = np.argmin(spike)
         der = calc_second_der(spike)

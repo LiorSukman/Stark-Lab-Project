@@ -10,7 +10,7 @@ import time
 
 from read_data import read_all_directories
 from clusters import Spike, Cluster
-from constants import UPSAMPLE, VERBOS
+from constants import UPSAMPLE, VERBOS, SEED
 
 # import the different features
 from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names
@@ -68,6 +68,7 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
             if cluster.np_spikes is None:  # this is done for faster processing
                 cluster.finalize_cluster()
             spikes = cluster.np_spikes
+            numpy.random.seed(SEED)
             np.random.shuffle(spikes)
             k = spikes.shape[0] // chunk_size  # number of chunks
             if k == 0:  # cluster size is larger than the number of spikes in this cluster, same as chunk size of 0
