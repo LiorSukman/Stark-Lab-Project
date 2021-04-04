@@ -11,7 +11,7 @@ def calc_second_der(spike):
     returns:
     The second order derivative of the spike calculated according to y'(t)=y(t+1)-y(t)
     """
-    # TODO: this is the same as in FET_smile_cry, might want to create util
+    # TODO: this is the same as in FET_smile_cry and FET_get_acc, might want to create util
     # TODO consider dividing by something of the time
     # TODO consider using np.gradient
     first_der = np.convolve(spike, [1, -1], mode='valid')

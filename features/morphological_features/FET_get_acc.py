@@ -1,5 +1,6 @@
 import numpy as np
 
+# TODO consider all parameters, d&c had different values in the report and the file
 # TODO the feature was calculated on the normalized spike (divided by sum of squares), should I?
 
 def calc_second_der(spike):
@@ -10,7 +11,7 @@ def calc_second_der(spike):
     returns:
     The second order derivative of the spike calculated according to y'(t)=y(t+1)-y(t)
     """
-    # TODO: this is the same as in FET_break and FET_get_acc, might want to create util
+    # TODO: this is the same as in FET_smile_cry and FET_break, might want to create util
     # TODO consider dividing by something of the time
     # TODO consider using np.gradient
     first_der = np.convolve(spike, [1, -1], mode='valid')
@@ -22,19 +23,21 @@ def calc_second_der(spike):
     return second_der
 
 
-class SmileCry(object):
+class GetAcc(object):
     """
-    This feature sums the second derivative in a window after the depolarization. This should allow us to asses the
-    convexity of the spike in this section.
+    This feature aims to quantify the rate in which the spike decreases its voltage gaining rate quickly before
+    returning to a somewhat steady rate, that corresponds to a second derivative close to zero.
     """
 
-    def __init__(self, start=170, end=230):
-        # the start and end constants correspond to 0.26ms to 0.64ms after depolarization based on a sampling rate of
-        # 20kHz and an upsampling by a factor of 8 (assuming depolarization is reached at the 128th timestep).
+    def __init__(self, start=14, end=40, mul_const=20):
+        # the start and end constants correspond to 0.3ms to 0.085ms before depolarization based on a sampling rate of
+        # 20kHz and an upsampling by a factor of 8.
         self.start = start  # start of the region of interest in relation to the depolarization
         self.end = end  # end of the region of interest in relation to the depolarization
+        # constants used for the calculation of the final value
+        self.mul_const = mul_const
 
-        self.name = 'smile-cry'
+        self.name = 'get acc'
 
     def calculate_feature(self, spike_lst):
         """
@@ -53,14 +56,15 @@ class SmileCry(object):
         inputs:
         spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates the smile-cry feature as described above.
+        The function calculates the break measurement as described above
 
-        returns: a list containing the smile-cry value
+        returns: a list containing the break measurement
         """
+        dep_ind = np.argmin(spike)
         der = calc_second_der(spike)
-        roi = der[self.start: self.end]
+        roi = der[dep_ind + self.start: dep_ind + self.end]
 
-        ret = np.sum(roi)
+        ret = self.mul_const * np.log(1e7 * np.sum(roi ** 2))  # TODO: reconsider multiplicative constants
 
         return [ret]
 
@@ -69,4 +73,4 @@ class SmileCry(object):
         """
         Returns a list of titles of the different metrics
         """
-        return ['smile_cry']
+        return ['get_acc']

@@ -5,15 +5,14 @@ from constants import VERBOS
 
 from features.morphological_features.FET_break import BreakMeasurement
 from features.morphological_features.FET_fwhm import FWHM
+from features.morphological_features.FET_get_acc import GetAcc
 from features.morphological_features.FET_max_speed import MaxSpeed
 from features.morphological_features.FET_peak2peak import Peak2Peak
 from features.morphological_features.FET_rise_coef import RiseCoef
 from features.morphological_features.FET_smile_cry import SmileCry
 
-# TODO: add get_acc feature
 
-
-features = [BreakMeasurement(), FWHM(), MaxSpeed(), Peak2Peak(), RiseCoef(), SmileCry()]
+features = [BreakMeasurement(), FWHM(), GetAcc(), MaxSpeed(), Peak2Peak(), RiseCoef(), SmileCry()]
 
 
 def get_main_chnnels(chunks):
