@@ -140,7 +140,7 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
             if not inds_initialized:
                 for c in data:
                     inds_temp = np.arange(c.shape[0])
-                    numpy.random.seed(SEED)
+                    np.random.seed(SEED)
                     np.random.shuffle(inds_temp)
                     inds.append(inds_temp)
                 inds_initialized = True

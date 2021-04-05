@@ -39,7 +39,7 @@ def print_results(results):
         print(message)
             
 
-def feature_dropping(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gamma, min_c, max_c, num_c, saving_path, kernel):
+def feature_dropping(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gamma, min_c, max_c, num_c, kernel):
     
     train, dev, test = ML_util.get_dataset(dataset_path)
 
@@ -51,7 +51,7 @@ def feature_dropping(dataset_path, verbos, saving_path, min_gamma, max_gamma, nu
         inds = []
         comb_fets = []
         message = 'Used features are '
-        for i in comb: # create message and data
+        for i in comb:  # create message and data
             inds += indices[i]
             comb_fets.append(names[i])
         message += str(comb_fets)
