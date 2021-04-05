@@ -109,8 +109,8 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
         clusters_generator = load_clusters(load_path)
 
     # define headers for saving later 
-    # headers = get_spatial_features_names()
-    headers = get_morphological_features_names()
+    headers = get_spatial_features_names()
+    headers += get_morphological_features_names()
     headers += get_temporal_features_names()
     headers += ['label']
 
@@ -132,14 +132,11 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
                 # upsample
                 rel_data = [Spike(data=signal.resample(spike.data, UPSAMPLE * spike.data.shape[1], axis=1))
                             for spike in rel_data]
-                # spatial_features_mat = calc_spatial_features(rel_data)
+                spatial_features_mat = calc_spatial_features(rel_data)
                 morphological_features_mat = calc_morphological_features(rel_data)
-                # feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
-                #                                          temporal_features_mat), axis=1)
-                feature_mat_for_cluster = np.concatenate(
-                    (morphological_features_mat,
-                     np.repeat(temporal_features_mat, len(morphological_features_mat), axis=0)), axis=1)
-
+                feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
+                                                          np.repeat(temporal_features_mat, len(spatial_features_mat),
+                                                                    axis=0)), axis=1)
                 # Append the label for the cluster
                 labels = np.ones((len(rel_data), 1)) * cluster.label
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, labels), axis=1)

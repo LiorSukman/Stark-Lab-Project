@@ -4,6 +4,7 @@ from collections import deque
 
 from constants import NUM_CHANNELS, COORDINATES
 
+
 class Graph(object):
     """
     An object used to represent a graph
@@ -20,7 +21,7 @@ class Graph(object):
         """
         Flips the values of the weights in the graph, i.e Positive weights will become negative
         """
-        self.edges = [(e[0], e[1], e[2] * -1) for e in self.edges]
+        self.edges = {v: [(e[0], e[1], e[2] * -1) for e in self.edges[v]] for v in self.edges}
         self.reversed = not self.reversed
 
     def average_weight(self):
@@ -86,7 +87,8 @@ class Graph(object):
                 dists[dest] = dists[origin] + w
             if dest not in visited:
                 visited.add(dest)
-                q += edges[dest]
+                if dest in edges:
+                    q += edges[dest]
 
         return dists
 
@@ -140,7 +142,6 @@ class DepolarizationGraph(object):
 
         self.name = 'depolarization graph'
 
-    @staticmethod
     def euclidean_dist(self, point_a, point_b):
         """
         inputs:
@@ -191,6 +192,7 @@ class DepolarizationGraph(object):
                 if arr[i, max_dep_index] <= threshold:  # <= as we are looking at negative values
                     g_temp.append((i, max_dep_index))
             g_temp.sort(key=lambda x: x[1])
+            assert len(g_temp) > 0
 
             graph_matrix = np.ones((NUM_CHANNELS, NUM_CHANNELS)) * (-1)
             for i, (channel1, timestep1) in enumerate(g_temp):
@@ -199,12 +201,16 @@ class DepolarizationGraph(object):
                         velocity = dists[channel1, channel2] / (timestep2 - timestep1)
                         graph_matrix[channel1][channel2] = velocity
 
-            assert len(g_temp) > 0
             # The first nodes that reached depolarization
             start_nodes = [channel for (channel, timestep) in g_temp if timestep == g_temp[0][1]]
             # The last nodes that reached depolarization
             end_nodes = [channel for (channel, timestep) in g_temp if timestep == g_temp[-1][1]]
             graph = Graph(start_nodes, end_nodes, graph_matrix)
+            if not graph.edges:
+                result[index, 0] = 0
+                result[index, 1] = 0
+                result[index, 2] = 0
+                return result
 
             # Calculate features from the graph
             result[index, 0] = graph.average_weight()

@@ -13,7 +13,6 @@ class GeometricalEstimation(object):
     def __init__(self):
         self.name = 'Geometrical estimation'
 
-    @staticmethod
     def euclidean_dist(self, point_a, point_b):
         """
         inputs:
@@ -25,7 +24,6 @@ class GeometricalEstimation(object):
         """
         return math.sqrt((point_a[0] - point_b[0]) ** 2 + (point_a[1] - point_b[1]) ** 2)
 
-    @staticmethod
     def calculate_geo_estimation(self, channels_at_time, coordinates):
         """
         inputs:
@@ -63,7 +61,6 @@ class GeometricalEstimation(object):
                                                    (geo_avgs[i][0], geo_avgs[i][1]))
         return shifts
 
-    @staticmethod
     def calculate_shifts_1d(self, geo_avgs, d):
         """
         inputs:

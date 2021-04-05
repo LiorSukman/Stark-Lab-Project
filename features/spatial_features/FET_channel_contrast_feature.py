@@ -26,7 +26,6 @@ class ChannelContrast(object):
     def __init__(self):
         self.name = 'channel contrast feature'
 
-    @staticmethod
     def calculate_feature(self, spike_lst):
         """
         inputs:
