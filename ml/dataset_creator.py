@@ -14,7 +14,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_path', type=str, help='path to save datasets, make sure path exsists',
                         default='../data_sets', )
     parser.add_argument('--keep', type=int, help='indeces to keep, make sure to put -1 in there for the label',
-                        default=[])
+                        default=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,-1])
 
     args = parser.parse_args()
 
