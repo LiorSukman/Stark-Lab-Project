@@ -21,6 +21,7 @@ def evaluate_predictions(model, clusters, pca, ica, scaler, verbos=False):
     total_pyr = total_in = correct_pyr = correct_in = correct_chunks = total_chunks = correct_clusters = 0
     for cluster in clusters:
         features, labels = ML_util.split_features(cluster)
+        features = np.nan_to_num(features)
         if scaler is not None:
             features = scaler.transform(features)
         if pca is not None:
@@ -71,6 +72,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     train = np.concatenate((train, dev))
     train_squeezed = ML_util.squeeze_clusters(train)
     train_features, train_labels = ML_util.split_features(train_squeezed)
+    train_features = np.nan_to_num(train_features)
 
     if loading_path is None:
 
@@ -177,11 +179,11 @@ if __name__ == "__main__":
     parser.add_argument('--loading_path', type=str,
                         help='path to load models from, assumed to be created and contain the models', default=None)
     parser.add_argument('--gamma', type=float, help='gamma value for SVM model', default=0.0338)
-    parser.add_argument('--C', type=float, help='C value for SVM model', default=1)
+    parser.add_argument('--C', type=float, help='C value for SVM model', default=215)
     parser.add_argument('--kernel', type=str,
                         help='kernael for SVM (notice that different kernels than rbf might require more parameters)',
                         default='rbf')
-    parser.add_argument('--use_scale', type=bool, help='apply scaling on the data', default=False)
+    parser.add_argument('--use_scale', type=bool, help='apply scaling on the data', default=True)
     parser.add_argument('--use_pca', type=bool, help='apply PCA on the data', default=False)
     parser.add_argument('--pca_n_components', type=int, help='number of PCA componenets', default=2)
     parser.add_argument('--use_ica', type=bool, help='apply ICA on the data', default=False)

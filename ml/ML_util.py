@@ -73,7 +73,7 @@ def read_data(path, should_filter=True, keep=None):
     clusters = []
     for file in sorted(files):
         df = pd.read_csv(path + '/' + file)
-        nd = df.to_numpy(dtype='float32')
+        nd = df.to_numpy(dtype='float64')
 
         if keep:  # i.e. keep != []
             nd = nd[:, keep]

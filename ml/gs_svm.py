@@ -24,6 +24,7 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
     correct_clusters = 0
     for cluster in clusters:
         features, labels = ML_util.split_features(cluster)
+        features = np.nan_to_num(features)
         features = scaler.transform(features)
         label = labels[0]  # as they are the same for all the cluster
         total_pyr += 1 if label == 1 else 0
@@ -64,6 +65,7 @@ def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gam
     dev_squeezed = ML_util.squeeze_clusters(dev)
     train_data = np.concatenate((train_squeezed, dev_squeezed))
     features, labels = ML_util.split_features(train_data)
+    features = np.nan_to_num(features)
 
     scaler = StandardScaler()
     scaler.fit(features)
@@ -75,7 +77,7 @@ def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gam
     print()
     parameters = {'C': cs, 'gamma': gammas}
     model = svm.SVC(kernel='rbf', class_weight='balanced')
-    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=0)
+    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=3)
     print('Starting grid search...')
     start = time.time()
     clf.fit(features, labels)
@@ -111,10 +113,10 @@ if __name__ == "__main__":
                         default='../graphs/')
     parser.add_argument('--min_gamma', type=int, help='minimal power of gamma (base 10)', default=-9)
     parser.add_argument('--max_gamma', type=int, help='maximal power of gamma (base 10)', default=-1)
-    parser.add_argument('--num_gamma', type=int, help='number of gamma values', default=36)
+    parser.add_argument('--num_gamma', type=int, help='number of gamma values', default=18)
     parser.add_argument('--min_c', type=int, help='minimal power of C (base 10)', default=0)
-    parser.add_argument('--max_c', type=int, help='maximal power of C (base 10)', default=10)
-    parser.add_argument('--num_c', type=int, help='number of C values', default=44)
+    parser.add_argument('--max_c', type=int, help='maximal power of C (base 10)', default=6)
+    parser.add_argument('--num_c', type=int, help='number of C values', default=14)
     parser.add_argument('--kernel', type=str,
                         help='kernael for SVM (notice that different kernels than rbf might require more parameters)',
                         default='rbf')
