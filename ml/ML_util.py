@@ -37,13 +37,14 @@ def split_features(data):
    """
     return data[:, :-1], data[:, -1]
 
-def unite_fets_lables(features, labels):
+
+def unite_fets_labels(features, labels):
     return np.concatenate((features, np.expand_dims(labels, axis=1)), axis=len(features.shape) - 1)
 
 
 def parse_test(data):
     """
-   The function recieves test data of a cluster and transforms it so the NN can handle it 
+   The function receives test data of a cluster and transforms it so the NN can handle it
    """
     features, label = split_features(data)
     features = Variable(torch.from_numpy(features))

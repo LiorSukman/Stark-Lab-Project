@@ -11,37 +11,9 @@ from features.spatial_features.FET_depolarization_graph import DepolarizationGra
 from features.spatial_features.FET_channel_contrast_feature import ChannelContrast
 from features.spatial_features.FET_geometrical_estimation import GeometricalEstimation
 
-features = [TimeLagFeature(), SPD(), DA(), DepolarizationGraph(), ChannelContrast(), GeometricalEstimation()]
+pure_spatial_features = [SPD(), DA(), ChannelContrast()]
+tempo_spatial_features = [TimeLagFeature(), DepolarizationGraph(), GeometricalEstimation()]
 
-"""def match_spike(spike, wavelet):
-    best_corr = 0
-    wvlt = None
-    for ts in range(len(spike)):
-        for std in np.arange(2, 32, 2):
-            tmp_wvlt = wavelet(ts, std) * -1
-            corr = np.corrcoef(spike, tmp_wvlt)[0, 1]
-            if corr >= best_corr:
-                best_corr = corr
-                wvlt = tmp_wvlt
-
-    if spike.mean() == 0:
-        raise AssertionError
-    mul = wvlt.mean() / spike.mean()
-    wvlt *= mul
-    return wvlt
-
-def match_chunk(chunk, wavelet):
-    ret = np.zeros(chunk.data.shape)
-    for i, channel in enumerate(chunk.data):
-        ret[i] = match_spike(channel, wavelet)
-
-    chunk = Spike(data=ret)
-    return chunk
-
-def wavelet_function(center, std, length):
-    w = signal.windows.gaussian(length, std)
-    w = w[length // 2 - center: -1 - center]
-    return w"""
 
 def wavelet_info(length, stds, centers):
     w = np.empty((len(stds), len(centers), length // 2), dtype='float32')
@@ -56,13 +28,6 @@ def wavelet_info(length, stds, centers):
 
     return w, w_norm, rss
 
-"""def wavelet_transform(chunks):
-    def wavelet(center, std): return wavelet_function(center, std, 2 * chunks[0].data.shape[-1] + 1)
-    ret = []
-    for i, chunk in enumerate(chunks):
-        ret.append(match_chunk(chunk, wavelet))
-
-    return ret"""
 
 def match_spike(spike, w, w_norm, rss):
     spike = spike - spike.mean()
@@ -72,9 +37,10 @@ def match_spike(spike, w, w_norm, rss):
     i, j = ind // len(spike), ind % len(spike)
     wvlt = w[i, j].copy()
 
-    mul = 1 / spike.max()  # wvlt.max() == 1
+    mul = -spike.min()  # wvlt.max() == 1  # TODO use matching based on sum of squares
     wvlt *= mul
     return wvlt
+
 
 def match_chunk(chunk, w, w_norm, rss):
     ret = np.zeros(chunk.data.shape)
@@ -83,6 +49,7 @@ def match_chunk(chunk, w, w_norm, rss):
 
     chunk = Spike(data=ret)
     return chunk
+
 
 def wavelet_transform(chunks):
     w, w_norm, rss = wavelet_info(chunks[0].data.shape[-1] * 2 + 1, np.arange(2, 32, 2),
@@ -93,6 +60,7 @@ def wavelet_transform(chunks):
 
     return ret
 
+
 def calc_spatial_features(chunks):
     feature_mat_for_cluster = None
     start_time = time.time()
@@ -101,7 +69,7 @@ def calc_spatial_features(chunks):
     end_time = time.time()
     if VERBOS:
         print(f"wavelet transformation took {end_time - start_time:.3f} seconds")
-    for feature in features:
+    for feature in tempo_spatial_features:
         start_time = time.time()
         mat_result = feature.calculate_feature(wavelets)  # calculates the features, returns a matrix
         if feature_mat_for_cluster is None:
@@ -112,11 +80,23 @@ def calc_spatial_features(chunks):
         if VERBOS:
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
 
+    for feature in pure_spatial_features:
+        start_time = time.time()
+        mat_result = feature.calculate_feature(chunks)  # calculates the features, returns a matrix
+        if feature_mat_for_cluster is None:
+            feature_mat_for_cluster = mat_result
+        else:
+            feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
+        end_time = time.time()
+        if VERBOS:
+            print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
+
     return feature_mat_for_cluster
+
 
 def get_spatial_features_names():
     # TODO: check if this works: names = [(name for name in feature.headers) for feature in features]
     names = []
-    for feature in features:
+    for feature in tempo_spatial_features + pure_spatial_features:
         names += feature.headers
     return names

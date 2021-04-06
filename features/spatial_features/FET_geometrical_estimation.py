@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from scipy.spatial.distance import cdist
 
 from constants import NUM_CHANNELS, TIMESTEPS, UPSAMPLE, COORDINATES
 
@@ -16,8 +17,8 @@ class GeometricalEstimation(object):
     def euclidean_dist(self, point_a, point_b):
         """
         inputs:
-        pointA: (x,y) tupple representing a point in 2D space
-        pointB: (x,y) tupple representing a point in 2D space
+        pointA: (x,y) tuple representing a point in 2D space
+        pointB: (x,y) tuple representing a point in 2D space
 
         returns:
         The euclidean distance between the points
@@ -28,37 +29,31 @@ class GeometricalEstimation(object):
         """
         inputs:
         channels_at_time: a list of the value that was samples across all channels at a certain time
-        coordinates: a list of (x, y) tupples representing the location of the different channels on a 2D plane
+        coordinates: a list of (x, y) tuples representing the location of the different channels on a 2D plane
 
         returns:
         (geo_x, geo_y): A tuple containing the X and Y coordinates of the geometrical estimation
         """
-        total = 0
-        for i in range(NUM_CHANNELS):
-            entry = channels_at_time[i]
-            if entry < 0:
-                entry *= -1
-            total += entry
+        total = np.absolute(channels_at_time).sum()
         channels_at_time = channels_at_time / total
         # Estimation for the X coordinate
-        geo_x = sum([coordinates[i][0] * channels_at_time[i] for i in range(NUM_CHANNELS)])
+        geo_x = np.dot(coordinates[:, 0], channels_at_time)
         # Estimation for the Y coordinate
-        geo_y = sum([coordinates[i][1] * channels_at_time[i] for i in range(NUM_CHANNELS)])
+        geo_y = np.dot(coordinates[:, 1], channels_at_time)
         return geo_x, geo_y
 
-    def calculate_shifts_2d(self, geo_avgs):
+    def calculate_shifts_2d(self, dists):
         """
         inputs:
-        geo_avgs: a list of geometrical averages (each with an X and Y coordinates)
+        geo_avgs: a matrix of distances between all pairs of geometrical averages
 
         returns:
-        a vector of dimensions (1, 31) where entry i represnts the shift in terms of euclidean distance between
-            the geometrical estimation between sample i and sample i-1
+        a vector of dimensions (1, TIMESTEPS * UPSAMPLE - 1) where entry i represents the shift in terms of euclidean
+        distance between the geometrical estimation between sample i and sample i-1
         """
         shifts = np.zeros((1, TIMESTEPS * UPSAMPLE - 1))
         for i in range(1, TIMESTEPS * UPSAMPLE):
-            shifts[0][i - 1] = self.euclidean_dist((geo_avgs[i - 1][0], geo_avgs[i - 1][1]),
-                                                   (geo_avgs[i][0], geo_avgs[i][1]))
+            shifts[0][i - 1] = dists[i-1, i]
         return shifts
 
     def calculate_shifts_1d(self, geo_avgs, d):
@@ -68,8 +63,8 @@ class GeometricalEstimation(object):
         d: the dimension that will be included in the calculation (0 or 1 - X or Y)
 
         returns:
-        a vector of dimensions (1, 31) where entry i represents the shift in terms of euclidean distance between
-            one of the dimensions of the geometrical estimation between sample i and sample i-1
+        a vector of dimensions (1, TIMESTEPS * UPSAMPLE - 1) where entry i represents the shift in terms of euclidean
+         distance between one of the dimensions of the geometrical estimation between sample i and sample i-1
         """
         shifts = np.zeros((1, TIMESTEPS * UPSAMPLE - 1))
         for i in range(1, TIMESTEPS * UPSAMPLE):
@@ -112,12 +107,13 @@ class GeometricalEstimation(object):
                 channels = arr[:, i] * (-1)
                 geo_avgs[i, 0], geo_avgs[i, 1] = self.calculate_geo_estimation(channels, coordinates)
 
-            shifts_2d = self.calculate_shifts_2d(geo_avgs)
+            dists = cdist(geo_avgs, geo_avgs)
+
+            shifts_2d = self.calculate_shifts_2d(dists)
 
             result[j, 0] = np.mean(shifts_2d, axis=1)
             result[j, 1] = np.std(shifts_2d, axis=1)
-            # result[j, 2] = self.euclideanDist((geo_avgs[0][0], geo_avgs[0][1]), (geo_avgs[-1][0], geo_avgs[-1][1]))
-            result[j, 2] = self.calc_max_dist(geo_avgs)
+            result[j, 2] = dists.max()
         return result
 
     @ property
