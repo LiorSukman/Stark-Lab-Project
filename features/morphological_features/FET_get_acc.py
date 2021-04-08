@@ -1,4 +1,5 @@
 import numpy as np
+from constants import INF
 
 # TODO consider all parameters, d&c had different values in the report and the file
 # TODO the feature was calculated on the normalized spike (divided by sum of squares), should I?
@@ -64,7 +65,13 @@ class GetAcc(object):
         der = calc_second_der(spike)
         roi = der[dep_ind + self.start: dep_ind + self.end]
 
-        ret = self.mul_const * np.log(1e7 * np.sum(roi ** 2))  # TODO: reconsider multiplicative constants
+        # assert np.sum(roi ** 2) > 0 the followin if statement was used to handle this case yet it is not necessarily
+        # a good solution, uncomment this to find more problematic spikes
+
+        if len(roi) == 0:
+            return [-INF]
+
+        ret = self.mul_const * np.log(np.sum(roi ** 2))  # TODO: reconsider multiplicative constants
 
         return [ret]
 

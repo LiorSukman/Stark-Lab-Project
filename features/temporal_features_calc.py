@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal as signal
 import time
-from constants import MIN_TIME_LIST, VERBOS
+from constants import MIN_TIME_LIST, VERBOS, INF
 import matplotlib.pyplot as plt
 
 from features.temporal_features.FET_DKL import DKL
@@ -27,7 +27,7 @@ def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, c
     feature_mat_for_cluster = None
 
     if len(time_lst) < MIN_TIME_LIST:
-        return np.zeros((1, len(get_temporal_features_names())))  # TODO: rethink the values returned here
+        return np.ones((1, len(get_temporal_features_names()))) * (-INF)  # TODO: rethink the values returned here
 
     time_lst = np.array(time_lst)
 
@@ -36,6 +36,7 @@ def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, c
     start_time = time.time()
     histogram = calc_temporal_histogram(time_lst, bins)
     histogram = signal.resample(histogram, upsample * N)
+    histogram = np.where(histogram >= 0, histogram, 0)
     end_time = time.time()
     if VERBOS:
         print(f"histogram creation took {end_time - start_time:.3f} seconds")

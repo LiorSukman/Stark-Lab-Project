@@ -78,9 +78,9 @@ class TimeLagFeature(object):
 
         # calculate reduction
         if self.type_dep == 'ss':
-            dep_red = np.sum(dep_rel ** 2)
+            dep_red = np.mean(dep_rel ** 2)
         else:  # i.e sa
-            dep_red = np.sum(np.absolute(dep_rel))
+            dep_red = np.mean(np.absolute(dep_rel))
 
         # find hyperpolarization indices
         hyp_ind = []
@@ -93,9 +93,9 @@ class TimeLagFeature(object):
         hyp_rel = hyp_ind - hyp_ind[main_chn]
         hyp_sd = np.std(hyp_rel)
         if self.type_hyp == 'ss':
-            hyp_red = np.sum(hyp_rel ** 2)
+            hyp_red = np.mean(hyp_rel ** 2)
         else:  # i.e sa
-            hyp_red = np.sum(np.absolute(hyp_rel))
+            hyp_red = np.mean(np.absolute(hyp_rel))
 
         return [dep_red, dep_sd, hyp_red, hyp_sd]
 

@@ -64,7 +64,7 @@ def wavelet_transform(chunks):
 def calc_spatial_features(chunks):
     feature_mat_for_cluster = None
     start_time = time.time()
-    print('Starting wavelet transformation...')
+    # print('Starting wavelet transformation...')
     wavelets = wavelet_transform(chunks)
     end_time = time.time()
     if VERBOS:

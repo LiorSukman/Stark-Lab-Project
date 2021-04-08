@@ -155,7 +155,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="pipeline\n")
+    parser = argparse.ArgumentParser(description="preprocessing pipeline\n")
 
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
@@ -175,6 +175,9 @@ if __name__ == "__main__":
     save_path = args.save_path
     arg_load_path = args.load_path
     spv_mat = args.spv_mat
+
+    if not os.path.isdir(save_path):
+        os.mkdir(save_path)
 
     if args.calc_features:
         run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path)
