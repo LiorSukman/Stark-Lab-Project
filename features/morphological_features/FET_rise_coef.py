@@ -27,13 +27,13 @@ class RiseCoef(object):
         inputs:
         spike: the spike to be processed; it is an ndarray with TIMESTEPS * UPSAMPLE entries
 
-        The function calculates the rise coefficint as described above.
+        The function calculates the rise coefficient as described above.
 
         returns: a list containing the value of the rise coefficient
         """
         dep_ind = np.argmin(spike)
         dep = spike[dep_ind]
-        if dep_ind == len(spike):  # if max depolarization is reached at the end, it indicates noise
+        if dep_ind == len(spike) - 1:  # if max depolarization is reached at the end, it indicates noise
             raise Exception('Max depolarization reached at final timestamp')
         line = np.linspace(dep, spike[-1], num=len(spike) - dep_ind)
 

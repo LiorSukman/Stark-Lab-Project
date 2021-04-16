@@ -65,7 +65,7 @@ class GetAcc(object):
         der = calc_second_der(spike)
         roi = der[dep_ind + self.start: dep_ind + self.end]
 
-        # assert np.sum(roi ** 2) > 0 the followin if statement was used to handle this case yet it is not necessarily
+        # assert np.sum(roi ** 2) > 0 the following if statement was used to handle this case yet it is not necessarily
         # a good solution, uncomment this to find more problematic spikes
 
         if len(roi) == 0:

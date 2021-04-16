@@ -12,6 +12,7 @@ from features.temporal_features.FET_unif_dist import UnifDist
 
 features = [DKL(), Jump(), PSD(), RiseTime(), UnifDist()]
 
+
 def calc_temporal_histogram(time_lst, bins):
     """ret = np.zeros(len(bins) - 1)
     for i in range(len(time_lst)):
@@ -22,6 +23,7 @@ def calc_temporal_histogram(time_lst, bins):
     hist, _ = np.histogram(diffs, bins=bins)
 
     return hist
+
 
 def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, cdf_range=30, jmp_min=50, jmp_max=1200):
     feature_mat_for_cluster = None
@@ -63,6 +65,7 @@ def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, c
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
 
     return feature_mat_for_cluster
+
 
 def get_temporal_features_names():
     # TODO: check if this works: names = [(name for name in feature.headers) for feature in features]

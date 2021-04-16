@@ -172,22 +172,22 @@ if __name__ == "__main__":
 
     parser.add_argument('--model', type=str, help='Model to train, now supporting svm and rf', default='svm')
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/0_0.60.20.2/')
+                        default='../data_sets/200_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
     parser.add_argument('--saving_path', type=str, help='path to save models, assumed to be created',
                         default='../saved_models')
     parser.add_argument('--loading_path', type=str,
                         help='path to load models from, assumed to be created and contain the models', default=None)
-    parser.add_argument('--gamma', type=float, help='gamma value for SVM model', default=0.0338)
-    parser.add_argument('--C', type=float, help='C value for SVM model', default=215)
+    parser.add_argument('--gamma', type=float, help='gamma value for SVM model', default=0.033)
+    parser.add_argument('--C', type=float, help='C value for SVM model', default=1)
     parser.add_argument('--kernel', type=str,
-                        help='kernael for SVM (notice that different kernels than rbf might require more parameters)',
+                        help='kernel for SVM (notice that different kernels than rbf might require more parameters)',
                         default='rbf')
     parser.add_argument('--use_scale', type=bool, help='apply scaling on the data', default=True)
     parser.add_argument('--use_pca', type=bool, help='apply PCA on the data', default=False)
-    parser.add_argument('--pca_n_components', type=int, help='number of PCA componenets', default=2)
+    parser.add_argument('--pca_n_components', type=int, help='number of PCA components', default=2)
     parser.add_argument('--use_ica', type=bool, help='apply ICA on the data', default=False)
-    parser.add_argument('--ica_n_components', type=int, help='number of ICA componenets', default=2)
+    parser.add_argument('--ica_n_components', type=int, help='number of ICA components', default=2)
     parser.add_argument('--visualize', type=bool, help='visualize the model', default=False)
     parser.add_argument('--n_estimators', type=int, help='n_estimators value for RF', default=100)
     parser.add_argument('--max_depth', type=int, help='max_depth value for RF', default=10)

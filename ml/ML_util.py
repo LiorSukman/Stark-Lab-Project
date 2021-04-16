@@ -58,13 +58,14 @@ def is_legal(cluster):
    To learn more about the different labels please refer to the pdf file or the read_data.py file
    """
     row = cluster[0]
-    return row[-1] >= 0
+    return row[-1] >= 0 and row[-2] > -9999
+
 
 
 def read_data(path, should_filter=True, keep=None):
     """
    The function reads the data from all files in the path.
-   It is assumed that each file represeents a single cluster, and have some number of waveforms.
+   It is assumed that each file represents a single cluster, and have some number of waveforms.
    The should_filter (optional, bool, default = True) argument indicated whether we should filter out
    clusters with problematic label (i.e. < 0)
    """
@@ -76,22 +77,23 @@ def read_data(path, should_filter=True, keep=None):
         df = pd.read_csv(path + '/' + file)
         nd = df.to_numpy(dtype='float64')
 
-        if keep:  # i.e. keep != []
-            nd = nd[:, keep]
-
         if should_filter:
             if is_legal(nd):
+                if keep:  # i.e. keep != []
+                    nd = nd[:, keep]
                 clusters.append(nd)
             else:
                 continue
         else:
+            if keep:  # i.e. keep != []
+                nd = nd[:, keep]
             clusters.append(nd)
     return np.asarray(clusters)
 
 
 def break_data(data):
     """
-   The function recieves unordered data and returns a list with three numpy arrays: 1) with all the pyramidal clusters,
+   The function receives unordered data and returns a list with three numpy arrays: 1) with all the pyramidal clusters,
    2) with all the interneuron clusters and 3) with all the unlabeled clusters
    """
     pyr_inds = get_inds(data, 1)

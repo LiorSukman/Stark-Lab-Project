@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # TODO consider all parameters, d&c had different values in the report and the file
 # TODO the feature was calculated on the normalized spike (divided by sum of squares), should I?
 
@@ -26,7 +27,7 @@ def calc_second_der(spike):
 class BreakMeasurement(object):
     """
     This feature aims at the quantification of the pre-depolarization "bump". Lower values generally indicate the
-    exsistence of a "bump" while higher values indicate its abscence.
+    existence of a "bump" while higher values indicate its absence.
     """
 
     def __init__(self, start=-48, end=-13, mul_const=20):
