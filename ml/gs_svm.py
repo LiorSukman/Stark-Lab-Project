@@ -59,7 +59,7 @@ def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gam
     if, train, dev and test are given, ignores dataset_path and uses them instead
     """
     if train is None or dev is None or test is None:
-        train, dev, test = ML_util.get_dataset(dataset_path)
+        train, dev, test, _, _, _ = ML_util.get_dataset(dataset_path)
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
@@ -113,10 +113,10 @@ if __name__ == "__main__":
                         default='../graphs/')
     parser.add_argument('--min_gamma', type=int, help='minimal power of gamma (base 10)', default=-9)
     parser.add_argument('--max_gamma', type=int, help='maximal power of gamma (base 10)', default=-1)
-    parser.add_argument('--num_gamma', type=int, help='number of gamma values', default=18)
+    parser.add_argument('--num_gamma', type=int, help='number of gamma values', default=36)
     parser.add_argument('--min_c', type=int, help='minimal power of C (base 10)', default=0)
     parser.add_argument('--max_c', type=int, help='maximal power of C (base 10)', default=6)
-    parser.add_argument('--num_c', type=int, help='number of C values', default=14)
+    parser.add_argument('--num_c', type=int, help='number of C values', default=28)
     parser.add_argument('--kernel', type=str,
                         help='kernael for SVM (notice that different kernels than rbf might require more parameters)',
                         default='rbf')

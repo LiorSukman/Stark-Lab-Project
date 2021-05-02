@@ -28,8 +28,8 @@ def calc_temporal_histogram(time_lst, bins):
 def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, cdf_range=30, jmp_min=50, jmp_max=1200):
     feature_mat_for_cluster = None
 
-    if len(time_lst) < MIN_TIME_LIST:
-        return np.ones((1, len(get_temporal_features_names()))) * (-INF)  # TODO: rethink the values returned here
+    """if len(time_lst) < MIN_TIME_LIST:
+        return np.ones((1, len(get_temporal_features_names()))) * (-INF)  # TODO: rethink the values returned here"""
 
     time_lst = np.array(time_lst)
 
@@ -63,7 +63,8 @@ def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, c
         end_time = time.time()
         if VERBOS:
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
-
+    mat_result = [[len(time_lst)]]
+    feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
     return feature_mat_for_cluster
 
 
@@ -72,4 +73,5 @@ def get_temporal_features_names():
     names = []
     for feature in features:
         names += feature.headers
+    names += ['num_spikes']
     return names

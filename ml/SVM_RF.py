@@ -16,10 +16,10 @@ N = 10
 models = ['svm', 'rf']  # the supported models
 
 
-def evaluate_predictions(model, clusters, pca, ica, scaler, verbos=False):
+def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False):
     total = len(clusters)
     total_pyr = total_in = correct_pyr = correct_in = correct_chunks = total_chunks = correct_clusters = 0
-    for cluster in clusters:
+    for cluster, name in zip(clusters, names):
         features, labels = ML_util.split_features(cluster)
         features = np.nan_to_num(features)
         if scaler is not None:
@@ -38,6 +38,8 @@ def evaluate_predictions(model, clusters, pca, ica, scaler, verbos=False):
         correct_clusters += 1 if prediction == label else 0
         correct_pyr += 1 if prediction == label and label == 1 else 0
         correct_in += 1 if prediction == label and label == 0 else 0
+        if prediction != label:
+            ML_util.show_cluster(name, 'PYR' if prediction == 1 else 'INT', 'PYR' if label == 1 else 'INT')
 
     pyr_percent = float('nan') if total_pyr == 0 else 100 * correct_pyr / total_pyr
     in_percent = float('nan') if total_in == 0 else 100 * correct_in / total_in
@@ -68,8 +70,9 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     elif model == 'rf':
         print('Chosen model is Random Forest')
 
-    train, dev, test = ML_util.get_dataset(dataset_path)
+    train, dev, test, train_names, dev_names, test_names = ML_util.get_dataset(dataset_path)
     train = np.concatenate((train, dev))
+    train_names = np.concatenate((train_names, dev_names))
     train_squeezed = ML_util.squeeze_clusters(train)
     train_features, train_labels = ML_util.split_features(train_squeezed)
     train_features = np.nan_to_num(train_features)
@@ -141,7 +144,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
                 ica = pickle.load(fid)
 
     print('Evaluating predictions...')
-    evaluate_predictions(clf, test, pca, ica, scaler, verbos=True)
+    evaluate_predictions(clf, test, test_names, pca, ica, scaler, verbos=True)
 
     if visualize:
         print('Working on visualization...')
@@ -178,8 +181,8 @@ if __name__ == "__main__":
                         default='../saved_models')
     parser.add_argument('--loading_path', type=str,
                         help='path to load models from, assumed to be created and contain the models', default=None)
-    parser.add_argument('--gamma', type=float, help='gamma value for SVM model', default=0.033)
-    parser.add_argument('--C', type=float, help='C value for SVM model', default=1)
+    parser.add_argument('--gamma', type=float, help='gamma value for SVM model', default=0.06)
+    parser.add_argument('--C', type=float, help='C value for SVM model', default=36)
     parser.add_argument('--kernel', type=str,
                         help='kernel for SVM (notice that different kernels than rbf might require more parameters)',
                         default='rbf')

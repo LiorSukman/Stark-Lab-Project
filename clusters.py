@@ -13,13 +13,12 @@ class Spike(object):
         The function checks if a spike is of a positive-unit and returns the result
         """
         median = 0  # reference value, it is assumed that the spikes are aligned to zero
-        avg_spike = np.mean(self.data, axis=0)  # we look at all channels as one wave, should consider checking each
-        # channel separately
-        avg_spike = avg_spike[3:-3]  # in some cases the hyperpolarization at the edges was stronger than the
+        main_channel = self.data[np.argmax(np.absolute(self.data)) // self.data.shape[-1]]
+        main_channel = main_channel[3:-3]  # in some cases the hyperpolarization at the edges was stronger than the
         # depolarization, causing wrong conclusion
-        abs_diff = np.absolute(avg_spike - median)
+        abs_diff = np.absolute(main_channel - median)
         arg_max = np.argmax(abs_diff, axis=0)  # the axis specification has no effect, just for clarification
-        if avg_spike[arg_max] > median:
+        if main_channel[arg_max] > median:
             return True
         return False
 
@@ -32,11 +31,15 @@ class Spike(object):
     def get_data(self):
         return self.data
 
-    def plot_spike(self):
+    def plot_spike(self, ax=None):
         for i in range(NUM_CHANNELS):
             # we don't use constants to allow use after upsampling
-            plt.plot(np.arange(self.data.shape[1]), self.data[i, :])
-        plt.show()
+            if ax is None:
+                plt.plot(np.arange(self.data.shape[-1]), self.data[i, :])
+            else:
+                ax.plot(np.arange(self.data.shape[-1]), self.data[i, :])
+        if ax is None:
+            plt.show()
 
 
 class Cluster(object):
@@ -128,3 +131,7 @@ class Cluster(object):
             print(self.filename, self.num_within_file, self.shank)
             return False
         return True
+
+    def plot_cluster(self, ax=None):
+        mean_spike = self.calc_mean_waveform()
+        mean_spike.plot_spike(ax)

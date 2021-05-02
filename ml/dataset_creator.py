@@ -27,7 +27,7 @@ if __name__ == "__main__":
     should_filter = args.should_filter
     save_path = args.save_path
     verbos = args.verbos
-    keep = MORPHOLOGICAL#args.keep
+    keep = SPATIAL#args.keep
 
     if not os.path.isdir(save_path):
         os.mkdir(save_path)

@@ -37,7 +37,7 @@ class FWHM(object):
         # end
         dep = spike.min()
         # TODO Consider keeping the following lines
-        # if dep_ind == len(spike):  # if max depolarization is reached at the end, it indicates noise
+        # if dep_ind == len(spike) - 1:  # if max depolarization is reached at the end, it indicates noise
         #    raise Exception('Max depolarization reached at final timestamp')
 
         inds = spike <= self.ratio * dep

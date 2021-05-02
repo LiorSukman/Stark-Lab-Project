@@ -2,8 +2,10 @@ import os
 import math
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 from torch.autograd import Variable
+from clusters import Spike
 
 from constants import SEED
 
@@ -61,7 +63,6 @@ def is_legal(cluster):
     return row[-1] >= 0 and row[-2] > -9999
 
 
-
 def read_data(path, should_filter=True, keep=None):
     """
    The function reads the data from all files in the path.
@@ -73,8 +74,11 @@ def read_data(path, should_filter=True, keep=None):
         keep = []
     files = os.listdir(path)
     clusters = []
+    names = []
     for file in sorted(files):
         df = pd.read_csv(path + '/' + file)
+        name = df.name[0]
+        df = df.drop(columns=['name'])
         nd = df.to_numpy(dtype='float64')
 
         if should_filter:
@@ -88,10 +92,11 @@ def read_data(path, should_filter=True, keep=None):
             if keep:  # i.e. keep != []
                 nd = nd[:, keep]
             clusters.append(nd)
-    return np.asarray(clusters)
+        names.append(name)
+    return np.asarray(clusters), np.array(names)
 
 
-def break_data(data):
+def break_data(data, cluster_names):
     """
    The function receives unordered data and returns a list with three numpy arrays: 1) with all the pyramidal clusters,
    2) with all the interneuron clusters and 3) with all the unlabeled clusters
@@ -100,7 +105,8 @@ def break_data(data):
     in_inds = get_inds(data, 0)
     ut_inds = get_inds(data, -1)
     ret = [data[pyr_inds], data[in_inds], data[ut_inds]]
-    return ret
+    names = [cluster_names[pyr_inds], cluster_names[in_inds], cluster_names[ut_inds]]
+    return ret, names
 
 
 def was_created(paths, per_train, per_dev, per_test):
@@ -138,21 +144,22 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
     for name, path in zip(names, paths):
         if not should_load:
             print('Reading data from %s...' % path)
-            data = read_data(path, should_filter, keep=keep)
-            data = break_data(data)
+            data, cluster_names = read_data(path, should_filter, keep=keep)
+            data, cluster_names = break_data(data, cluster_names)
             if not inds_initialized:
+                np.random.seed(SEED)
                 for c in data:
                     inds_temp = np.arange(c.shape[0])
-                    np.random.seed(SEED)
                     np.random.shuffle(inds_temp)
                     inds.append(inds_temp)
                 inds_initialized = True
             data = [c[inds[i]] for i, c in enumerate(data)]
+            cluster_names = [c[inds[i]] for i, c in enumerate(cluster_names)]
         else:
             data = None  # only because we need to send something to split_data()
         print('Splitting %s set...' % name)
-        split_data(data, per_train=per_train, per_dev=per_dev, per_test=per_test, path=save_path, data_name=name,
-                   should_shuffle=False, should_load=should_load, verbos=verbos)
+        split_data(data, cluster_names, per_train=per_train, per_dev=per_dev, per_test=per_test, path=save_path,
+                   data_name=name, should_shuffle=False, should_load=should_load, verbos=verbos)
 
 
 def get_dataset(path):
@@ -164,6 +171,9 @@ def get_dataset(path):
     train = np.load(path + 'train.npy', allow_pickle=True)
     dev = np.load(path + 'dev.npy', allow_pickle=True)
     test = np.load(path + 'test.npy', allow_pickle=True)
+    train_names = np.load(path + 'train_names.npy', allow_pickle=True)
+    dev_names = np.load(path + 'dev_names.npy', allow_pickle=True)
+    test_names = np.load(path + 'test_names.npy', allow_pickle=True)
 
     data = np.concatenate((train, dev, test))
     num_clusters = data.shape[0]
@@ -172,7 +182,7 @@ def get_dataset(path):
     print_data_stats(dev, 'dev', num_clusters, num_wfs)
     print_data_stats(test, 'test', num_clusters, num_wfs)
 
-    return train, dev, test
+    return train, dev, test, train_names, dev_names, test_names
 
 
 def take_partial_data(data, start, end):
@@ -190,8 +200,8 @@ def take_partial_data(data, start, end):
     return ret
 
 
-def split_data(data, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True, data_name='',
-               should_shuffle=True, verbos=False):
+def split_data(data, names, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True,
+               data_name='', should_shuffle=True, verbos=False):
     """
    This function recieves the data as an ndarray. The first level is the different clusters, i.e each file,
    the second level is the different waveforms whithin each clusters and the third is the actual features
@@ -212,12 +222,16 @@ def split_data(data, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_set
         per_dev += per_train
 
         if should_shuffle:
+            raise Warning('Passing should_shuffle = True is not fully supported, please avoid')
             data = break_data(data)
             [np.random.shuffle(d) for d in data]
 
         train = take_partial_data(data, 0, per_train)
+        train_names = take_partial_data(names, 0, per_train)
         dev = take_partial_data(data, per_train, per_dev)
+        dev_names = take_partial_data(names, per_train, per_dev)
         test = take_partial_data(data, per_dev, 1)
+        test_names = take_partial_data(names, per_dev, 1)
 
         if path is not None:
             try:
@@ -230,6 +244,9 @@ def split_data(data, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_set
                 np.save(full_path + 'train', train)
                 np.save(full_path + 'dev', dev)
                 np.save(full_path + 'test', test)
+                np.save(full_path + 'train_names', train_names)
+                np.save(full_path + 'dev_names', dev_names)
+                np.save(full_path + 'test_names', test_names)
 
     if verbos:
         data = np.concatenate((train, dev, test))
@@ -310,7 +327,6 @@ def count_waveforms(data):
         counter += cluster.shape[0]
     return counter
 
-
 def squeeze_clusters(data):
     """
    This function receives an nd array with elements with varying sizes.
@@ -323,3 +339,9 @@ def squeeze_clusters(data):
         for waveform in cluster:
             res.append(waveform)
     return np.asarray(res)
+
+def show_cluster(name, prediction, label):
+    spike_data = np.load('../clustersData/mean_spikes/' + f"{name}.npy")
+    spike = Spike(data=spike_data)
+    plt.title(f"cluster {name} was classified as {prediction} while true label is {label}")
+    spike.plot_spike()

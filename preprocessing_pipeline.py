@@ -7,6 +7,9 @@ import os
 from os import listdir
 from os.path import isfile, join
 import time
+import random
+import sys
+import matplotlib.pyplot as plt
 
 from read_data import read_all_directories
 from clusters import Spike, Cluster
@@ -18,6 +21,39 @@ from features.morphological_features_calc import calc_morphological_features, ge
 from features.temporal_features_calc import calc_temporal_features, get_temporal_features_names
 
 TEMP_PATH = 'temp_state\\'
+
+
+def create_fig(load_path, rows, cols):
+    clusters = set()
+    files_list = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))]
+    random.shuffle(files_list)
+    fig, ax = plt.subplots(rows, cols, sharex=True, figsize=(4 * cols, 3 * rows))
+    plt.tight_layout(pad=3)
+    counter = 0
+    for i, file in enumerate(files_list):
+        if counter == rows * cols:
+            break
+        path_elements = file.split('\\')[-1].split('__')
+        if 'timing' in path_elements[-1] or int(path_elements[-2]) != 0:
+            continue
+        unique_name = path_elements[0]
+        if unique_name not in clusters:
+            clusters.add(unique_name)
+        else:
+            raise Exception('Duplicate file in load path')
+        cluster = Cluster()
+        cluster.load_cluster(file)
+        timing_file = file.replace('spikes', 'timings')
+        cluster.load_cluster(timing_file)
+        assert cluster.assert_legal()
+        c_ax = ax[counter // cols, counter % cols]
+        cluster.plot_cluster(ax=c_ax)
+        label = 'Pyramidal' if cluster.label == 1 else 'PV' if cluster.label == 0 else 'untitled'
+        title = f"{label} cluster {unique_name}"
+        c_ax.set_title(title, size=10)
+        counter += 1
+        print(f"Processed cluster {unique_name} for display ({counter}/{cols * rows})")
+    plt.show()
 
 
 def load_clusters(load_path):
@@ -112,11 +148,12 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
     headers = get_spatial_features_names()
     headers += get_morphological_features_names()
     headers += get_temporal_features_names()
-    headers += ['label']
+    headers += ['max_abs', 'name', 'label']
 
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
             print('Processing cluster:' + cluster.get_unique_name())
+            max_abs = np.absolute(cluster.calc_mean_waveform().get_data()).max()
             # print('Fixing punits...')
             if load_path is None:
                 cluster.fix_punits()
@@ -127,6 +164,13 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
             end_time = time.time()
             if VERBOS:
                 print(f"chunk creation took {end_time - start_time:.3f} seconds")
+
+            path = csv_folder + 'mean_spikes'
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            path += '\\' + cluster.get_unique_name()
+            np.save(path, cluster.calc_mean_waveform().data)
+
             temporal_features_mat = calc_temporal_features(cluster.timings)
             for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
                 # upsample
@@ -137,7 +181,13 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
                 feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
                                                           np.repeat(temporal_features_mat, len(spatial_features_mat),
                                                                     axis=0)), axis=1)
-                # Append the label for the cluster
+                # Append metadata for the cluster
+                max_abss = np.ones((len(rel_data), 1)) * max_abs
+                feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, max_abss), axis=1)
+
+                names = np.ones((len(rel_data), 1), dtype=object) * cluster.get_unique_name()
+                feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, names), axis=1)
+
                 labels = np.ones((len(rel_data), 1)) * cluster.label
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, labels), axis=1)
 
@@ -166,6 +216,8 @@ if __name__ == "__main__":
                         help='path to load clusters from, make sure directory exists')
     parser.add_argument('--calc_features', type=bool, default=True,
                         help='path to load clusters from, make sure directory exists')
+    parser.add_argument('--display', type=bool, default=True,
+                        help='display a set of random clusters')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
 
     args = parser.parse_args()
@@ -178,6 +230,10 @@ if __name__ == "__main__":
 
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
+
+    if args.display:
+        create_fig(arg_load_path, 10, 8)
+        sys.exit(0)
 
     if args.calc_features:
         run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path)

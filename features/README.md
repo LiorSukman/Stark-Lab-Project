@@ -13,5 +13,3 @@ Files:
 - FET_time_lag.py: Computes the time lag feature
 
 further information about the exact calculation of each feature can be found at the project's paper.
-
-
