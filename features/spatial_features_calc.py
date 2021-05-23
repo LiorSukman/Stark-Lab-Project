@@ -30,22 +30,19 @@ def wavelet_info(length, centers):
 
 
 def match_spike(spike, w, w_norm, rss):
+    mul_val = -spike.min()
     spike = spike - spike.mean()
 
     corrs = np.dot(w_norm, spike) / rss
     ind = corrs.argmax()
-    i, j = ind // len(spike), ind % len(spike)
-    wvlt = w[i, j].copy()
+    wvlt = w[ind].copy() * mul_val
 
     return wvlt
 
 
-def calc_window(a, b, c, n, cons):
+def calc_window(a, b, c, n):
     b = int(b)
-    if not cons:
-        g = a * signal.windows.gaussian(2 * n + 1, c)
-    else:
-        g = a * signal.windows.gaussian(2 * n + 1, 5)
+    g = a * signal.windows.gaussian(2 * n + 1, c)
     g = g[n - b: -1 - b]
     return g
 
@@ -56,7 +53,7 @@ def sp_match_spike(channel, x_data, cons, w, w_norm, rss):
                             bounds=([2 * min(-1, channel.min()), 0, 1], [0, len(x_data), 50]),
                             p0=[min(-1, channel.min()), len(x_data) / 2, 10], max_nfev=5000)
         a, b, c = popt
-        spike = calc_window(a, b, c, len(x_data), cons)
+        spike = calc_window(a, b, c, len(x_data))
     else:
         spike = match_spike(channel, w, w_norm, rss)
     return spike

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch.autograd import Variable
 from clusters import Spike
+from sklearn.model_selection import GroupShuffleSplit
 
 from constants import SEED
 
@@ -60,7 +61,7 @@ def is_legal(cluster):
    To learn more about the different labels please refer to the pdf file or the read_data.py file
    """
     row = cluster[0]
-    return row[-1] >= 0 and row[-2] > -9999
+    return row[-1] >= 0  # and row[-2] >= 100 and row[-3] >= 8000
 
 
 def read_data(path, should_filter=True, keep=None):
@@ -75,6 +76,7 @@ def read_data(path, should_filter=True, keep=None):
     files = os.listdir(path)
     clusters = []
     names = []
+    recordings = []
     for file in sorted(files):
         df = pd.read_csv(path + '/' + file)
         name = df.name[0]
@@ -93,10 +95,11 @@ def read_data(path, should_filter=True, keep=None):
                 nd = nd[:, keep]
             clusters.append(nd)
         names.append(name)
-    return np.asarray(clusters), np.array(names)
+        recordings.append('_'.join(name.split('_')[0:-2]))
+    return np.asarray(clusters), np.array(names), np.array(recordings)
 
 
-def break_data(data, cluster_names):
+def break_data(data, cluster_names, recording_names):
     """
    The function receives unordered data and returns a list with three numpy arrays: 1) with all the pyramidal clusters,
    2) with all the interneuron clusters and 3) with all the unlabeled clusters
@@ -106,7 +109,8 @@ def break_data(data, cluster_names):
     ut_inds = get_inds(data, -1)
     ret = [data[pyr_inds], data[in_inds], data[ut_inds]]
     names = [cluster_names[pyr_inds], cluster_names[in_inds], cluster_names[ut_inds]]
-    return ret, names
+    recordings = [recording_names[pyr_inds], recording_names[in_inds], recording_names[ut_inds]]
+    return ret, names, recordings
 
 
 def was_created(paths, per_train, per_dev, per_test):
@@ -121,7 +125,7 @@ def was_created(paths, per_train, per_dev, per_test):
 
 
 def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt', should_filter=True,
-                    save_path='../data_sets', verbos=False, keep=None):
+                    save_path='../data_sets', verbos=False, keep=None, group_split=True):
     """
    The function creates all datasets from the data referenced by the datasets file and saves them
    """
@@ -144,22 +148,26 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
     for name, path in zip(names, paths):
         if not should_load:
             print('Reading data from %s...' % path)
-            data, cluster_names = read_data(path, should_filter, keep=keep)
-            data, cluster_names = break_data(data, cluster_names)
-            if not inds_initialized:
-                np.random.seed(SEED)
-                for c in data:
-                    inds_temp = np.arange(c.shape[0])
-                    np.random.shuffle(inds_temp)
-                    inds.append(inds_temp)
-                inds_initialized = True
-            data = [c[inds[i]] for i, c in enumerate(data)]
-            cluster_names = [c[inds[i]] for i, c in enumerate(cluster_names)]
+            data, cluster_names, recording_names = read_data(path, should_filter, keep=keep)
+            if not group_split:
+                data, cluster_names, recording_names = break_data(data, cluster_names, recording_names)
+                if not inds_initialized:
+                    np.random.seed(SEED)
+                    for c in data:
+                        inds_temp = np.arange(c.shape[0])
+                        np.random.shuffle(inds_temp)
+                        inds.append(inds_temp)
+                    inds_initialized = True
+                data = [c[inds[i]] for i, c in enumerate(data)]
+                cluster_names = [c[inds[i]] for i, c in enumerate(cluster_names)]
+                recording_names = [c[inds[i]] for i, c in enumerate(recording_names)]
         else:
             data = None  # only because we need to send something to split_data()
+            cluster_names = None
+            recording_names = None
         print('Splitting %s set...' % name)
-        split_data(data, cluster_names, per_train=per_train, per_dev=per_dev, per_test=per_test, path=save_path,
-                   data_name=name, should_shuffle=False, should_load=should_load, verbos=verbos)
+        split_data(data, cluster_names, recording_names,  per_train=per_train, per_dev=per_dev, per_test=per_test, path=save_path,
+                   data_name=name, should_shuffle=False, should_load=should_load, verbos=verbos, group_split=group_split)
 
 
 def get_dataset(path):
@@ -200,8 +208,8 @@ def take_partial_data(data, start, end):
     return ret
 
 
-def split_data(data, names, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True,
-               data_name='', should_shuffle=True, verbos=False):
+def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True,
+               data_name='', should_shuffle=True, verbos=False, group_split=True):
     """
    This function recieves the data as an ndarray. The first level is the different clusters, i.e each file,
    the second level is the different waveforms whithin each clusters and the third is the actual features
@@ -226,12 +234,31 @@ def split_data(data, names, per_train=0.6, per_dev=0.2, per_test=0.2, path='../d
             data = break_data(data)
             [np.random.shuffle(d) for d in data]
 
-        train = take_partial_data(data, 0, per_train)
-        train_names = take_partial_data(names, 0, per_train)
-        dev = take_partial_data(data, per_train, per_dev)
-        dev_names = take_partial_data(names, per_train, per_dev)
-        test = take_partial_data(data, per_dev, 1)
-        test_names = take_partial_data(names, per_dev, 1)
+        if not group_split:
+            train = take_partial_data(data, 0, per_train)
+            train_names = take_partial_data(names, 0, per_train)
+            dev = take_partial_data(data, per_train, per_dev)
+            dev_names = take_partial_data(names, per_train, per_dev)
+            test = take_partial_data(data, per_dev, 1)
+            test_names = take_partial_data(names, per_dev, 1)
+        else:
+            gss = GroupShuffleSplit(n_splits=1, train_size=per_dev, random_state=SEED)
+            train_inds, test_inds = next(gss.split(None, None, recordings))
+            train = data[train_inds]
+            train_names = names[train_inds]
+            train_groups = recordings[train_inds]
+            test = data[test_inds]
+            test_names = names[test_inds]
+            if per_dev != 0:
+                gss = GroupShuffleSplit(n_splits=1, train_size=per_train / per_dev, random_state=SEED + 1)
+                train_inds, dev_inds = next(gss.split(None, None, train_groups))
+                dev = train[dev_inds]
+                dev_names = train_names[dev_inds]
+                train = train[train_inds]
+                train_names = train_names[train_inds]
+            else:
+                dev = []
+                dev_names = []
 
         if path is not None:
             try:

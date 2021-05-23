@@ -216,7 +216,7 @@ if __name__ == "__main__":
                         help='path to load clusters from, make sure directory exists')
     parser.add_argument('--calc_features', type=bool, default=True,
                         help='path to load clusters from, make sure directory exists')
-    parser.add_argument('--display', type=bool, default=True,
+    parser.add_argument('--display', type=bool, default=False,
                         help='display a set of random clusters')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
 

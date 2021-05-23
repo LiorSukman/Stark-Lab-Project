@@ -31,15 +31,15 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
         label = labels[0]  # as they are the same for all the cluster
         total_pyr += 1 if label == 1 else 0
         total_in += 1 if label == 0 else 0
-        preds = model.predict(features)
+        preds = model.predict_proba(features).argmax(axis=1)
         prediction = round(preds.mean())
         total_chunks += preds.shape[0]
         correct_chunks += preds[preds == label].shape[0]
         correct_clusters += 1 if prediction == label else 0
         correct_pyr += 1 if prediction == label and label == 1 else 0
         correct_in += 1 if prediction == label and label == 0 else 0
-        if prediction != label:
-            ML_util.show_cluster(name, 'PYR' if prediction == 1 else 'INT', 'PYR' if label == 1 else 'INT')
+        #if prediction != label:
+        #    ML_util.show_cluster(name, 'PYR' if prediction == 1 else 'INT', 'PYR' if label == 1 else 'INT')
 
     pyr_percent = float('nan') if total_pyr == 0 else 100 * correct_pyr / total_pyr
     in_percent = float('nan') if total_in == 0 else 100 * correct_in / total_in
@@ -70,12 +70,11 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     elif model == 'rf':
         print('Chosen model is Random Forest')
 
-    train, dev, test, train_names, dev_names, test_names = ML_util.get_dataset(dataset_path)
+    train, dev, test, _, _, test_names = ML_util.get_dataset(dataset_path)
     train = np.concatenate((train, dev))
-    train_names = np.concatenate((train_names, dev_names))
+    # train_names = np.concatenate((train_names, dev_names))
     train_squeezed = ML_util.squeeze_clusters(train)
     train_features, train_labels = ML_util.split_features(train_squeezed)
-    train_features = np.nan_to_num(train_features)
 
     if loading_path is None:
 
@@ -117,7 +116,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
             train_features = ica.transform(train_features)
 
         if model == 'svm':
-            clf = svm.SVC(kernel=kernel, gamma=gamma, C=C, class_weight='balanced')
+            clf = svm.SVC(kernel=kernel, gamma=gamma, C=C, class_weight='balanced', probability=True)
             print('Fitting SVM model...')
         elif model == 'rf':
             clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
@@ -129,9 +128,12 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
         end = time.time()
         print('Fitting took %.2f seconds' % (end - start))
 
-        saving_full_path = saving_path + '/' + model + '_model'
-        with open(saving_full_path, 'wb') as fid:  # save the model
-            pickle.dump(clf, fid)
+        if saving_path is not None:
+            restriction, modality, cs = dataset_path.split('/')[-4:-1]
+            cs = cs.split('_')[0]
+            saving_full_path = f"{saving_path}/{restriction}_{modality}_{cs}_{model}_model"
+            with open(saving_full_path, 'wb') as fid:  # save the model
+                pickle.dump(clf, fid)
     else:  # we need to load the model
         print('Loading model...')
         with open(loading_path + model + '_model', 'rb') as fid:
@@ -144,7 +146,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
                 ica = pickle.load(fid)
 
     print('Evaluating predictions...')
-    evaluate_predictions(clf, test, test_names, pca, ica, scaler, verbos=True)
+    chunk_per, clust_per, pyr_per, in_per = evaluate_predictions(clf, test, test_names, pca, ica, scaler, verbos=True)
 
     if visualize:
         print('Working on visualization...')
@@ -169,20 +171,22 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
         # (default is first two)
         visualize_model(train_features[:20, :], train_labels[:20], clf, h=0.5)
 
+    return chunk_per, clust_per, pyr_per, in_per
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SVM/RF trainer\n")
 
     parser.add_argument('--model', type=str, help='Model to train, now supporting svm and rf', default='svm')
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/200_0.60.20.2/')
+                        default='../data_sets/complete/spat_tempo/200_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
     parser.add_argument('--saving_path', type=str, help='path to save models, assumed to be created',
                         default='../saved_models')
     parser.add_argument('--loading_path', type=str,
                         help='path to load models from, assumed to be created and contain the models', default=None)
-    parser.add_argument('--gamma', type=float, help='gamma value for SVM model', default=0.06)
-    parser.add_argument('--C', type=float, help='C value for SVM model', default=36)
+    parser.add_argument('--gamma', type=float, help='gamma value for SVM model', default=0.1)
+    parser.add_argument('--C', type=float, help='C value for SVM model', default=1)
     parser.add_argument('--kernel', type=str,
                         help='kernel for SVM (notice that different kernels than rbf might require more parameters)',
                         default='rbf')
@@ -192,10 +196,10 @@ if __name__ == "__main__":
     parser.add_argument('--use_ica', type=bool, help='apply ICA on the data', default=False)
     parser.add_argument('--ica_n_components', type=int, help='number of ICA components', default=2)
     parser.add_argument('--visualize', type=bool, help='visualize the model', default=False)
-    parser.add_argument('--n_estimators', type=int, help='n_estimators value for RF', default=100)
+    parser.add_argument('--n_estimators', type=int, help='n_estimators value for RF', default=10)
     parser.add_argument('--max_depth', type=int, help='max_depth value for RF', default=10)
-    parser.add_argument('--min_samples_split', type=int, help='min_samples_split value for RF', default=16)
-    parser.add_argument('--min_samples_leaf', type=int, help='min_samples_leaf value for RF', default=16)
+    parser.add_argument('--min_samples_split', type=int, help='min_samples_split value for RF', default=4)
+    parser.add_argument('--min_samples_leaf', type=int, help='min_samples_leaf value for RF', default=2)
 
     args = parser.parse_args()
 

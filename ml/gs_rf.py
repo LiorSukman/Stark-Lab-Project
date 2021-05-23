@@ -8,7 +8,7 @@ import argparse
 
 import ML_util
 
-N = 5
+N = 10
 
 
 def evaluate_predictions(model, clusters, scaler, verbos=False):
@@ -50,7 +50,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     see help for parameter explanations
     """
 
-    train, dev, test = ML_util.get_dataset(dataset_path)
+    train, dev, test, _, _, _ = ML_util.get_dataset(dataset_path)
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
@@ -73,7 +73,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     parameters = {'n_estimators': n_estimatorss, 'max_depth': max_depths, 'min_samples_split': min_samples_splits,
                   'min_samples_leaf': min_samples_leafs}
     model = RandomForestClassifier(class_weight='balanced')
-    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=0)
+    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=3)
     print('Starting grid search...')
     start = time.time()
     clf.fit(features, labels)
@@ -102,14 +102,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Random forest grid search\n")
 
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/0_0.60.20.2/')
+                        default='../data_sets/complete/temporal/0_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
     parser.add_argument('--n_estimators_min', type=int, help='minimal power of n_estimators (base 10)', default=0)
-    parser.add_argument('--n_estimators_max', type=int, help='maximal power of n_estimators (base 10)', default=3)
-    parser.add_argument('--n_estimators_num', type=int, help='number of n_estimators values', default=4)
+    parser.add_argument('--n_estimators_max', type=int, help='maximal power of n_estimators (base 10)', default=2)
+    parser.add_argument('--n_estimators_num', type=int, help='number of n_estimators values', default=3)
     parser.add_argument('--max_depth_min', type=int, help='minimal power of max_depth (base 10)', default=1)
-    parser.add_argument('--max_depth_max', type=int, help='maximal power of max_depth (base 10)', default=5)
-    parser.add_argument('--max_depth_num', type=int, help='number of max_depth values', default=5)
+    parser.add_argument('--max_depth_max', type=int, help='maximal power of max_depth (base 10)', default=2)
+    parser.add_argument('--max_depth_num', type=int, help='number of max_depth values', default=2)
     parser.add_argument('--min_samples_splits_min', type=int, help='minimal power of min_samples_splits (base 2)',
                         default=1)
     parser.add_argument('--min_samples_splits_max', type=int, help='maximal power of min_samples_splits (base 2)',

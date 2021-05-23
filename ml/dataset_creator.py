@@ -2,7 +2,7 @@ import argparse
 import ML_util
 import os
 
-from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL
+from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="dataset_creator\n")
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     parser.add_argument('--should_filter', type=bool, help='filter unlabeled units out', default=True)
     parser.add_argument('--verbos', type=bool, help='print information about datasets', default=True)
     parser.add_argument('--save_path', type=str, help='path to save datasets, make sure path exists',
-                        default='../data_sets', )
+                        default='../data_sets/complete/spat_tempo', )
     parser.add_argument('--keep', type=int, help='indices to keep, make sure to put -1 in there for the label',
                         default=[])
 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     should_filter = args.should_filter
     save_path = args.save_path
     verbos = args.verbos
-    keep = SPATIAL#args.keep
+    keep = SPAT_TEMPO#args.keep
 
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
