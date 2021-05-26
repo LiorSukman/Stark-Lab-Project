@@ -29,28 +29,30 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
         correct_pyr += 1 if prediction == label and label == 1 else 0
         correct_in += 1 if prediction == label and label == 0 else 0
 
+    pyr_percent = float('nan') if total_pyr == 0 else 100 * correct_pyr / total_pyr
+    in_percent = float('nan') if total_in == 0 else 100 * correct_in / total_in
+
     if verbos:
         print('Number of correct classified clusters is %d, which is %.4f%s' % (
             correct_clusters, 100 * correct_clusters / total, '%'))
         print('Number of correct classified chunks is %d, which is %.4f%s' % (
             correct_chunks, 100 * correct_chunks / total_chunks, '%'))
         print('Test set consists of %d pyramidal cells and %d interneurons' % (total_pyr, total_in))
-        pyr_percent = float('nan') if total_pyr == 0 else 100 * correct_pyr / total_pyr
-        in_percent = float('nan') if total_in == 0 else 100 * correct_in / total_in
         print('%.4f%s of pyrmidal cells classified correctly' % (pyr_percent, '%'))
         print('%.4f%s of interneurons classified correctly' % (in_percent, '%'))
-    return correct_clusters, correct_clusters / total
+    return correct_clusters, 100 * correct_clusters / total, pyr_percent, in_percent
 
 
 def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_estimators_num,
                 max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
-                min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n):
+                min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n,
+                train=None, dev=None, test=None):
     """
     grid search runner function
     see help for parameter explanations
     """
-
-    train, dev, test, _, _, _ = ML_util.get_dataset(dataset_path)
+    if train is None or dev is None or test is None:
+        train, dev, test, _, _, _ = ML_util.get_dataset(dataset_path)
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
@@ -73,7 +75,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     parameters = {'n_estimators': n_estimatorss, 'max_depth': max_depths, 'min_samples_split': min_samples_splits,
                   'min_samples_leaf': min_samples_leafs}
     model = RandomForestClassifier(class_weight='balanced')
-    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=3)
+    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=0)
     print('Starting grid search...')
     start = time.time()
     clf.fit(features, labels)
@@ -95,14 +97,15 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     print()
     print('Starting evaluation on test set...')
 
-    return evaluate_predictions(classifier, test, scaler, verbos)
+    clust_count, acc, pyr_acc, in_acc = evaluate_predictions(classifier, test, scaler, verbos)
+    return clust_count, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Random forest grid search\n")
 
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/complete/temporal/0_0.60.20.2/')
+                        default='../data_sets/complete/spatial/500_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
     parser.add_argument('--n_estimators_min', type=int, help='minimal power of n_estimators (base 10)', default=0)
     parser.add_argument('--n_estimators_max', type=int, help='maximal power of n_estimators (base 10)', default=2)

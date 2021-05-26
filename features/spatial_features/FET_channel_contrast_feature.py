@@ -18,9 +18,9 @@ def find_dominant_channel(spike):
 
 class ChannelContrast(object):
     """
-    This feature estimates the actual agreement between different channels in relation to zero. While the DAFeature
+    This feature estimates the actual agreement between different channels in relation to zero. While the DA Feature
     only deals in the absolute number of channels that are in disagreement, this feature expands on that and aspires to
-     actually model the pattern of disagrement using dot products between dhifferent channels and the main channel.
+    actually model the pattern of disagrement using dot products between dhifferent channels and the main channel.
     """
 
     def __init__(self):
