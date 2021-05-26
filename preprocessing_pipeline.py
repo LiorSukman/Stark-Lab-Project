@@ -1,3 +1,5 @@
+from turtledemo.chaos import plot
+
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -22,6 +24,17 @@ from features.temporal_features_calc import calc_temporal_features, get_temporal
 
 TEMP_PATH = 'temp_state\\'
 
+def show_cluster(load_path, name):
+    files = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f)) and name+'_' in f]
+    assert len(files) == 2
+    spikes_f, timimg_f = files
+    if 'timing' not in timimg_f:
+        spikes_f, timimg_f = timimg_f, spikes_f
+    cluster = Cluster()
+    cluster.load_cluster(spikes_f)
+    cluster.load_cluster(timimg_f)
+    assert cluster.assert_legal()
+    cluster.plot_cluster()
 
 def create_fig(load_path, rows, cols):
     clusters = set()
@@ -218,6 +231,8 @@ if __name__ == "__main__":
                         help='path to load clusters from, make sure directory exists')
     parser.add_argument('--display', type=bool, default=False,
                         help='display a set of random clusters')
+    parser.add_argument('--plot_cluster', type=str, default='m649r1_3_2_7',
+                        help='display a specific cluster')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
 
     args = parser.parse_args()
@@ -227,9 +242,14 @@ if __name__ == "__main__":
     save_path = args.save_path
     arg_load_path = args.load_path
     spv_mat = args.spv_mat
+    plot_cluster = args.plot_cluster
 
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
+
+    if plot_cluster is not None:
+        show_cluster(arg_load_path, plot_cluster)
+        sys.exit(0)
 
     if args.display:
         create_fig(arg_load_path, 10, 8)

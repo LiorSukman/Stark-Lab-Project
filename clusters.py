@@ -122,16 +122,35 @@ class Cluster(object):
             self.timings = np.load(path)
 
     def assert_legal(self):
-        if self.filename is None or\
-                self.num_within_file is None or\
-                self.shank is None or\
-                self.spikes is None or\
-                self.np_spikes is None or\
+        if self.filename is None or \
+                self.num_within_file is None or \
+                self.shank is None or \
+                self.spikes is None or \
+                self.np_spikes is None or \
                 self.timings is None:
             print(self.filename, self.num_within_file, self.shank)
             return False
         return True
 
     def plot_cluster(self, ax=None):
-        mean_spike = self.calc_mean_waveform()
-        mean_spike.plot_spike(ax)
+        if ax is not None:
+            mean_spike = self.calc_mean_waveform()
+            mean_spike.plot_spike(ax)
+        else:
+            #mean_spike = self.calc_mean_waveform()
+            #mean_spike.plot_spike()
+            #return
+            fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True)
+            mean_spike = self.np_spikes.mean(axis=0)
+            std_spike = self.np_spikes.std(axis=0)
+            for i, c_ax in enumerate(ax):
+                mean_channel = mean_spike[i]
+                std_channel = std_spike[i]
+                c_ax.plot(np.arange(TIMESTEPS), mean_channel)
+                if i == 0:
+                    print(mean_channel)
+                    print(std_channel)
+                c_ax.fill_between(np.arange(TIMESTEPS), mean_channel - std_channel, mean_channel + std_channel,
+                                  color='gray', alpha=0.2)
+            fig.suptitle(f"Cluster {self.get_unique_name()} of type {'PYR' if self.label == 1 else 'IN' if self.label==0 else 'UT' }")
+            plt.show()
