@@ -40,9 +40,9 @@ def match_spike(spike, w, w_norm, rss):
     return wvlt
 
 
-def calc_window(a, b, c, n):
+def calc_window(a, b, n):
     b = int(b)
-    g = a * signal.windows.gaussian(2 * n + 1, c)
+    g = a * signal.windows.gaussian(2 * n + 1, 5)
     g = g[n - b: -1 - b]
     return g
 
@@ -50,10 +50,10 @@ def calc_window(a, b, c, n):
 def sp_match_spike(channel, x_data, cons, w, w_norm, rss):
     if not cons:
         popt, _ = curve_fit(gaussian_function, x_data, channel,
-                            bounds=([2 * min(-1, channel.min()), 0, 1], [0, len(x_data), 50]),
-                            p0=[min(-1, channel.min()), len(x_data) / 2, 10], max_nfev=5000)
-        a, b, c = popt
-        spike = calc_window(a, b, c, len(x_data))
+                            bounds=([2 * min(-1, channel.min()), 0], [0, len(x_data)]),
+                            p0=[min(-1, channel.min()), len(x_data) / 2], max_nfev=5000)
+        a, b = popt
+        spike = calc_window(a, b, len(x_data))
     else:
         spike = match_spike(channel, w, w_norm, rss)
     return spike
@@ -77,8 +77,8 @@ def sp_wavelet_transform(chunks, cons):
 
     return ret
 
-def gaussian_function(x, a, b, c):
-    return a * np.exp((-(x - b) ** 2) / c ** 2)
+def gaussian_function(x, a, b):
+    return a * np.exp((-(x - b) ** 2) / 25)
 
 def cons_gaussian_function(x, a, b):
     return a * np.exp((-(x - b) ** 2) / 25)
