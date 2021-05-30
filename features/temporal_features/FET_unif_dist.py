@@ -1,14 +1,14 @@
 import numpy as np
 
 
-# TODO fix all descriptions
-
 class UnifDist(object):
     """
-    TODO add description
+    This feature compares the starting band cumulative distribution function of the histogram to a linear (uniform)
+    change.
     """
 
     def __init__(self, resolution=2, cdf_range=30):
+        # see temporal_features_calc.py for use of those fields
         self.resolution = resolution
         self.cdf_range = cdf_range
 
@@ -17,10 +17,12 @@ class UnifDist(object):
     def calculate_feature(self, start_cdf=None, rhs=None, **kwargs):
         """
         inputs:
-        spike_lst: A list of Spike object that the feature will be calculated upon.
+        start_cdf: One dimensional ndarray. Starting part of the cumulative distribution function
+        rhs: One dimensional ndarray. Right hand side of the histogram, used for calculation of the start_cdf if not provided
+        kwargs: Can be ignored, used only for compatibility
 
         returns:
-        A matrix in which entry (i, j) refers to the j metric of Spike number i.
+        Calculated feature value as described before.
         """
         if start_cdf is None:
             assert rhs is not None

@@ -54,17 +54,24 @@ def parse_test(data):
     return features, label[0]
 
 
-def is_legal(cluster):
+def is_legal(cluster, mode):
     """
    This function determines whether or not a cluster's label is legal. It is assumed that all waveforms
    of the cluster have the same label.
    To learn more about the different labels please refer to the pdf file or the read_data.py file
    """
     row = cluster[0]
-    return row[-1] >= 0  # and row[-2] >= 100 and row[-3] >= 8000
+    if mode == 'complete':
+        return row[-1] >= 0
+    elif mode == 'no_noise':
+        return row[-1] >= 0 and row[-2] >= 100
+    elif mode == 'no_small_sample':
+        return row[-1] >= 0 and row[-3] >= 8000
+    else:
+        return row[-1] >= 0 and row[-2] >= 100 and row[-3] >= 8000
 
 
-def read_data(path, should_filter=True, keep=None):
+def read_data(path, mode='complete', should_filter=True, keep=None):
     """
    The function reads the data from all files in the path.
    It is assumed that each file represents a single cluster, and have some number of waveforms.
@@ -84,7 +91,7 @@ def read_data(path, should_filter=True, keep=None):
         nd = df.to_numpy(dtype='float64')
 
         if should_filter:
-            if is_legal(nd):
+            if is_legal(nd, mode):
                 if keep:  # i.e. keep != []
                     nd = nd[:, keep]
                 clusters.append(nd)
@@ -124,7 +131,7 @@ def was_created(paths, per_train, per_dev, per_test):
     return True
 
 
-def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt', should_filter=True,
+def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt', mode='complete', should_filter=True,
                     save_path='../data_sets', verbos=False, keep=None, group_split=True):
     """
    The function creates all datasets from the data referenced by the datasets file and saves them
@@ -148,7 +155,7 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
     for name, path in zip(names, paths):
         if not should_load:
             print('Reading data from %s...' % path)
-            data, cluster_names, recording_names = read_data(path, should_filter, keep=keep)
+            data, cluster_names, recording_names = read_data(path, mode, should_filter, keep=keep)
             if not group_split:
                 data, cluster_names, recording_names = break_data(data, cluster_names, recording_names)
                 if not inds_initialized:

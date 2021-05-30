@@ -1,13 +1,13 @@
 import numpy as np
 
-# TODO fix all descriptions
 
 class Jump(object):
     """
-    TODO add description
+    This feature compares the middle band of the histogram to a linear change.
     """
 
     def __init__(self, resolution=2, jmp_min=50, jmp_max=1200):
+        # see temporal_features_calc.py for use of those fields
         self.resolution = resolution
         self.jmp_min = jmp_min
         self.jmp_max = jmp_max
@@ -17,10 +17,11 @@ class Jump(object):
     def calculate_feature(self, mid_band=None, rhs=None, **kwargs):
         """
         inputs:
-        spike_lst: A list of Spike object that the feature will be calculated upon.
+        rhs: One dimensional ndarray. Right hand side of the histogram, used for calculation of the start_cdf if not provided
+        kwargs: Can be ignored, used only for compatibility
 
         returns:
-        A matrix in which entry (i, j) refers to the j metric of Spike number i.
+        Calculated feature value as described before.
         """
         if mid_band is None:
             assert rhs is not None

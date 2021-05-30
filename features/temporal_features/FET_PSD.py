@@ -1,11 +1,11 @@
 import numpy as np
 import scipy.signal as signal
 
-# TODO fix all descriptions
 
 class PSD(object):
     """
-    TODO add description
+    This feature performs power spectral analysis on the histogram calculating the centroid of the power spectral
+    density and the centroid of its derivative
     """
 
     def __init__(self):
@@ -14,18 +14,19 @@ class PSD(object):
     def calculate_feature(self, rhs, **kwargs):
         """
         inputs:
-        spike_lst: A list of Spike object that the feature will be calculated upon.
+        rhs: One dimensional ndarray. Right hand side of the histogram, used for calculation of the start_cdf if not provided
+        kwargs: Can be ignored, used only for compatibility
 
         returns:
-        A matrix in which entry (i, j) refers to the j metric of Spike number i.
+        Calculated measurements of the feature value as described before.
         """
         f, pxx = signal.periodogram(rhs, 20_000)
-        centeroid = np.sum(f * pxx) / np.sum(pxx)  # TODO maybe it shoud be the || of pxx
+        centroid = np.sum(f * pxx) / np.sum(pxx)  # TODO maybe it should be the || of pxx
 
         der_pxx = np.abs(np.gradient(pxx))  # TODO check if there really can be negative values here
-        der_centeroid = np.sum(f * der_pxx) / np.sum(der_pxx)  # TODO maybe it shoud be the || of pxx
+        der_centroid = np.sum(f * der_pxx) / np.sum(der_pxx)  # TODO maybe it shoud be the || of pxx
 
-        return [[centeroid, der_centeroid]]
+        return [[centroid, der_centroid]]
 
     def set_fields(self, **kwargs):
         pass
