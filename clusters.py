@@ -137,13 +137,10 @@ class Cluster(object):
             mean_spike = self.calc_mean_waveform()
             mean_spike.plot_spike(ax)
         else:
-            #mean_spike = self.calc_mean_waveform()
-            #mean_spike.plot_spike()
-            #return
             fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True)
             mean_spike = self.np_spikes.mean(axis=0)
             std_spike = self.np_spikes.std(axis=0)
-            for i, c_ax in enumerate(ax):
+            for i, c_ax in enumerate(ax[::-1]):
                 mean_channel = mean_spike[i]
                 std_channel = std_spike[i]
                 c_ax.plot(np.arange(TIMESTEPS), mean_channel)
