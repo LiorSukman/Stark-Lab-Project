@@ -144,9 +144,6 @@ class Cluster(object):
                 mean_channel = mean_spike[i]
                 std_channel = std_spike[i]
                 c_ax.plot(np.arange(TIMESTEPS), mean_channel)
-                if i == 0:
-                    print(mean_channel)
-                    print(std_channel)
                 c_ax.fill_between(np.arange(TIMESTEPS), mean_channel - std_channel, mean_channel + std_channel,
                                   color='gray', alpha=0.2)
             fig.suptitle(f"Cluster {self.get_unique_name()} of type {'PYR' if self.label == 1 else 'IN' if self.label==0 else 'UT' }")

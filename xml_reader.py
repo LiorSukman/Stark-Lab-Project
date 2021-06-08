@@ -1,20 +1,25 @@
 import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
-PATH = "xmls/"
 
-if __name__ == '__main__':
+PATH = "Data/"
+
+
+def read_xml(path):
     ret = {}
 
-    path_list = Path(PATH).rglob('*.xml')  # make sure that this is recursive
+    path_list = Path(path).rglob('*.xml')
+
     for xml_path in path_list:
         xml_path = str(xml_path)
+        if 'clu' in xml_path or 'prm' in xml_path or 'fet' in xml_path:
+            continue
         tree = ET.parse(xml_path)
         root = tree.getroot()
 
         spikes = root.find('spikeDetection')
         groups = spikes.find('channelGroups').findall('group')
-        file_name = xml_path.split('_')[-1][:-4]
+        file_name = '.'.join(xml_path.split('\\')[-1].split('.')[:-1])
 
         for i, group in enumerate(groups):
             channels = group.find('channels')
@@ -23,4 +28,8 @@ if __name__ == '__main__':
                 print(f"File {file_name} on shank {i + 1} has only {num_channels} recording sites")
             ret[f"{file_name}_{i + 1}"] = num_channels
 
-        return ret
+    return ret
+
+
+if __name__ == '__main__':
+    print(len(read_xml(PATH)))

@@ -248,7 +248,7 @@ def read_directory(path, cell_class_mat, i):
     return clusters_list
 
 
-def read_all_directories(path_to_dirs_file, path_to_mat):
+def read_all_directories(path_to_dirs_file, path_to_mat, groups=None):
     """
     The main function of the file, called from the pipeline.
     This is a generator function 
@@ -269,6 +269,10 @@ def read_all_directories(path_to_dirs_file, path_to_mat):
         for i in range(1, 5):
             if str(i) in remove_inds:  # skip shanks according to instruction in dirs file
                 print('Skipped shank %d in file %s' % (i, data_dir))
+                continue
+            name = data_dir.split('\\')[1] + f"_{i}"
+            if groups is not None and groups[name] != 8:
+                print('Skipped shank %d in file %s according to xml' % (i, data_dir))
                 continue
             dir_clusters = read_directory(data_dir, cell_class_mat, i)  # read the data files of shank i
             print("the number of clusters is: " + str(len(dir_clusters)))

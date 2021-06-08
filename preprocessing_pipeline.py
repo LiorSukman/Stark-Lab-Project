@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 
 from read_data import read_all_directories
 from clusters import Spike, Cluster
+from xml_reader import read_xml
 from constants import UPSAMPLE, VERBOS, SEED
 
 # import the different features
@@ -47,7 +48,7 @@ def create_fig(load_path, rows, cols):
         if counter == rows * cols:
             break
         path_elements = file.split('\\')[-1].split('__')
-        if 'timing' in path_elements[-1] or int(path_elements[-2]) != 0:
+        if 'timing' in path_elements[-1]:
             continue
         unique_name = path_elements[0]
         if unique_name not in clusters:
@@ -132,8 +133,12 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
     return ret
 
 
-def only_save(path, mat_file):
-    clusters_generator = read_all_directories(path, mat_file)
+def only_save(path, mat_file, xml):
+    if xml:
+        groups = read_xml('Data/')
+    else:
+        groups = None
+    clusters_generator = read_all_directories(path, mat_file, groups)
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
             cluster.fix_punits()
@@ -227,13 +232,15 @@ if __name__ == "__main__":
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default='temp_state\\',
                         help='path to load clusters from, make sure directory exists')
-    parser.add_argument('--calc_features', type=bool, default=True,
+    parser.add_argument('--calc_features', type=bool, default=False,
                         help='path to load clusters from, make sure directory exists')
-    parser.add_argument('--display', type=bool, default=False,
+    parser.add_argument('--display', type=bool, default=True,
                         help='display a set of random clusters')
-    parser.add_argument('--plot_cluster', type=str, default='m649r1_3_2_7',
+    parser.add_argument('--plot_cluster', type=str, default=None,
                         help='display a specific cluster')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
+    parser.add_argument('--xml', type=bool, default=True, help='whether to assert using information in xml files when '
+                                                               'reading the raw data')
 
     args = parser.parse_args()
 
@@ -243,6 +250,7 @@ if __name__ == "__main__":
     arg_load_path = args.load_path
     spv_mat = args.spv_mat
     plot_cluster = args.plot_cluster
+    xml = args.xml
 
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
@@ -258,4 +266,4 @@ if __name__ == "__main__":
     if args.calc_features:
         run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path)
     else:
-        only_save(dirs_file, spv_mat)
+        only_save(dirs_file, spv_mat, xml)

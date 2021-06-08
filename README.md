@@ -1,7 +1,6 @@
 # stark-project
-Authors:
+Author:
 - Lior sukman (lior.sukman@gmail.com)
-- Gil davidovic (gilnd99@gmail.com)
 
 This project contains several directories:
 - \Data: a directory containing the raw data, it is not submmited due to its large size
