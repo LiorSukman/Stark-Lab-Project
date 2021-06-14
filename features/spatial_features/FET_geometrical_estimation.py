@@ -77,7 +77,7 @@ class GeometricalEstimation(object):
             shifts[0][i - 1] = geo_avgs[i][d] - geo_avgs[i - 1][d]
         return shifts
 
-    def calculate_feature(self, spike_lst):
+    def calculate_feature(self, wvlt_lst, spike_lst):
         """
         inputs:
         spike_lst: A list of Spike object that the feature will be calculated upon.
@@ -85,10 +85,10 @@ class GeometricalEstimation(object):
         returns:
         A matrix in which entry (i, j) refers to the j metric of Spike number i.
         """
-        result = np.zeros((len(spike_lst), 3))
+        result = np.zeros((len(wvlt_lst), 3))
         coordinates = COORDINATES
 
-        for j, spike in enumerate(spike_lst):
+        for j, spike in enumerate(wvlt_lst):
             geo_avgs = np.zeros((TIMESTEPS * UPSAMPLE, 2))
             is_valid = np.zeros((TIMESTEPS * UPSAMPLE))
 
@@ -106,6 +106,22 @@ class GeometricalEstimation(object):
 
             result[j, 0] = np.mean(shifts_2d, axis=1)
             result[j, 1] = np.std(shifts_2d, axis=1)
+
+        for j, spike in enumerate(spike_lst):
+            geo_avgs = np.zeros((TIMESTEPS * UPSAMPLE, 2))
+            is_valid = np.zeros((TIMESTEPS * UPSAMPLE))
+
+            arr = spike.get_data()
+            for i in range(TIMESTEPS * UPSAMPLE):
+                # channels that are positive need to be considered in reverse in terms of average calculation
+                channels = arr[:, i] * (-1)
+                x, y, valid = self.calculate_geo_estimation(channels, coordinates)
+                geo_avgs[i, 0], geo_avgs[i, 1] = x, y
+                is_valid[i] = valid
+
+            geo_avgs = self.remove_not_valid(geo_avgs, is_valid)
+            dists = cdist(geo_avgs, geo_avgs)
+
             result[j, 2] = dists.max()
 
         return result
@@ -115,5 +131,4 @@ class GeometricalEstimation(object):
         """
         Returns a list of titles of the different metrics
         """
-        # return ["geometrical_avg_shift", "geometrical_shift_sd", "geometrical_displacement", "geometrical_max_dist"]
         return ["geometrical_avg_shift", "geometrical_shift_sd", "geometrical_max_dist"]

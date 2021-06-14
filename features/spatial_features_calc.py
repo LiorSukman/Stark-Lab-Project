@@ -49,9 +49,9 @@ def calc_window(a, b, n):
 
 def sp_match_spike(channel, x_data, cons, w, w_norm, rss):
     if not cons:
-        popt, _ = curve_fit(gaussian_function, x_data, channel,
+        popt, _ = curve_fit(cons_gaussian_function, x_data, channel,
                             bounds=([2 * min(-1, channel.min()), 0], [0, len(x_data)]),
-                            p0=[min(-1, channel.min()), len(x_data) / 2], max_nfev=5000)
+                            p0=[min(-1, channel.min()), len(x_data) / 2], max_nfev=10_000)
         a, b = popt
         spike = calc_window(a, b, len(x_data))
     else:
@@ -77,9 +77,6 @@ def sp_wavelet_transform(chunks, cons):
 
     return ret
 
-def gaussian_function(x, a, b):
-    return a * np.exp((-(x - b) ** 2) / 25)
-
 def cons_gaussian_function(x, a, b):
     return a * np.exp((-(x - b) ** 2) / 25)
 
@@ -95,7 +92,7 @@ def calc_spatial_features(chunks):
     for feature in tempo_spatial_features:
         start_time = time.time()
         if isinstance(feature, GeometricalEstimation):
-            mat_result = feature.calculate_feature(wavelets)  # calculates the features, returns a matrix
+            mat_result = feature.calculate_feature(wavelets, chunks)  # calculates the features, returns a matrix
         else:
             mat_result = feature.calculate_feature(cons_wavelets)  # calculates the features, returns a matrix
         if feature_mat_for_cluster is None:
