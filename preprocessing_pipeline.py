@@ -70,10 +70,13 @@ def create_fig(load_path, rows, cols):
     plt.show()
 
 
-def load_clusters(load_path):
+def load_clusters(load_path, groups=None):
     files_list = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))]
     clusters = set()
     for file in tqdm(files_list):
+        name = '_'.join(file.split('\\')[-1].split('__')[0].split('_')[:-1])
+        if groups is not None and groups[name] != 8:
+            continue
         start_time = time.time()
         path_elements = file.split('\\')[-1].split('__')
         if 'timing' in path_elements[-1]:
@@ -145,7 +148,7 @@ def only_save(path, mat_file, xml):
             cluster.save_cluster(TEMP_PATH)
 
 
-def run(path, chunk_sizes, csv_folder, mat_file, load_path):
+def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
     """
     main pipeline function
     input:
@@ -157,10 +160,15 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path):
 
     The function creates csv files with the features for the different units 
     """
-    if load_path is None:
-        clusters_generator = read_all_directories(path, mat_file)
+    if xml:
+        groups = read_xml('Data/')
     else:
-        clusters_generator = load_clusters(load_path)
+        groups = None
+
+    if load_path is None:
+        clusters_generator = read_all_directories(path, mat_file, groups)
+    else:
+        clusters_generator = load_clusters(load_path, groups)
 
     # define headers for saving later 
     headers = get_spatial_features_names()
@@ -232,9 +240,9 @@ if __name__ == "__main__":
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default='temp_state\\',
                         help='path to load clusters from, make sure directory exists')
-    parser.add_argument('--calc_features', type=bool, default=False,
+    parser.add_argument('--calc_features', type=bool, default=True,
                         help='path to load clusters from, make sure directory exists')
-    parser.add_argument('--display', type=bool, default=True,
+    parser.add_argument('--display', type=bool, default=False,
                         help='display a set of random clusters')
     parser.add_argument('--plot_cluster', type=str, default=None,
                         help='display a specific cluster')
@@ -264,6 +272,6 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.calc_features:
-        run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path)
+        run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path, xml)
     else:
         only_save(dirs_file, spv_mat, xml)
