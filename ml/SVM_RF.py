@@ -171,7 +171,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
         # (default is first two)
         visualize_model(train_features[:20, :], train_labels[:20], clf, h=0.5)
 
-    return chunk_per, clust_per, pyr_per, in_per
+    return clf, clust_per, pyr_per, in_per
 
 
 if __name__ == "__main__":

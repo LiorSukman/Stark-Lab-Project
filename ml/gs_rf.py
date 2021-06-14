@@ -98,7 +98,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     print('Starting evaluation on test set...')
 
     clust_count, acc, pyr_acc, in_acc = evaluate_predictions(classifier, test, scaler, verbos)
-    return clust_count, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf
+    return classifier, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf
 
 
 if __name__ == "__main__":
