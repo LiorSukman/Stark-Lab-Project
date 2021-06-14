@@ -8,7 +8,7 @@ from torch.autograd import Variable
 from clusters import Spike
 from sklearn.model_selection import GroupShuffleSplit
 
-from constants import SEED
+from constants import SEED, SESSION_TO_ANIMAL
 
 
 def create_batches(data, batch_size, should_shuffle=True):
@@ -63,11 +63,11 @@ def is_legal(cluster, mode):
     row = cluster[0]
     if mode == 'complete':
         return row[-1] >= 0
-    elif mode == 'no_noise':
+    elif mode == 'no_noise':  # currently obsolete
         return row[-1] >= 0 and row[-2] >= 100
     elif mode == 'no_small_sample':
         return row[-1] >= 0 and row[-3] >= 8000
-    else:
+    else:   # currently obsolete
         return row[-1] >= 0 and row[-2] >= 100 and row[-3] >= 8000
 
 
@@ -102,7 +102,7 @@ def read_data(path, mode='complete', should_filter=True, keep=None):
                 nd = nd[:, keep]
             clusters.append(nd)
         names.append(name)
-        recordings.append('_'.join(name.split('_')[0:-2]))
+        recordings.append(SESSION_TO_ANIMAL['_'.join(name.split('_')[0:-2])])
     return np.asarray(clusters), np.array(names), np.array(recordings)
 
 
@@ -230,9 +230,9 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
     full_path = path + '/' + name if path is not None else None
     if path is not None and os.path.exists(full_path) and should_load:
         print('Loading data set from %s...' % full_path)
-        train = np.load(full_path + 'train.npy')
-        dev = np.load(full_path + 'dev.npy')
-        test = np.load(full_path + 'test.npy')
+        train = np.load(full_path + 'train.npy', pickle=True)
+        dev = np.load(full_path + 'dev.npy', pickle=True)
+        test = np.load(full_path + 'test.npy', pickle=True)
     else:
         per_dev += per_train
 

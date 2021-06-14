@@ -28,7 +28,7 @@ if __name__ == "__main__":
     datasets = args.datasets
     should_filter = args.should_filter
     save_path = args.save_path
-    verbose = args.verbos
+    verbose = args.verbose
     keep = args.keep
 
     if not os.path.isdir(save_path):
@@ -39,20 +39,20 @@ if __name__ == "__main__":
                                 datasets=datasets, should_filter=should_filter,
                                 save_path=save_path, verbos=verbose, keep=keep)
     else:
-        restrictions = ['complete', 'no_noise', 'no_small_sample', 'no_noise_nor_ss']
+        restrictions = ['complete', 'no_small_sample']
         modalities = [('spatial', SPATIAL), ('morphological', MORPHOLOGICAL), ('temporal', TEMPORAL),
                       ('spat_tempo', SPAT_TEMPO)]
         for r in restrictions:
             new_path = save_path + f"/{r}"
-            if not os.path.isdisave_pathr():
+            if not os.path.isdir(new_path):
                 os.mkdir(new_path)
             for name, places in modalities:
-                new_path += f"/{name}/"
-                if not os.path.isdisave_pathr():
-                    os.mkdir(new_path)
+                new_new_path = new_path + f"/{name}/"
+                if not os.path.isdir(new_new_path):
+                    os.mkdir(new_new_path)
                 keep = places
                 ML_util.create_datasets(per_train=per_train, per_dev=per_dev, per_test=per_test,
                                         datasets=datasets, should_filter=should_filter,
-                                        save_path=save_path, verbos=verbose, keep=keep, mode=r)
+                                        save_path=new_new_path, verbos=verbose, keep=keep, mode=r)
 
 

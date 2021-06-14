@@ -4,6 +4,7 @@
 **/clustersData_default
 **/Data
 **/temp_state
+**/temp_problematic
 **/__pycache__
 **/saved_models
 **/data_sets
