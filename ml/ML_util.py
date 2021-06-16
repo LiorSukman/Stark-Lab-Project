@@ -132,7 +132,7 @@ def was_created(paths, per_train, per_dev, per_test):
 
 
 def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt', mode='complete', should_filter=True,
-                    save_path='../data_sets', verbos=False, keep=None, group_split=True):
+                    save_path='../data_sets', verbos=False, keep=None, group_split=True, seed=None):
     """
    The function creates all datasets from the data referenced by the datasets file and saves them
    """
@@ -159,7 +159,10 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
             if not group_split:
                 data, cluster_names, recording_names = break_data(data, cluster_names, recording_names)
                 if not inds_initialized:
-                    np.random.seed(SEED)
+                    if seed is None:
+                        np.random.seed(SEED)
+                    else:
+                        np.random.seed(seed)
                     for c in data:
                         inds_temp = np.arange(c.shape[0])
                         np.random.shuffle(inds_temp)
@@ -173,8 +176,9 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
             cluster_names = None
             recording_names = None
         print('Splitting %s set...' % name)
-        split_data(data, cluster_names, recording_names,  per_train=per_train, per_dev=per_dev, per_test=per_test, path=save_path,
-                   data_name=name, should_shuffle=False, should_load=should_load, verbos=verbos, group_split=group_split)
+        split_data(data, cluster_names, recording_names,  per_train=per_train, per_dev=per_dev, per_test=per_test,
+                   path=save_path, data_name=name, should_shuffle=False, should_load=should_load, verbos=verbos,
+                   group_split=group_split, seed=seed)
 
 
 def get_dataset(path):
@@ -216,7 +220,7 @@ def take_partial_data(data, start, end):
 
 
 def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True,
-               data_name='', should_shuffle=True, verbos=False, group_split=True):
+               data_name='', should_shuffle=True, verbos=False, group_split=True, seed=None):
     """
    This function recieves the data as an ndarray. The first level is the different clusters, i.e each file,
    the second level is the different waveforms whithin each clusters and the third is the actual features
@@ -249,7 +253,10 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
             test = take_partial_data(data, per_dev, 1)
             test_names = take_partial_data(names, per_dev, 1)
         else:
-            gss = GroupShuffleSplit(n_splits=1, train_size=per_dev, random_state=SEED)
+            if seed is None:
+                gss = GroupShuffleSplit(n_splits=1, train_size=per_dev, random_state=SEED)
+            else:
+                gss = GroupShuffleSplit(n_splits=1, train_size=per_dev, random_state=seed)
             train_inds, test_inds = next(gss.split(None, None, recordings))
             train = data[train_inds]
             train_names = names[train_inds]

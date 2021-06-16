@@ -224,9 +224,6 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
                 path += '\\' + cluster.get_unique_name() + ".csv"
                 df = pd.DataFrame(data=feature_mat_for_cluster)
                 df.to_csv(path_or_buf=path, index=False, header=headers)  # save to csv
-            """path = csv_folder + cluster.get_unique_name() + ".csv"
-            df = pd.DataFrame(data=temporal_features_mat)
-            df.to_csv(path_or_buf=path, index=False, header=headers)"""
             print('saved clusters to csv')
 
 

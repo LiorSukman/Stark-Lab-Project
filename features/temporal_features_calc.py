@@ -14,18 +14,21 @@ features = [DKL(), Jump(), PSD(), RiseTime(), UnifDist()]
 
 
 def calc_temporal_histogram(time_lst, bins):
-    """ret = np.zeros(len(bins) - 1)
+    ret = np.zeros(len(bins) - 1)
     for i in range(len(time_lst)):
-        hist, _ = np.histogram(time_lst - time_lst[i], bins=bins)
-        ret += hist"""
+        ref_time_list = time_lst - time_lst[i]
+        mask = (ref_time_list > 0) * (ref_time_list < 1200)
+        ref_time_list = ref_time_list[mask]
+        hist, _ = np.histogram(ref_time_list, bins=bins)
+        ret += hist
 
-    diffs = np.convolve(np.sort(time_lst), [1, -1], mode='valid')
-    hist, _ = np.histogram(diffs, bins=bins)
+    """diffs = np.convolve(np.sort(time_lst), [1, -1], mode='valid')
+    hist, _ = np.histogram(diffs, bins=bins)"""
 
-    return hist
+    return ret
 
 
-def calc_temporal_features(time_lst, resolution=2, bin_range=1500, upsample=8, cdf_range=30, jmp_min=50, jmp_max=1200):
+def calc_temporal_features(time_lst, resolution=2, bin_range=1200, upsample=8, cdf_range=30, jmp_min=50, jmp_max=1200):
     feature_mat_for_cluster = None
 
     """if len(time_lst) < MIN_TIME_LIST:
