@@ -132,7 +132,7 @@ def was_created(paths, per_train, per_dev, per_test):
 
 
 def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt', mode='complete', should_filter=True,
-                    save_path='../data_sets', verbos=False, keep=None, group_split=True, seed=None):
+                    save_path='../data_sets', verbos=False, keep=None, group_split=False, seed=None):
     """
    The function creates all datasets from the data referenced by the datasets file and saves them
    """

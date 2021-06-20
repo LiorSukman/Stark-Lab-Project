@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from read_data import read_all_directories
 from clusters import Spike, Cluster
 from xml_reader import read_xml
-from constants import UPSAMPLE, VERBOS, SEED
+from constants import UPSAMPLE, VERBOS, SEED, SESSION_TO_ANIMAL
 
 # import the different features
 from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names
@@ -179,6 +179,10 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
             print('Processing cluster:' + cluster.get_unique_name())
+            recording_name = '_'.join(cluster.get_unique_name().split('_')[:-2])
+            if SESSION_TO_ANIMAL[recording_name] == 401:
+                print('Skipped cluster from animal 401')
+                continue
             max_abs = np.absolute(cluster.calc_mean_waveform().get_data()).max()
             # print('Fixing punits...')
             if load_path is None:
