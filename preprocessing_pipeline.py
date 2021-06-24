@@ -142,10 +142,18 @@ def only_save(path, mat_file, xml):
     else:
         groups = None
     clusters_generator = read_all_directories(path, mat_file, groups)
+    punits_counter = 0
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
-            cluster.fix_punits()
+            recording_name = '_'.join(cluster.get_unique_name().split('_')[:-2])
+            if SESSION_TO_ANIMAL[recording_name] == 401:
+                print('Skipped cluster from animal 401')
+                continue
+            is_punit = cluster.fix_punits()
+            if is_punit:
+                punits_counter += 1
             cluster.save_cluster(TEMP_PATH)
+    print(f"number of punits is {punits_counter}")
 
 
 def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):

@@ -88,7 +88,10 @@ class Cluster(object):
         """
         mean_spike = self.calc_mean_waveform()
         if mean_spike.is_punit():
+            print(f"{self.get_unique_name()} was found to be a punit")
             self.np_spikes = self.np_spikes * -1
+            return True
+        return False
 
     def finalize_cluster(self):
         """

@@ -13,6 +13,7 @@ if __name__ == "__main__":
     parser.add_argument('--datasets', type=str, help='path to data dirs', default='datas.txt')
     parser.add_argument('--should_filter', type=bool, help='filter unlabeled units out', default=True)
     parser.add_argument('--verbose', type=bool, help='print information about datasets', default=True)
+    parser.add_argument('--group_split', type=bool, help='whether to split based on animals or on units', default=False)
     parser.add_argument('--save_path', type=str, help='path to save datasets, make sure path exists',
                         default='../data_sets')
     parser.add_argument('--keep', type=int, help='indices to keep, make sure to put -1 in there for the label',
@@ -30,6 +31,7 @@ if __name__ == "__main__":
     save_path = args.save_path
     verbose = args.verbose
     keep = args.keep
+    group_split = args.group_split
 
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
@@ -52,7 +54,7 @@ if __name__ == "__main__":
                     os.mkdir(new_new_path)
                 keep = places
                 ML_util.create_datasets(per_train=per_train, per_dev=per_dev, per_test=per_test,
-                                        datasets=datasets, should_filter=should_filter,
+                                        datasets=datasets, should_filter=should_filter, group_split=group_split,
                                         save_path=new_new_path, verbos=verbose, keep=keep, mode=r)
 
 
