@@ -234,9 +234,9 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
     full_path = path + '/' + name if path is not None else None
     if path is not None and os.path.exists(full_path) and should_load:
         print('Loading data set from %s...' % full_path)
-        train = np.load(full_path + 'train.npy', pickle=True)
-        dev = np.load(full_path + 'dev.npy', pickle=True)
-        test = np.load(full_path + 'test.npy', pickle=True)
+        train = np.load(full_path + 'train.npy', allow_pickle=True)
+        dev = np.load(full_path + 'dev.npy', allow_pickle=True)
+        test = np.load(full_path + 'test.npy', allow_pickle=True)
     else:
         per_dev += per_train
 

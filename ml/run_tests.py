@@ -12,7 +12,6 @@ from SVM_RF import run as run_model
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
 
 chunks = [0, 500, 200]
-modalities = ['spatial', 'morphological', 'temporal', 'spat_tempo']
 restrictions = ['complete', 'no_small_sample']
 
 n_estimators_min = 0
@@ -128,7 +127,7 @@ def calc_auc(clf, data_path):
     return auc_val
 
 
-def get_modality_results(data_path):
+def get_modality_results(data_path, seed):
     accs, pyr_accs, in_accs, aucs = [], [], [], []
 
     clf, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search(
@@ -143,6 +142,7 @@ def get_modality_results(data_path):
     aucs.append(auc)
 
     restriction, modality = data_path.split('/')[-2:]
+    restriction = '_'.join(restriction.split('_')[:-1])
 
     if modality == 'temporal':
         accs = accs * len(chunks)
@@ -162,7 +162,7 @@ def get_modality_results(data_path):
             in_accs.append(in_acc)
             aucs.append(auc)
 
-    df = pd.DataFrame({'restriction': restriction, 'modality': modality, 'chunk_size': chunks,
+    df = pd.DataFrame({'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [seed] * len(accs),
                        'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs})
 
     return df
@@ -170,9 +170,10 @@ def get_modality_results(data_path):
 
 def get_folder_results(data_path):
     df = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
+        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
+    seed = data_path.split('_')[-1]
     for modality in modalities:
-        modality_df = get_modality_results(data_path + '/' + modality)
+        modality_df = get_modality_results(data_path + '/' + modality[0], seed)
         df = df.append(modality_df, ignore_index=True)
 
     return df
@@ -180,10 +181,9 @@ def get_folder_results(data_path):
 
 def get_results(data_path):
     df = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
-    for restriction in restrictions:
-        folder_df = get_folder_results(data_path + '/' + restriction)
-        df = df.append(folder_df, ignore_index=True)
+        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
+    folder_df = get_folder_results(data_path)
+    df = df.append(folder_df, ignore_index=True)
 
     return df
 
@@ -195,7 +195,7 @@ def do_test(data_path):
 if __name__ == "__main__":
     iterations = 10
     results = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
+        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
     save_path = '../data_sets'
     restrictions = ['complete', 'no_small_sample']
     modalities = [('spatial', SPATIAL), ('morphological', MORPHOLOGICAL), ('temporal', TEMPORAL),
@@ -212,18 +212,19 @@ if __name__ == "__main__":
                 keep = places
                 # TODO make sure that the per_dev=0 is ok
                 # TODO in group split it might not be good to just change the seed like this
-                ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt',
+                ML_util.create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt',
                                         should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
                                         seed=i)
-            results.append(do_test(save_path + f"/{r}_{i}"), ignore_index=True)
+            results = results.append(do_test(new_path), ignore_index=True)
+
     results.to_csv('results_rf.csv')
-    results.set_index(['restriction', 'modality', 'chunk_size'], append=True)  # create multi-index
-    grouped = results.groupby(by=['restriction', 'modality', 'chunk_size'])
+    """results = results.set_index(['restriction', 'modality', 'chunk_size'], append=True)  # create multi-index
+    complete = results.loc[:, 'complete', :, :]
+    no_small_sample = results.loc[:, 'no_small_sample', :, :]
+    grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
+    grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
 
-    complete = grouped.loc[:, 'no_small_sample', :, :]
-    no_small_sample = grouped.loc[:, 'no_small_sample', :, :]
-
-    plot_results(complete.mean(), complete.std(), 'complete', acc=True)
-    plot_results(complete.mean(), complete.std(), 'complete', acc=False)
-    plot_results(no_small_sample.mean(), no_small_sample.std(), 'no_small_sample', acc=True)
-    plot_results(no_small_sample.mean(), no_small_sample.std(), 'no_small_sample', acc=False)
+    plot_results(grouped_complete.mean(), grouped_complete.std(), 'complete', acc=True)
+    plot_results(grouped_complete.mean(), grouped_complete.std(), 'complete', acc=False)
+    plot_results(grouped_no_small_sample.mean(), grouped_no_small_sample.std(), 'no_small_sample', acc=True)
+    plot_results(grouped_no_small_sample.mean(), grouped_no_small_sample.std(), 'no_small_sample', acc=False)"""
