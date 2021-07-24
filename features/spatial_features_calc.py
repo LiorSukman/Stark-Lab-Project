@@ -118,7 +118,6 @@ def calc_spatial_features(chunks):
 
 
 def get_spatial_features_names():
-    # TODO: check if this works: names = [(name for name in feature.headers) for feature in features]
     names = []
     for feature in tempo_spatial_features + pure_spatial_features:
         names += feature.headers

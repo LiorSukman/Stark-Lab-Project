@@ -45,7 +45,6 @@ def calc_morphological_features(chunks):
 
 
 def get_morphological_features_names():
-    # TODO: check if this works: names = [(name for name in feature.headers) for feature in features]
     names = []
     for feature in features:
         names += feature.headers

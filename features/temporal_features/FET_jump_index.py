@@ -6,7 +6,7 @@ class Jump(object):
     This feature compares the middle band of the histogram to a linear change.
     """
 
-    def __init__(self, resolution=2, jmp_min=50, jmp_max=1200):
+    def __init__(self, resolution=2, jmp_min=50, jmp_max=1000):
         # see temporal_features_calc.py for use of those fields
         self.resolution = resolution
         self.jmp_min = jmp_min
@@ -25,12 +25,15 @@ class Jump(object):
         """
         if mid_band is None:
             assert rhs is not None
-            mid_band = rhs[self.resolution * self.jmp_min: self.resolution * self.jmp_max + 1]
-        jmp_line = np.linspace(mid_band[0], mid_band[-1], len(mid_band))
-        # TODO after assuring this is ok change 5000 to number of samples and make the 50 part of the class
-        ach_jmp = 50 * np.log(np.sum((mid_band - jmp_line) ** 2) / 5000)
+            mid_band = rhs[:, self.resolution * self.jmp_min: self.resolution * self.jmp_max + 1]
+        result = np.zeros((len(mid_band), 1))
+        for i, mid in enumerate(mid_band):
+            jmp_line = np.linspace(mid[0], mid[-1], len(mid))
+            # TODO after assuring this is ok change 5000 to number of samples and make the 50 part of the class
+            ach_jmp = 50 * np.log(np.sum((mid - jmp_line) ** 2) / 5000)
+            result[i, 0] = ach_jmp
 
-        return [[ach_jmp]]
+        return result
 
     def set_fields(self, resolution, jmp_min, jmp_max, **kwargs):
         self.resolution = resolution

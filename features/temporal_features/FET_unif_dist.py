@@ -7,7 +7,7 @@ class UnifDist(object):
     change.
     """
 
-    def __init__(self, resolution=2, cdf_range=30):
+    def __init__(self, resolution=2, cdf_range=50):
         # see temporal_features_calc.py for use of those fields
         self.resolution = resolution
         self.cdf_range = cdf_range
@@ -26,12 +26,13 @@ class UnifDist(object):
         """
         if start_cdf is None:
             assert rhs is not None
-            start_band = rhs[:self.resolution * self.cdf_range]
-            start_cdf = np.cumsum(start_band) / np.sum(start_band)
-        uniform_cdf = np.linspace(0, 1, len(start_cdf))
-        unif_dist = (start_cdf - uniform_cdf).sum() / len(start_cdf)
+            start_band = rhs[:, self.resolution * self.cdf_range]
+            start_cdf = (np.cumsum(start_band, axis=1).T / np.sum(start_band, axis=1)).T
+        uniform_cdf = np.linspace(0, 1, start_cdf.shape[1])
 
-        return [[unif_dist]]
+        unif_dist = (start_cdf - uniform_cdf).sum(axis=1) / start_cdf.shape[1]
+
+        return np.expand_dims(unif_dist, axis=1)
 
     def set_fields(self, resolution, cdf_range, **kwargs):
         self.resolution = resolution

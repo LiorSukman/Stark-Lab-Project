@@ -20,13 +20,18 @@ class PSD(object):
         returns:
         Calculated measurements of the feature value as described before.
         """
-        f, pxx = signal.periodogram(rhs, 20_000)
-        centroid = np.sum(f * pxx) / np.sum(pxx)  # TODO maybe it should be the || of pxx
+        result = np.zeros((len(rhs), 2))
+        for i, rh in enumerate(rhs):
+            f, pxx = signal.periodogram(rh, 20_000)
+            centroid = np.sum(f * pxx) / np.sum(pxx)  # TODO maybe it should be the || of pxx
 
-        der_pxx = np.abs(np.gradient(pxx))  # TODO check if there really can be negative values here
-        der_centroid = np.sum(f * der_pxx) / np.sum(der_pxx)  # TODO maybe it shoud be the || of pxx
+            der_pxx = np.abs(np.gradient(pxx))  # TODO check if there really can be negative values here
+            der_centroid = np.sum(f * der_pxx) / np.sum(der_pxx)  # TODO maybe it shoud be the || of pxx
 
-        return [[centroid, der_centroid]]
+            result[i, 0] = centroid
+            result[i, 1] = der_centroid
+
+        return result
 
     def set_fields(self, **kwargs):
         pass

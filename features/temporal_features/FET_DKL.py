@@ -8,7 +8,7 @@ class DKL(object):
     using the D_kl metric.
     """
 
-    def __init__(self, resolution=2, cdf_range=30):
+    def __init__(self, resolution=2, cdf_range=50):
         # see temporal_features_calc.py for use of those fields
         self.resolution = resolution
         self.cdf_range = cdf_range
@@ -27,15 +27,19 @@ class DKL(object):
         """
         if start_cdf is None:
             assert rhs is not None
-            start_band = rhs[:self.resolution * self.cdf_range]
-            start_cdf = np.cumsum(start_band) / np.sum(start_band)
-        uniform = np.ones(len(start_cdf)) / len(start_cdf)
-        dkl = stats.entropy(np.where(start_cdf > 0, start_cdf, 0), uniform)  # TODO maybe on the mid-band as well?
-        if dkl == float('inf'):
-            print(start_cdf)
-            raise AssertionError
+            start_band = rhs[:, self.resolution * self.cdf_range]
+            start_cdf = (np.cumsum(start_band, axis=1).T / np.sum(start_band, axis=1)).T
+        uniform = np.ones(start_cdf.shape[1]) / start_cdf.shape[1]
 
-        return [[dkl]]
+        result = np.zeros((len(start_cdf), 1))
+        for i, cdf in enumerate(start_cdf):
+            dkl = stats.entropy(np.where(cdf > 0, cdf, 0), uniform)  # TODO maybe on the mid-band as well?
+            if dkl == float('inf'):
+                print(cdf)
+                raise AssertionError
+            result[i, 0] = dkl
+
+        return result
 
     def set_fields(self, resolution, cdf_range, **kwargs):
         self.resolution = resolution

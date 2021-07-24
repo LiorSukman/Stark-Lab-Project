@@ -4,7 +4,7 @@ import math
 
 class RiseTime(object):
     """
-    This feature estimates the refractory time based on the starting band cumulative distribution function
+    This feature estimates the firing pattern based on the starting band cumulative distribution function
     """
 
     def __init__(self, resolution=2, cdf_range=30):
@@ -26,11 +26,12 @@ class RiseTime(object):
         """
         if start_cdf is None:
             assert rhs is not None
-            start_band = rhs[:self.resolution * self.cdf_range]
-            start_cdf = np.cumsum(start_band) / np.sum(start_band)
-        ach_rise_time = (start_cdf > 1 / math.e).argmax()
+            start_band = rhs[:, self.resolution * self.cdf_range]
+            start_cdf = (np.cumsum(start_band, axis=1).T / np.sum(start_band, axis=1)).T
 
-        return [[ach_rise_time]]
+        ach_rise_time = (start_cdf > 1 / math.e).argmax(axis=1)
+
+        return np.expand_dims(ach_rise_time, axis=1)
 
     def set_fields(self, resolution, cdf_range, **kwargs):
         self.resolution = resolution

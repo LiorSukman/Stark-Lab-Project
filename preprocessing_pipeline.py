@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from read_data import read_all_directories
 from clusters import Spike, Cluster
 from xml_reader import read_xml
+from light_removal import remove_light
 from constants import UPSAMPLE, VERBOS, SEED, SESSION_TO_ANIMAL
 
 # import the different features
@@ -25,8 +26,21 @@ from features.temporal_features_calc import calc_temporal_features, get_temporal
 
 TEMP_PATH = 'temp_state\\'
 
+punits = {'es04feb12_1_3_2',
+          'es04feb12_1_4_17',
+          'es04feb12_1_4_15',
+          'es27mar12_2_2_2',
+          'es21may12_1_1_5',
+          'm361r2_13_1_6',
+          'm258r1_42_1_12',
+          'm649r1_21_2_18',
+          'm649r1_21_2_7',
+          'm649r1_21_2_22',
+          'm649r1_22_2_3',
+          'm649r1_22_3_2'}
+
 def show_cluster(load_path, name):
-    files = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f)) and name+'_' in f]
+    files = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f)) and name + '_' in f]
     assert len(files) == 2
     spikes_f, timimg_f = files
     if 'timing' not in timimg_f:
@@ -37,10 +51,11 @@ def show_cluster(load_path, name):
     assert cluster.assert_legal()
     cluster.plot_cluster()
 
+
 def create_fig(load_path, rows, cols):
     clusters = set()
     files_list = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))]
-    random.shuffle(files_list)
+    # random.shuffle(files_list)
     fig, ax = plt.subplots(rows, cols, sharex=True, figsize=(4 * cols, 3 * rows))
     plt.tight_layout(pad=3)
     counter = 0
@@ -48,6 +63,8 @@ def create_fig(load_path, rows, cols):
         if counter == rows * cols:
             break
         path_elements = file.split('\\')[-1].split('__')
+        if path_elements[0].split('/')[-1] not in punits:
+            continue
         if 'timing' in path_elements[-1]:
             continue
         unique_name = path_elements[0]
@@ -109,31 +126,39 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
     returns:
     a list of size |spikes_in_waveform|, each element is a list of chunks 
     """
-    ret = []
+    ret_spikes = []
+    ret_inds = []
     # for each chunk size create the data
     for chunk_size in spikes_in_waveform:
         if chunk_size == 0:  # unit based approach
             mean = cluster.calc_mean_waveform()
-            ret.append([mean])
+            ret_spikes.append([mean])
+            ret_inds.append(np.expand_dims(np.arange(len(cluster.spikes)), axis=0))
         elif chunk_size == 1:  # chunk based approach with raw spikes
-            ret.append(cluster.spikes)
+            ret_spikes.append(cluster.spikes)
+            ret_inds.append(np.expand_dims(np.arange(len(cluster.spikes)), 1))
         else:  # chunk based approach
             if cluster.np_spikes is None:  # this is done for faster processing
                 cluster.finalize_cluster()
             spikes = cluster.np_spikes
+            inds = np.arange(spikes.shape[0])
             np.random.seed(SEED)
-            np.random.shuffle(spikes)
+            np.random.shuffle(inds)
+            spikes = spikes[inds]
             k = spikes.shape[0] // chunk_size  # number of chunks
             if k == 0:  # cluster size is larger than the number of spikes in this cluster, same as chunk size of 0
-                ret.append([cluster.calc_mean_waveform()])
+                ret_spikes.append([cluster.calc_mean_waveform()])
+                ret_inds.append(np.array([np.arange(len(cluster.spikes))]))
                 continue
             chunks = np.array_split(spikes, k)  # split the data into k chunks of minimal size of chunk_size
+
+            ret_inds.append(np.array(np.array_split(inds, k)))
             res = []
             for chunk in chunks:
                 res.append(Spike(data=chunk.mean(axis=0)))  # take the average spike
-            ret.append(res)
+            ret_spikes.append(res)
 
-    return ret
+    return ret_spikes, ret_inds
 
 
 def only_save(path, mat_file, xml):
@@ -143,7 +168,10 @@ def only_save(path, mat_file, xml):
         groups = None
     clusters_generator = read_all_directories(path, mat_file, groups)
     punits_counter = 0
+    stats = pd.DataFrame(
+        {'recording': [], 'shank': [], 'id': [], 'label': [], 'spike_prop': [], 'time_prop': []})
     for clusters in clusters_generator:
+        pairs = None
         for cluster in clusters:  # for each unit
             recording_name = '_'.join(cluster.get_unique_name().split('_')[:-2])
             if SESSION_TO_ANIMAL[recording_name] == 401:
@@ -152,7 +180,20 @@ def only_save(path, mat_file, xml):
             is_punit = cluster.fix_punits()
             if is_punit:
                 punits_counter += 1
+
+            inds, spike_prop, time_prop, pairs = remove_light(cluster, pairs=pairs)
+            cluster.timings = cluster.timings[inds]
+            cluster.finalize_cluster()
+            cluster.np_spikes = cluster.np_spikes[inds]
+            print(f"for cluster {cluster.get_unique_name()}, spike proportion is {spike_prop} while time proportion is "
+                  f"{time_prop}")
+
+            stats = stats.append({'recording': cluster.filename, 'shank': cluster.shank, 'id': cluster.num_within_file,
+                                  'label': cluster.label, 'spike_prop': spike_prop, 'time_prop': time_prop},
+                                 ignore_index=True)
+
             cluster.save_cluster(TEMP_PATH)
+    stats.to_csv('light_stats.csv')
     print(f"number of punits is {punits_counter}")
 
 
@@ -198,7 +239,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
                 cluster.save_cluster(TEMP_PATH)
             # print('Dividing data to chunks...')
             start_time = time.time()
-            relevant_data = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
+            spike_chunks, ind_chunks = create_chunks(cluster, spikes_in_waveform=chunk_sizes)
             end_time = time.time()
             if VERBOS:
                 print(f"chunk creation took {end_time - start_time:.3f} seconds")
@@ -209,16 +250,15 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
             path += '\\' + cluster.get_unique_name()
             np.save(path, cluster.calc_mean_waveform().data)
 
-            temporal_features_mat = calc_temporal_features(cluster.timings)
-            for chunk_size, rel_data in zip(chunk_sizes, relevant_data):
+            for chunk_size, rel_data, inds in zip(chunk_sizes, spike_chunks, ind_chunks):
                 # upsample
                 rel_data = [Spike(data=signal.resample(spike.data, UPSAMPLE * spike.data.shape[1], axis=1))
                             for spike in rel_data]
+                temporal_features_mat = calc_temporal_features(cluster.timings, inds)
                 spatial_features_mat = calc_spatial_features(rel_data)
                 morphological_features_mat = calc_morphological_features(rel_data)
                 feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
-                                                          np.repeat(temporal_features_mat, len(spatial_features_mat),
-                                                                    axis=0)), axis=1)
+                                                          temporal_features_mat), axis=1)
                 # Append metadata for the cluster
                 max_abss = np.ones((len(rel_data), 1)) * max_abs
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, max_abss), axis=1)
@@ -277,7 +317,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.display:
-        create_fig(arg_load_path, 10, 8)
+        create_fig(arg_load_path, 3, 4)
         sys.exit(0)
 
     if args.calc_features:
