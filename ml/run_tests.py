@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import StandardScaler
 
-from gs_rf import grid_search
+from gs_rf import grid_search as grid_search_rf
+from gs_svm import grid_search as grid_search_svm
 from SVM_RF import run as run_model
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
@@ -26,6 +27,15 @@ min_samples_splits_num = 5
 min_samples_leafs_min = 0
 min_samples_leafs_max = 5
 min_samples_leafs_num = 6
+
+min_gamma = -9
+max_gamma = -1
+num_gamma = 2
+min_c = 0
+max_c = 6
+num_c = 2
+kernel = 'rbf'
+
 n = 5
 
 
@@ -127,75 +137,88 @@ def calc_auc(clf, data_path):
     return auc_val
 
 
-def get_modality_results(data_path, seed):
+def get_modality_results(data_path, seed, model):
     accs, pyr_accs, in_accs, aucs = [], [], [], []
+    C, gamma, n_estimators, max_depth, min_samples_split, min_samples_leaf = None, None, None, None, None, None
 
-    clf, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search(
-        data_path + "/0_0.60.20.2/", False, n_estimators_min, n_estimators_max, n_estimators_num,
-        max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
-        min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n)
-    auc = calc_auc(clf, data_path + "/0_0.60.20.2/")
+    if model == 'rf':
+        clf, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
+            data_path + "/0_0.60.20.2/", False, n_estimators_min, n_estimators_max, n_estimators_num,
+            max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
+            min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n)
+        auc = calc_auc(clf, data_path + "/0_0.60.20.2/")
 
-    accs.append(acc)
-    pyr_accs.append(pyr_acc)
-    in_accs.append(in_acc)
-    aucs.append(auc)
+        accs.append(acc)
+        pyr_accs.append(pyr_acc)
+        in_accs.append(in_acc)
+        aucs.append(auc)
+    elif model == 'svm':
+        _, acc, pyr_acc, in_acc, C, gamma = grid_search_svm(data_path + "/0_0.60.20.2/", False, None, min_gamma,
+                                                            max_gamma, num_gamma, min_c, max_c, num_c, kernel, n)
+        accs.append(acc)
+        pyr_accs.append(pyr_acc)
+        in_accs.append(in_acc)
+        aucs.append(0)
+    else:
+        raise Exception(f"model {model} is not suppurted, only svm or rf are supported at the moment")
 
     restriction, modality = data_path.split('/')[-2:]
     restriction = '_'.join(restriction.split('_')[:-1])
 
-    if modality == 'temporal':
-        accs = accs * len(chunks)
-        pyr_accs = pyr_accs * len(chunks)
-        in_accs = in_accs * len(chunks)
-        aucs = aucs * len(chunks)
-    else:
-        for chunk_size in chunks[1:]:
-            clf, acc, pyr_acc, in_acc = run_model('rf', None, None, None, False, None, False, True, False, None, None,
-                                                  None,
-                                                  n_estimators, max_depth, min_samples_split, min_samples_leaf,
-                                                  data_path + f"/{chunk_size}_0.60.20.2/")
+    for chunk_size in chunks[1:]:
+        clf, acc, pyr_acc, in_acc = run_model(model, None, None, None, False, None, False, True, False, gamma, C,
+                                              kernel,
+                                              n_estimators, max_depth, min_samples_split, min_samples_leaf,
+                                              data_path + f"/{chunk_size}_0.60.20.2/")
+        if model == 'rf':
             auc = calc_auc(clf, data_path + f"/{chunk_size}_0.60.20.2/")
+        elif model == 'svm':
+            auc = 0
 
-            accs.append(acc)
-            pyr_accs.append(pyr_acc)
-            in_accs.append(in_acc)
-            aucs.append(auc)
+        accs.append(acc)
+        pyr_accs.append(pyr_acc)
+        in_accs.append(in_acc)
+        aucs.append(auc)
 
-    df = pd.DataFrame({'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [seed] * len(accs),
-                       'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs})
+    df = pd.DataFrame(
+        {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [seed] * len(accs),
+         'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs})
 
     return df
 
 
-def get_folder_results(data_path):
+def get_folder_results(data_path, model):
     df = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
+        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
+         'auc': []})
     seed = data_path.split('_')[-1]
     for modality in modalities:
-        modality_df = get_modality_results(data_path + '/' + modality[0], seed)
+        modality_df = get_modality_results(data_path + '/' + modality[0], seed, model)
         df = df.append(modality_df, ignore_index=True)
 
     return df
 
 
-def get_results(data_path):
+def get_results(data_path, model):
     df = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
-    folder_df = get_folder_results(data_path)
+        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
+         'auc': []})
+    folder_df = get_folder_results(data_path, model)
     df = df.append(folder_df, ignore_index=True)
 
     return df
 
 
-def do_test(data_path):
-    return get_results(data_path)
+def do_test(data_path, model):
+    return get_results(data_path, model)
 
 
 if __name__ == "__main__":
-    iterations = 10
+    model = 'svm'
+    iterations = 2
     results = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [], 'auc': []})
+        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
+         'auc': []})
     save_path = '../data_sets'
     restrictions = ['complete', 'no_small_sample']
     modalities = [('spatial', SPATIAL), ('morphological', MORPHOLOGICAL), ('temporal', TEMPORAL),
@@ -215,16 +238,6 @@ if __name__ == "__main__":
                 ML_util.create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt',
                                         should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
                                         seed=i)
-            results = results.append(do_test(new_path), ignore_index=True)
+            results = results.append(do_test(new_path, model), ignore_index=True)
 
-    results.to_csv('results_rf.csv')
-    """results = results.set_index(['restriction', 'modality', 'chunk_size'], append=True)  # create multi-index
-    complete = results.loc[:, 'complete', :, :]
-    no_small_sample = results.loc[:, 'no_small_sample', :, :]
-    grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
-    grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
-
-    plot_results(grouped_complete.mean(), grouped_complete.std(), 'complete', acc=True)
-    plot_results(grouped_complete.mean(), grouped_complete.std(), 'complete', acc=False)
-    plot_results(grouped_no_small_sample.mean(), grouped_no_small_sample.std(), 'no_small_sample', acc=True)
-    plot_results(grouped_no_small_sample.mean(), grouped_no_small_sample.std(), 'no_small_sample', acc=False)"""
+    results.to_csv(f'results_{model}.csv')

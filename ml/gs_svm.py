@@ -77,7 +77,7 @@ def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gam
     print()
     parameters = {'C': cs, 'gamma': gammas}
     model = svm.SVC(kernel=kernel, class_weight='balanced', probability=True)
-    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=3)
+    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=0)
     print('Starting grid search...')
     start = time.time()
     clf.fit(features, labels)
