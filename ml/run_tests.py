@@ -11,6 +11,7 @@ from gs_svm import grid_search as grid_search_svm
 from SVM_RF import run as run_model
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
+from utils.hideen_prints import HiddenPrints
 
 chunks = [0, 500, 200]
 restrictions = ['complete', 'no_small_sample']
@@ -28,12 +29,18 @@ min_samples_leafs_min = 0
 min_samples_leafs_max = 5
 min_samples_leafs_num = 6
 
-min_gamma = -9
+"""min_gamma = -9
 max_gamma = -1
-num_gamma = 2
+num_gamma = 9
 min_c = 0
 max_c = 6
-num_c = 2
+num_c = 7"""
+min_gamma = -1
+max_gamma = -1
+num_gamma = 1
+min_c = 0
+max_c = 0
+num_c = 1
 kernel = 'rbf'
 
 n = 5
@@ -224,20 +231,25 @@ if __name__ == "__main__":
     modalities = [('spatial', SPATIAL), ('morphological', MORPHOLOGICAL), ('temporal', TEMPORAL),
                   ('spat_tempo', SPAT_TEMPO)]
     for i in range(iterations):
+        print(f"Starting iteration {i}")
         for r in restrictions:
+            print(f"    Starting restrictions {r}")
             new_path = save_path + f"/{r}_{i}"
             if not os.path.isdir(new_path):
                 os.mkdir(new_path)
             for name, places in modalities:
+                print(f"        Starting modality {name}")
                 new_new_path = new_path + f"/{name}/"
                 if not os.path.isdir(new_new_path):
                     os.mkdir(new_new_path)
                 keep = places
                 # TODO make sure that the per_dev=0 is ok
                 # TODO in group split it might not be good to just change the seed like this
-                ML_util.create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt',
-                                        should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                        seed=i)
-            results = results.append(do_test(new_path, model), ignore_index=True)
+                with HiddenPrints():
+                    ML_util.create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt',
+                                            should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
+                                            seed=i)
+            with HiddenPrints():
+                results = results.append(do_test(new_path, model), ignore_index=True)
 
     results.to_csv(f'results_{model}.csv')

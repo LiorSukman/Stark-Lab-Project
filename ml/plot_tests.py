@@ -90,7 +90,7 @@ def plot_results(df, sems, restriction, acc=True):
     plt.show()
 
 
-results = pd.read_csv('results_rf.csv', index_col=0)
+results = pd.read_csv('results_svm.csv', index_col=0)
 complete = results[results.restriction == 'complete']
 no_small_sample = results[results.restriction == 'no_small_sample']
 grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
