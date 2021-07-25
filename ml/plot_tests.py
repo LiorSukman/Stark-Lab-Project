@@ -49,7 +49,6 @@ def plot_results(df, sems, restriction, acc=True):
     title = get_title(restriction)
 
     labels = get_labels([ind[1] for ind in df.index])
-    print(labels)
 
     if acc:
         zero = df.xs(0, level="chunk_size").acc
