@@ -161,7 +161,7 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
     return ret_spikes, ret_inds
 
 
-def only_save(path, mat_file, xml):
+def only_save(path, mat_file, xml, consider_lights, remove_lights):
     if xml:
         groups = read_xml('Data/')
     else:
@@ -181,19 +181,21 @@ def only_save(path, mat_file, xml):
             if is_punit:
                 punits_counter += 1
 
-            inds, spike_prop, time_prop, pairs = remove_light(cluster, pairs=pairs)
-            cluster.timings = cluster.timings[inds]
-            cluster.finalize_cluster()
-            cluster.np_spikes = cluster.np_spikes[inds]
-            print(f"for cluster {cluster.get_unique_name()}, spike proportion is {spike_prop} while time proportion is "
-                  f"{time_prop}")
+            if consider_lights:
+                inds, spike_prop, time_prop, pairs = remove_light(cluster, remove_lights, pairs=pairs)
+                cluster.timings = cluster.timings[inds]
+                cluster.finalize_cluster()
+                cluster.np_spikes = cluster.np_spikes[inds]
+                print(f"for cluster {cluster.get_unique_name()}, spike proportion is {spike_prop} while time proportion"
+                      f" is {time_prop}")
 
-            stats = stats.append({'recording': cluster.filename, 'shank': cluster.shank, 'id': cluster.num_within_file,
-                                  'label': cluster.label, 'spike_prop': spike_prop, 'time_prop': time_prop},
-                                 ignore_index=True)
+                stats = stats.append({'recording': cluster.filename, 'shank': cluster.shank,
+                                      'id': cluster.num_within_file, 'label': cluster.label, 'spike_prop': spike_prop,
+                                      'time_prop': time_prop}, ignore_index=True)
 
             cluster.save_cluster(TEMP_PATH)
-    stats.to_csv('light_stats.csv')
+    if consider_lights:
+        stats.to_csv('light_stats.csv')
     print(f"number of punits is {punits_counter}")
 
 
@@ -293,6 +295,11 @@ if __name__ == "__main__":
                         help='path to load clusters from, make sure directory exists')
     parser.add_argument('--display', type=bool, default=False,
                         help='display a set of random clusters')
+    parser.add_argument('--consider_light', type=bool, default=False,
+                        help='Whether to take into account light stimulus while reading the data, will be processed'
+                             ' based on remove_light (only taken into account if calc_features is False)')
+    parser.add_argument('--remove_light', type=bool, default=True,
+                        help='if True remove light induced spikes, otherwise keeps only light induced spikes')
     parser.add_argument('--plot_cluster', type=str, default=None,
                         help='display a specific cluster')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
@@ -306,6 +313,8 @@ if __name__ == "__main__":
     save_path = args.save_path
     arg_load_path = args.load_path
     spv_mat = args.spv_mat
+    consider_lights = args.consider_light
+    remove_lights = args.remove_light
     plot_cluster = args.plot_cluster
     xml = args.xml
 
@@ -323,4 +332,4 @@ if __name__ == "__main__":
     if args.calc_features:
         run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path, xml)
     else:
-        only_save(dirs_file, spv_mat, xml)
+        only_save(dirs_file, spv_mat, xml, consider_lights, remove_lights)

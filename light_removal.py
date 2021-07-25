@@ -33,25 +33,29 @@ def time_in_range(time, pairs):
             return True
     return False
 
-def get_idnds(time_lst, pairs):
+def get_idnds(time_lst, pairs, remove_lights):
     i, j = 0, 0
     inds = []
 
     while i < len(time_lst):
         if j >= len(pairs):
-            inds.append(i)
+            if remove_lights:
+                inds.append(i)
             i += 1
         elif pairs[j][1] < time_lst[i]:
             j += 1
         elif pairs[j][0] <= time_lst[i] <= pairs[j][1]:
+            if not remove_lights:
+                inds.append(i)
             i += 1
         else:  # time_lst[i] < pairs[j][0]
-            inds.append(i)
+            if remove_lights:
+                inds.append(i)
             i += 1
 
     return inds
 
-def remove_light(cluster, data_path='Data/', margin=10, pairs=None):
+def remove_light(cluster, remove_lights, data_path='Data/', margin=10, pairs=None):
     file_lst = glob.glob(data_path + f'{cluster.filename}/{cluster.filename}.stm.*')
     if pairs is None:
         pairs_temp = []
@@ -63,7 +67,7 @@ def remove_light(cluster, data_path='Data/', margin=10, pairs=None):
         pairs = combine_list(pairs_temp)
 
     timings = cluster.timings
-    inds = get_idnds(timings, pairs)
+    inds = get_idnds(timings, pairs, remove_lights)
 
     left_prop = len(inds) / len(timings)
     time_prop = (timings.max() - timings.min()) /\
