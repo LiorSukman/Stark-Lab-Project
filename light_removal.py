@@ -5,33 +5,17 @@ import glob
 
 from constants import SAMPLE_RATE
 
-"""
-sst = '../Data/es04feb12_1/es04feb12_1.sst'
+"""sst = 'Data/es04feb12_1/es04feb12_1.sst'
 stim = 'Data/es25nov11_3/es25nov11_3.stm.sin'
-cell_class_mat = io.loadmat(stim, appendmat=False, simplify_cells=True)
-for elem in cell_class_mat['stims']:
-    print(elem)
-
-print(cell_class_mat['stim']['times'].shape)
-exit(0)
-
+cell_class_mat = io.loadmat(sst, appendmat=False, simplify_cells=True)
 
 # relevant for sst
 shankclu = cell_class_mat['sst']['shankclu']
+print(shankclu[0])
 ach = cell_class_mat['sst']['ach'].T
-bins = np.linspace(-50, 50, 102)
-plt.bar(np.arange(len(ach[0])), ach[0])
+plt.bar(np.arange(len(ach[0][len(ach[0])//2 - 1:])), ach[0][len(ach[0])//2 - 1:]/ach[0][len(ach[0])//2 - 1:].max())
+plt.title('sst')
 plt.show()"""
-
-
-def time_in_range(time, pairs):
-    for pair in pairs:
-        low, high = pair
-        if low > time:
-            return False
-        if low <= time <= high:
-            return True
-    return False
 
 def get_idnds(time_lst, pairs, remove_lights):
     i, j = 0, 0
@@ -70,8 +54,8 @@ def remove_light(cluster, remove_lights, data_path='Data/', margin=10, pairs=Non
     inds = get_idnds(timings, pairs, remove_lights)
 
     left_prop = len(inds) / len(timings)
-    time_prop = (timings.max() - timings.min()) /\
-                (np.convolve(pairs.flatten(), [1, -1], mode='valid')[::2] - 2 * margin).sum()
+    time_prop = (np.convolve(pairs.flatten(), [1, -1], mode='valid')[::2] - 2 * margin).sum() /\
+                (timings.max() - timings.min())
 
     return inds, left_prop, time_prop, pairs
 
@@ -84,6 +68,7 @@ def get_pair_lst(path, margin):
         return None
     if len(pairs) == 0:
         return None
+
     return (pairs / (SAMPLE_RATE / 1000)) + [-margin, margin]
 
 def combine_list(lsts):
@@ -91,4 +76,13 @@ def combine_list(lsts):
         return np.array([[-2, -1]])
     pairs = np.concatenate(lsts, axis=0)
     inds = np.argsort(pairs[:, 0])
-    return pairs[inds]
+    ret = []
+    min_p, max_p = pairs[inds][0]
+    for pair in pairs[inds][1:]:
+        if min_p <= pair[0] <= max_p:
+            max_p = max(pair[1], max_p)
+        else:
+            ret.append([min_p, max_p])
+            min_p, max_p = pair
+    ret.append([min_p, max_p])
+    return np.array(ret)

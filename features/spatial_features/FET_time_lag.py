@@ -82,7 +82,8 @@ class TimeLagFeature(object):
         else:  # i.e sa
             dep_red = np.mean(np.absolute(dep_rel))
 
-        # find hyperpolarization indices
+        # After wavelet transformation this is redundant
+        """# find hyperpolarization indices
         hyp_ind = []
         for i, channel in enumerate(spike):
             trun_channel = channel[dep_ind[i] + 1:]
@@ -97,11 +98,13 @@ class TimeLagFeature(object):
         else:  # i.e sa
             hyp_red = np.mean(np.absolute(hyp_rel))
 
-        return [dep_red, dep_sd, hyp_red, hyp_sd]
+        return [dep_red, dep_sd, hyp_red, hyp_sd]"""
+
+        return [dep_red, dep_sd]
 
     @property
     def headers(self):
         """
         Returns a list of titles of the different metrics
         """
-        return ['dep_red', 'dep_sd', 'hyp_red', 'hyp_sd']
+        return ['dep_red', 'dep_sd']

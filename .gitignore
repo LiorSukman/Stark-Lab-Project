@@ -3,8 +3,7 @@
 **/.ipynb_checkpoints
 **/clustersData_default
 **/Data
-**/temp_state
-**/temp_problematic
+**/temp_state*
 **/__pycache__
 **/saved_models
 **/data_sets
