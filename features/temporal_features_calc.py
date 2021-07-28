@@ -3,6 +3,7 @@ import scipy.signal as signal
 import time
 from constants import MIN_TIME_LIST, VERBOS, INF, DEBUG, ACH_WINDOW
 import matplotlib.pyplot as plt
+import scipy.io as io
 
 from features.temporal_features.FET_DKL import DKL
 from features.temporal_features.FET_jump_index import Jump
@@ -38,6 +39,7 @@ def calc_temporal_histogram(time_lst, bins, chunks):
         hist, _ = np.histogram(ref_time_list, bins=bins)
         ret[chunks_inv[i]] += hist
     if DEBUG:
+        raise NotImplementedError
         print(f"ret sum {ret.sum()}")
         # TODO adapt for chunks somehow
         plt.bar(np.arange(len(ret)), ret)
@@ -57,6 +59,15 @@ def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW,
     bins = np.linspace(0, bin_range, N)
     start_time = time.time()
     histograms = calc_temporal_histogram(time_lst, bins, chunks)
+
+    sst = 'Data/es04feb12_1/es04feb12_1.sst'
+    cell_class_mat = io.loadmat(sst, appendmat=False, simplify_cells=True)
+    ach = cell_class_mat['sst']['ach'].T
+    plt.bar(np.arange(len(ach[1][len(ach[1]) // 2 - 1:])),
+            ach[1][len(ach[1]) // 2 - 1:] / ach[1][len(ach[1]) // 2 - 1:].max(), alpha=0.5, label='ach')
+    plt.bar(np.arange(len(histograms[0])), histograms[0]/histograms[0].max(), alpha=0.5, label='hist')
+    plt.legend()
+    plt.show()
     histograms = np.array([signal.resample(histogram, upsample * N) for histogram in histograms])
     histograms = np.where(histograms >= 0, histograms, 0)
     end_time = time.time()
