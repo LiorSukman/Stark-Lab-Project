@@ -7,6 +7,7 @@ chunks = [0, 500, 200]
 restrictions = ['complete', 'no_small_sample']
 modalities = ['spatial', 'morphological', 'temporal', 'spat_tempo']
 
+
 def get_title(restriction):
     seeds = np.arange(10)
     tot, tst, pyr, intn = [], [], [], []
@@ -44,6 +45,7 @@ def get_labels(lst):
         if element not in ret:
             ret.append(element)
     return ret
+
 
 def plot_results(df, sems, restriction, acc=True):
     title = get_title(restriction)
@@ -89,7 +91,8 @@ def plot_results(df, sems, restriction, acc=True):
     plt.show()
 
 
-results = pd.read_csv('results_svm.csv', index_col=0)
+model = 'svm'
+results = pd.read_csv(f'results_{model}.csv', index_col=0)
 complete = results[results.restriction == 'complete']
 no_small_sample = results[results.restriction == 'no_small_sample']
 grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])

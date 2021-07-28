@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils.testing import ignore_warnings
+from sklearn.exceptions import ConvergenceWarning
 
 from gs_rf import grid_search as grid_search_rf
 from gs_svm import grid_search as grid_search_svm
@@ -29,92 +31,15 @@ min_samples_leafs_min = 0
 min_samples_leafs_max = 5
 min_samples_leafs_num = 6
 
-"""min_gamma = -9
-max_gamma = -1
+min_gamma = -8
+max_gamma = 0
 num_gamma = 9
 min_c = 0
 max_c = 6
-num_c = 7"""
-min_gamma = -1
-max_gamma = -1
-num_gamma = 1
-min_c = 0
-max_c = 0
-num_c = 1
+num_c = 7
 kernel = 'rbf'
 
 n = 5
-
-
-def get_num_cells(restriction):
-    data_path = f"./data_sets/{restriction}/spatial/0_0.60.20.2/"
-    train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
-    tot_n = len(train) + len(dev) + len(test)
-    test_n = len(test)
-    pyr_n = len([cell for cell in test if cell[0][-1] == 1])
-    in_n = len([cell for cell in test if cell[0][-1] == 0])
-    return tot_n, test_n, pyr_n, in_n
-
-
-def autolabel(rects, ax):
-    """
-    Attach a text label above each bar in *rects*, displaying its height.
-    This function was taken from https://matplotlib.org/stable/gallery/lines_bars_and_markers/barchart.html#sphx-glr-gallery-lines-bars-and-markers-barchart-py
-    """
-    for rect in rects:
-        height = rect.get_height()
-        if height == 0:
-            continue
-        ax.annotate('{}'.format(round(height, 2)),
-                    xy=(rect.get_x() + rect.get_width() / 2, height),
-                    xytext=(0, 3),  # 3 points vertical offset
-                    textcoords="offset points",
-                    ha='center', va='bottom')
-
-
-def plot_results(df, stds, restriction, acc=True):
-    tot_n, test_n, pyr_n, in_n = get_num_cells(restriction)
-
-    labels = modalities
-
-    if acc:
-        zero = df.xs(0, level="chunk_size").acc
-        five_hundred = df.xs(500, level="chunk_size").acc
-        two_hundred = df.xs(200, level="chunk_size").acc
-        zero_std = stds.xs(0, level="chunk_size").acc
-        five_hundred_std = stds.xs(500, level="chunk_size").acc
-        two_hundred_std = stds.xs(200, level="chunk_size").acc
-    else:
-        zero = df.xs(0, level="chunk_size").auc
-        five_hundred = df.xs(500, level="chunk_size").auc
-        two_hundred = df.xs(200, level="chunk_size").auc
-        zero_std = stds.xs(0, level="chunk_size").auc
-        five_hundred_std = stds.xs(500, level="chunk_size").auc
-        two_hundred_std = stds.xs(200, level="chunk_size").auc
-
-    x = np.arange(len(labels))  # the label locations
-    width = 0.3  # the width of the bars
-
-    fig, ax = plt.subplots(figsize=(12, 12))
-    rects1 = ax.bar(x - width, zero, width, label='chunk_size = 0', yerr=zero_std)
-    rects2 = ax.bar(x, five_hundred, width, label='chunk_size = 500', yerr=five_hundred_std)
-    rects3 = ax.bar(x + width, two_hundred, width, label='chunk_size = 200', yerr=two_hundred_std)
-
-    # Add some text for labels, title and custom x-axis tick labels, etc.
-    ax.set_ylabel('Scores (percentage)')
-    ax.set_title(f"Scores by modality and chunk size; Total={tot_n}, Test={test_n}, PYR={pyr_n}, IN={in_n}")
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels)
-    ax.legend()
-
-    autolabel(rects1, ax)
-    autolabel(rects2, ax)
-    autolabel(rects3, ax)
-
-    fig.tight_layout()
-
-    plt.show()
-
 
 def calc_auc(clf, data_path):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
@@ -200,7 +125,9 @@ def get_folder_results(data_path, model):
          'auc': []})
     seed = data_path.split('_')[-1]
     for modality in modalities:
-        modality_df = get_modality_results(data_path + '/' + modality[0], seed, model)
+        print(f"        Starting modality {modality[0]}")
+        with HiddenPrints():
+            modality_df = get_modality_results(data_path + '/' + modality[0], seed, model)
         df = df.append(modality_df, ignore_index=True)
 
     return df
@@ -215,7 +142,7 @@ def get_results(data_path, model):
 
     return df
 
-
+@ignore_warnings(category=ConvergenceWarning)
 def do_test(data_path, model):
     return get_results(data_path, model)
 
@@ -238,7 +165,6 @@ if __name__ == "__main__":
             if not os.path.isdir(new_path):
                 os.mkdir(new_path)
             for name, places in modalities:
-                print(f"        Starting modality {name}")
                 new_new_path = new_path + f"/{name}/"
                 if not os.path.isdir(new_new_path):
                     os.mkdir(new_new_path)
@@ -249,7 +175,7 @@ if __name__ == "__main__":
                     ML_util.create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt',
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
                                             seed=i)
-            with HiddenPrints():
-                results = results.append(do_test(new_path, model), ignore_index=True)
+
+            results = results.append(do_test(new_path, model), ignore_index=True)
 
     results.to_csv(f'results_{model}.csv')

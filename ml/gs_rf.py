@@ -92,7 +92,6 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
                                         min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
                                         class_weight='balanced')
     classifier.fit(features, labels)
-    print('Grid search completed in %.2f seconds, best parameters are:' % (end - start))
 
     print()
     print('Starting evaluation on test set...')
@@ -105,7 +104,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Random forest grid search\n")
 
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/complete/spatial/500_0.60.20.2/')
+                        default='../data_sets/complete_0/spatial/200_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
     parser.add_argument('--n_estimators_min', type=int, help='minimal power of n_estimators (base 10)', default=0)
     parser.add_argument('--n_estimators_max', type=int, help='maximal power of n_estimators (base 10)', default=2)

@@ -31,7 +31,10 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
         label = labels[0]  # as they are the same for all the cluster
         total_pyr += 1 if label == 1 else 0
         total_in += 1 if label == 0 else 0
-        preds = model.predict_proba(features).argmax(axis=1)
+        try:
+            preds = model.predict_proba(features).argmax(axis=1)  # support probabilistic prediction
+        except AttributeError:
+            preds = model.predict(features)  # do not support probabilistic prediction
         prediction = round(preds.mean())
         total_chunks += preds.shape[0]
         correct_chunks += preds[preds == label].shape[0]
@@ -116,7 +119,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
             train_features = ica.transform(train_features)
 
         if model == 'svm':
-            clf = svm.SVC(kernel=kernel, gamma=gamma, C=C, class_weight='balanced', probability=True)
+            clf = svm.SVC(kernel=kernel, gamma=gamma, C=C, class_weight='balanced', probability=False)
             print('Fitting SVM model...')
         elif model == 'rf':
             clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
@@ -179,7 +182,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--model', type=str, help='Model to train, now supporting svm and rf', default='svm')
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/complete/spat_tempo/200_0.60.20.2/')
+                        default='../data_sets/complete_0/spat_tempo/0_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
     parser.add_argument('--saving_path', type=str, help='path to save models, assumed to be created',
                         default='../saved_models')

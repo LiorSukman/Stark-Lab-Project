@@ -76,7 +76,7 @@ def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gam
 
     print()
     parameters = {'C': cs, 'gamma': gammas}
-    model = svm.SVC(kernel=kernel, class_weight='balanced', probability=True)
+    model = svm.SVC(kernel=kernel, class_weight='balanced', probability=False, max_iter=10000, verbose=0)
     clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=0)
     print('Starting grid search...')
     start = time.time()
@@ -108,16 +108,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SVM grid search\n")
 
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/complete/spat_tempo/0_0.60.20.2/')
+                        default='../data_sets/complete_0/spat_tempo/0_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
     parser.add_argument('--saving_path', type=str, help='path to save graphs, assumed to be created',
                         default='../graphs/')
     parser.add_argument('--min_gamma', type=int, help='minimal power of gamma (base 10)', default=-9)
-    parser.add_argument('--max_gamma', type=int, help='maximal power of gamma (base 10)', default=-1)
-    parser.add_argument('--num_gamma', type=int, help='number of gamma values', default=9)
-    parser.add_argument('--min_c', type=int, help='minimal power of C (base 10)', default=0)
+    parser.add_argument('--max_gamma', type=int, help='maximal power of gamma (base 10)', default=1)
+    parser.add_argument('--num_gamma', type=int, help='number of gamma values', default=44)
+    parser.add_argument('--min_c', type=int, help='minimal power of C (base 10)', default=-2)
     parser.add_argument('--max_c', type=int, help='maximal power of C (base 10)', default=6)
-    parser.add_argument('--num_c', type=int, help='number of C values', default=7)
+    parser.add_argument('--num_c', type=int, help='number of C values', default=36)
     parser.add_argument('--kernel', type=str,
                         help='kernael for SVM (notice that different kernels than rbf might require more parameters)',
                         default='rbf')
