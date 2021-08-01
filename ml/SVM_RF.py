@@ -1,5 +1,6 @@
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 from sklearn.decomposition import PCA, FastICA
 from sklearn.preprocessing import StandardScaler
 import numpy as np
@@ -13,7 +14,7 @@ from VIS_model import visualize_model
 
 N = 10
 
-models = ['svm', 'rf']  # the supported models
+models = ['svm', 'rf', 'gb']  # the supported models
 
 
 def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False):
@@ -60,7 +61,7 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
 
 def run(model, saving_path, loading_path, pca_n_components, use_pca,
         ica_n_components, use_ica, use_scale, visualize, gamma, C, kernel,
-        n_estimators, max_depth, min_samples_split, min_samples_leaf, dataset_path):
+        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path):
     """
     runner function for the SVM and RF models.
     explanations about the parameters is in the help
@@ -126,6 +127,12 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
                                          min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
                                          class_weight='balanced')
             print('Fitting Random Forest model...')
+        elif model == 'gb':
+            ones = train_labels.sum()
+            zeros = len(train_labels) - ones
+            clf = XGBClassifier(scale_pos_weight=zeros / ones, use_label_encoder=False, n_estimators=n_estimators,
+                                max_depth=max_depth, learning_rate=lr)
+            print('Fitting Gradient Boosting model...')
         start = time.time()
         clf.fit(train_features, train_labels)
         end = time.time()
@@ -180,7 +187,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SVM/RF trainer\n")
 
-    parser.add_argument('--model', type=str, help='Model to train, now supporting svm and rf', default='svm')
+    parser.add_argument('--model', type=str, help='Model to train, now supporting gb, svm and rf', default='rf')
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
                         default='../data_sets/complete_0/spat_tempo/0_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
@@ -199,10 +206,11 @@ if __name__ == "__main__":
     parser.add_argument('--use_ica', type=bool, help='apply ICA on the data', default=False)
     parser.add_argument('--ica_n_components', type=int, help='number of ICA components', default=2)
     parser.add_argument('--visualize', type=bool, help='visualize the model', default=False)
-    parser.add_argument('--n_estimators', type=int, help='n_estimators value for RF', default=10)
-    parser.add_argument('--max_depth', type=int, help='max_depth value for RF', default=10)
+    parser.add_argument('--n_estimators', type=int, help='n_estimators value for RF and GB', default=10)
+    parser.add_argument('--max_depth', type=int, help='max_depth value for RF and GB', default=10)
     parser.add_argument('--min_samples_split', type=int, help='min_samples_split value for RF', default=4)
     parser.add_argument('--min_samples_leaf', type=int, help='min_samples_leaf value for RF', default=2)
+    parser.add_argument('--learnig_rate', type=int, help='learning rate value for GB', default=2)
 
     args = parser.parse_args()
 
@@ -224,10 +232,11 @@ if __name__ == "__main__":
     max_depth = args.max_depth
     min_samples_split = args.min_samples_split
     min_samples_leaf = args.min_samples_leaf
+    lr = args.learning_rate
 
     if not os.path.isdir(saving_path):
         os.mkdir(saving_path)
 
     run(model, saving_path, loading_path, pca_n_components, use_pca,
         ica_n_components, use_ica, use_scale, visualize, gamma, C, kernel,
-        n_estimators, max_depth, min_samples_split, min_samples_leaf, dataset_path)
+        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path)

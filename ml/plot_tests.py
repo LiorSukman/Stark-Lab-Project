@@ -91,7 +91,7 @@ def plot_results(df, sems, restriction, acc=True):
     plt.show()
 
 
-model = 'svm'
+model = 'gb'
 results = pd.read_csv(f'results_{model}.csv', index_col=0)
 complete = results[results.restriction == 'complete']
 no_small_sample = results[results.restriction == 'no_small_sample']

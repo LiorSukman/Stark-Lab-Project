@@ -10,6 +10,7 @@ from sklearn.exceptions import ConvergenceWarning
 
 from gs_rf import grid_search as grid_search_rf
 from gs_svm import grid_search as grid_search_svm
+from gs_gb import grid_search as grid_search_gb
 from SVM_RF import run as run_model
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
@@ -30,6 +31,10 @@ min_samples_splits_num = 5
 min_samples_leafs_min = 0
 min_samples_leafs_max = 5
 min_samples_leafs_num = 6
+
+lr_min = -3
+lr_max = 1
+lr_num = 5
 
 min_gamma = -8
 max_gamma = 0
@@ -71,7 +76,7 @@ def calc_auc(clf, data_path):
 
 def get_modality_results(data_path, seed, model):
     accs, pyr_accs, in_accs, aucs = [], [], [], []
-    C, gamma, n_estimators, max_depth, min_samples_split, min_samples_leaf = None, None, None, None, None, None
+    C, gamma, n_estimators, max_depth, min_samples_split, min_samples_leaf, lr = [None] * 7
 
     if model == 'rf':
         clf, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
@@ -91,6 +96,16 @@ def get_modality_results(data_path, seed, model):
         pyr_accs.append(pyr_acc)
         in_accs.append(in_acc)
         aucs.append(0)
+    elif model == 'gb':
+        clf, acc, pyr_acc, in_acc, n_estimators, max_depth, lr = grid_search_gb(
+            data_path + "/0_0.60.20.2/", False, n_estimators_min, n_estimators_max, n_estimators_num,
+            max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max, lr_num, n)
+        auc = calc_auc(clf, data_path + "/0_0.60.20.2/")
+
+        accs.append(acc)
+        pyr_accs.append(pyr_acc)
+        in_accs.append(in_acc)
+        aucs.append(auc)
     else:
         raise Exception(f"model {model} is not suppurted, only svm or rf are supported at the moment")
 
@@ -100,7 +115,7 @@ def get_modality_results(data_path, seed, model):
     for chunk_size in chunks[1:]:
         clf, acc, pyr_acc, in_acc = run_model(model, None, None, None, False, None, False, True, False, gamma, C,
                                               kernel,
-                                              n_estimators, max_depth, min_samples_split, min_samples_leaf,
+                                              n_estimators, max_depth, min_samples_split, min_samples_leaf, lr,
                                               data_path + f"/{chunk_size}_0.60.20.2/")
         if model == 'rf':
             auc = calc_auc(clf, data_path + f"/{chunk_size}_0.60.20.2/")
@@ -148,8 +163,8 @@ def do_test(data_path, model):
 
 
 if __name__ == "__main__":
-    model = 'svm'
-    iterations = 2
+    model = 'gb'
+    iterations = 10
     results = pd.DataFrame(
         {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
          'auc': []})
