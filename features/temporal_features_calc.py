@@ -20,24 +20,28 @@ def get_array_length(chunks):
         counter += len(chunk)
     return counter
 
+
 def invert_chunks(chunks):
     ret = np.zeros(get_array_length(chunks), dtype=np.int)
     for i, chunk in enumerate(chunks):
         ret[chunk] = i  # note that chunk is a list
     return ret
 
+
 def calc_temporal_histogram(time_lst, bins, chunks):
     ret = np.zeros((len(chunks), len(bins) - 1))
+    counter = np.zeros((len(chunks), 1))
     chunks_inv = invert_chunks(chunks)
     end_time = time_lst.max()
     for i in range(len(time_lst)):
-        if time_lst[i] + ACH_WINDOW > end_time:
-            break
+        """if time_lst[i] + ACH_WINDOW > end_time:
+            break"""
         ref_time_list = time_lst - time_lst[i]
-        mask = (ref_time_list > 0) * (ref_time_list <= ACH_WINDOW)
+        mask = (ref_time_list >= bins[0]) * (ref_time_list <= bins[-1]) * (ref_time_list != 0)
         ref_time_list = ref_time_list[mask]
         hist, _ = np.histogram(ref_time_list, bins=bins)
         ret[chunks_inv[i]] += hist
+        counter[chunks_inv[i]] += 1
     if DEBUG:
         raise NotImplementedError
         print(f"ret sum {ret.sum()}")
@@ -45,6 +49,8 @@ def calc_temporal_histogram(time_lst, bins, chunks):
         plt.bar(np.arange(len(ret)), ret)
         plt.title(f"num spikes is {len(time_lst)}")
         plt.show()
+
+    ret = ret / (counter * ((bins[1] - bins[0])/1000))
 
     return ret
 
@@ -55,19 +61,17 @@ def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW,
 
     time_lst = np.array(time_lst)
 
-    N = resolution * bin_range + 1
-    bins = np.linspace(0, bin_range, N)
+    assert (resolution > 0 and resolution % 1 == 0)
+    assert (bin_range > 0 and bin_range % 1 == 0)
+
+    N = 2 * resolution * bin_range + 2
+    offset = 1 / (2 * resolution)
+    bins = np.linspace(-bin_range - offset, bin_range + offset, N)
     start_time = time.time()
     histograms = calc_temporal_histogram(time_lst, bins, chunks)
+    zero_bin_ind = histograms.shape[1] // 2
+    histograms = (histograms[:, :zero_bin_ind + 1:][:, ::-1] + histograms[:, zero_bin_ind:]) / 2
 
-    sst = 'Data/es04feb12_1/es04feb12_1.sst'
-    cell_class_mat = io.loadmat(sst, appendmat=False, simplify_cells=True)
-    ach = cell_class_mat['sst']['ach'].T
-    plt.bar(np.arange(len(ach[1][len(ach[1]) // 2 - 1:])),
-            ach[1][len(ach[1]) // 2 - 1:] / ach[1][len(ach[1]) // 2 - 1:].max(), alpha=0.5, label='ach')
-    plt.bar(np.arange(len(histograms[0])), histograms[0]/histograms[0].max(), alpha=0.5, label='hist')
-    plt.legend()
-    plt.show()
     histograms = np.array([signal.resample(histogram, upsample * N) for histogram in histograms])
     histograms = np.where(histograms >= 0, histograms, 0)
     end_time = time.time()

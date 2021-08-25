@@ -66,7 +66,7 @@ class TimeLagFeature(object):
         dep_ind = dep_ind[fix_inds]
         spike = spike[fix_inds]
         if spike.shape[0] <= 1:  # if no channel passes filtering return zeros (or if only one channel)
-            return [0, 0, 0, 0]
+            return [0, 0]
 
         # offset according to the main channel
         # set main channel to be the one with highest depolariztion

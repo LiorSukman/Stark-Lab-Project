@@ -24,7 +24,7 @@ from features.spatial_features_calc import calc_spatial_features, get_spatial_fe
 from features.morphological_features_calc import calc_morphological_features, get_morphological_features_names
 from features.temporal_features_calc import calc_temporal_features, get_temporal_features_names
 
-TEMP_PATH = 'temp_state\\'
+TEMP_PATH = 'temp_state_minus_light\\'
 
 punits = {'es04feb12_1_3_2',
           'es04feb12_1_4_17',
@@ -160,6 +160,31 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
 
     return ret_spikes, ret_inds
 
+def light_processing(path):
+    stats = pd.DataFrame(
+        {'recording': [], 'shank': [], 'id': [], 'label': [], 'spike_prop': [], 'time_prop': []})
+    clusters_generator = load_clusters(path)
+    last_session = None
+    for cluster_lst in clusters_generator:
+        assert len(cluster_lst) == 1
+        cluster = cluster_lst[0]
+        if last_session is None or last_session != cluster.filename:
+            pairs = None
+            last_session = cluster.filename
+        for remove_lights in [False, True]:  # order matters to get correct data for saving in csv
+            cluster_copy = cluster.copy_cluster()
+            inds, spike_prop, time_prop, pairs = remove_light(cluster, remove_lights, pairs=pairs)
+            cluster_copy.timings = cluster.timings[inds]
+            cluster_copy.np_spikes = cluster.np_spikes[inds]
+
+            save_path = 'temp_state_minus_light//' if remove_lights else "temp_state_only_light//"
+
+            cluster_copy.save_cluster(save_path)
+
+        stats = stats.append({'recording': cluster.filename, 'shank': cluster.shank,
+                              'id': cluster.num_within_file, 'label': cluster.label, 'spike_prop': spike_prop,
+                              'time_prop': time_prop}, ignore_index=True)
+
 
 def only_save(path, mat_file, xml, consider_lights, remove_lights):
     if xml:
@@ -286,20 +311,22 @@ if __name__ == "__main__":
 
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
-                        default=[0])
+                        default=[0, 200, 500])
     parser.add_argument('--save_path', type=str, default='clustersData\\',
                         help='path to save csv files to, make sure the directory exists')
-    parser.add_argument('--load_path', type=str, default='temp_state_minus_light\\',
+    parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')
     parser.add_argument('--calc_features', type=bool, default=True,
                         help='path to load clusters from, make sure directory exists')
     parser.add_argument('--display', type=bool, default=False,
                         help='display a set of random clusters')
-    parser.add_argument('--consider_light', type=bool, default=True,
+    parser.add_argument('--consider_light', type=bool, default=False,
                         help='Whether to take into account light stimulus while reading the data, will be processed'
                              ' based on remove_light (only taken into account if calc_features is False)')
     parser.add_argument('--remove_light', type=bool, default=True,
                         help='if True remove light induced spikes, otherwise keeps only light induced spikes')
+    parser.add_argument('--light_processing', type=bool, default=False,
+                        help='create new temp states based on the stimulus times')
     parser.add_argument('--plot_cluster', type=str, default=None,
                         help='display a specific cluster')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
@@ -311,7 +338,7 @@ if __name__ == "__main__":
     dirs_file = args.dirs_file
     arg_chunk_sizes = args.chunk_sizes
     save_path = args.save_path
-    TEMP_PATH = arg_load_path = args.load_path
+    arg_load_path = args.load_path
     spv_mat = args.spv_mat
     consider_lights = args.consider_light
     remove_lights = args.remove_light
@@ -331,5 +358,7 @@ if __name__ == "__main__":
 
     if args.calc_features:
         run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path, xml)
+    elif args.light_processing:
+        light_processing(arg_load_path)
     else:
         only_save(dirs_file, spv_mat, xml, consider_lights, remove_lights)

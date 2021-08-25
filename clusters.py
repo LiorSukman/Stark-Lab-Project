@@ -124,6 +124,18 @@ class Cluster(object):
         elif 'timing' in path_elements[-1]:
             self.timings = np.load(path)
 
+    def copy_cluster(self):
+        new_cluster = Cluster()
+        new_cluster.label = self.label
+        new_cluster.filename = self.filename  # recording session
+        new_cluster.num_within_file = self.num_within_file  # cluster ID
+        new_cluster.shank = self.shank  # shank number
+        new_cluster.spikes = np.copy(self.np_spikes)
+        new_cluster.np_spikes = np.copy(self.np_spikes)  # np array of spikes, used for optimization
+        new_cluster.timings = np.copy(self.timings)
+
+        return new_cluster
+
     def assert_legal(self):
         if self.filename is None or \
                 self.num_within_file is None or \

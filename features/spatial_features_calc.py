@@ -100,7 +100,9 @@ def calc_spatial_features(chunks):
         else:
             feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
         end_time = time.time()
+
         if VERBOS:
+            print(f"feature {feature.name} contains {mat_result.shape} values")
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
 
     for feature in pure_spatial_features:
@@ -111,7 +113,9 @@ def calc_spatial_features(chunks):
         else:
             feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
         end_time = time.time()
+
         if VERBOS:
+            print(f"feature {feature.name} contains {mat_result.shape} values")
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
 
     return feature_mat_for_cluster
