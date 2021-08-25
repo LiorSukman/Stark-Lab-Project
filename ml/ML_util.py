@@ -28,7 +28,7 @@ def create_batches(data, batch_size, should_shuffle=True):
     while cur_batch < number_of_batches:
         batch = data[cur_batch * batch_size: (cur_batch + 1) * batch_size]
         batch = (torch.from_numpy(batch[:, :-1]), torch.from_numpy(batch[:, -1]).long())
-        batch = (Variable(batch[0], requires_grad=True), Variable(batch[1]))
+        batch = (Variable(batch[0], requires_grad=True).float(), Variable(batch[1]))
         cur_batch += 1
         batches.append(batch)
     return batches

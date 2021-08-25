@@ -31,7 +31,7 @@ class FWHM(object):
 
         The function calculates the fwhm value as described above.
 
-        returns: a list containing the fwh mvalue
+        returns: a list containing the fwhm value
         """
         # find timestamps for depolarization in ok channels, filter again to assure depolarization is reached before the
         # end

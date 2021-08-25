@@ -62,7 +62,7 @@ class Net(nn.Module):
       """
         self.eval()
         with torch.no_grad():
-            x = self.forward(x)
+            x = self.forward(x.float())
             x = F.softmax(x, dim=1)
             if self.vote == 'single':
                 probs = torch.mean(x, dim=0)

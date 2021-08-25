@@ -5,11 +5,29 @@ import glob
 
 from constants import SAMPLE_RATE
 
+"""val = 'Data/es04feb12_1/es04feb12_1.val.t33'
+with open(val, 'r') as f:
+    num_lines = sum(1 for line in f)
+    print(num_lines)
+    print(f.readline())
+
+stim = 'Data/es04feb12_1/es04feb12_1.stm.033'
+cell_class_mat = io.loadmat(stim, appendmat=False, simplify_cells=True)
+print(cell_class_mat['stim']['times'][0])"""
+
+
 """sst = 'Data/es04feb12_1/es04feb12_1.sst'
-stim = 'Data/es25nov11_3/es25nov11_3.stm.sin'
-cell_class_mat = io.loadmat(sst, appendmat=False, simplify_cells=True)
+val = 'Data/es04feb12_1/es04feb12_1.val.t33'
+stim = 'Data/es04feb12_1/es04feb12_1.stm.sim'
+cell_class_mat = io.loadmat(stim, appendmat=False, simplify_cells=True)
+for elem in cell_class_mat['stim']:
+    print(elem)
+exit(0)
 
 # relevant for sst
+bins = cell_class_mat['sst']['achbins']
+print(bins)
+exit(0)
 shankclu = cell_class_mat['sst']['shankclu']
 print(shankclu[0])
 ach = cell_class_mat['sst']['ach'].T
@@ -68,6 +86,20 @@ def get_pair_lst(path, margin):
         return None
     if len(pairs) == 0:
         return None
+
+    return (pairs / (SAMPLE_RATE / 1000)) + [-margin, margin]
+
+def get_pair_lst_vals(path, margin):
+    pairs = []
+    with open(path, 'r') as f:
+        line = f.readline()
+        while line != '':
+            splt_line = line.split()[:2]
+            start = float(splt_line[0])
+            end = float(splt_line[1])
+            pairs.append([start, end])
+            line = f.readline()
+    pairs = np.array(pairs)
 
     return (pairs / (SAMPLE_RATE / 1000)) + [-margin, margin]
 

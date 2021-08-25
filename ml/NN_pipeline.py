@@ -98,7 +98,7 @@ def run(epochs, patience, batch_size, learning_rate, optimizer, n1, n2, f1, f2, 
     """
     runner function of the neural network module, see help for explanations regarding parameters
     """
-    train, dev, test = ML_util.get_dataset(dataset_path)
+    train, dev, test, _, _, _ = ML_util.get_dataset(dataset_path)
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser.add_argument('--classes', type=int, help='size of the output layer (number of classes)', default=CLASSES)
     parser.add_argument('--features', type=int, help='size of the input layer (number of features)', default=FEATURES)
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/200_0.60.20.2/')
+                        default='../data_sets/complete_0/spatial/200_0.60.20.2/')
     parser.add_argument('--loading_path', type=str, help='path to a trained model to evaluate', default=None)
     parser.add_argument('--saving_path', type=str, help='path to save models while training, assumes path exsists',
                         default='../saved_models/')
