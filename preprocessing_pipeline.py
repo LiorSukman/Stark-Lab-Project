@@ -1,5 +1,3 @@
-from turtledemo.chaos import plot
-
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -9,7 +7,6 @@ import os
 from os import listdir
 from os.path import isfile, join
 import time
-import random
 import sys
 import matplotlib.pyplot as plt
 
@@ -24,7 +21,7 @@ from features.spatial_features_calc import calc_spatial_features, get_spatial_fe
 from features.morphological_features_calc import calc_morphological_features, get_morphological_features_names
 from features.temporal_features_calc import calc_temporal_features, get_temporal_features_names
 
-TEMP_PATH = 'temp_state_minus_light\\'
+TEMP_PATH = 'temp_state_only_light\\'
 
 punits = {'es04feb12_1_3_2',
           'es04feb12_1_4_17',
@@ -39,8 +36,8 @@ punits = {'es04feb12_1_3_2',
           'm649r1_22_2_3',
           'm649r1_22_3_2'}
 
-def show_cluster(load_path, name):
-    files = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f)) and name + '_' in f]
+def load_cluster(load_path, name):
+    files = [load_path + f for f in listdir(load_path) if isfile(join(load_path, f)) and name + '_' in f]
     assert len(files) == 2
     spikes_f, timimg_f = files
     if 'timing' not in timimg_f:
@@ -49,6 +46,11 @@ def show_cluster(load_path, name):
     cluster.load_cluster(spikes_f)
     cluster.load_cluster(timimg_f)
     assert cluster.assert_legal()
+    return cluster
+
+
+def show_cluster(load_path, name):
+    cluster = load_cluster(load_path, name)
     cluster.plot_cluster()
 
 
@@ -111,6 +113,10 @@ def load_clusters(load_path, groups=None):
         assert cluster.assert_legal()
 
         end_time = time.time()
+
+        if len(cluster.np_spikes) == 0:
+            continue
+
         if VERBOS:
             print(f"cluster loading took {end_time - start_time:.3f} seconds")
         yield [cluster]
@@ -327,7 +333,7 @@ if __name__ == "__main__":
                         help='if True remove light induced spikes, otherwise keeps only light induced spikes')
     parser.add_argument('--light_processing', type=bool, default=False,
                         help='create new temp states based on the stimulus times')
-    parser.add_argument('--plot_cluster', type=str, default=None,
+    parser.add_argument('--plot_cluster', type=str, default='es25nov11_13_1_6',
                         help='display a specific cluster')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
     parser.add_argument('--xml', type=bool, default=True, help='whether to assert using information in xml files when '

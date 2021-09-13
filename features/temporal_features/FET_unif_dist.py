@@ -30,7 +30,7 @@ class UnifDist(object):
             start_cdf = (np.cumsum(start_band, axis=1).T / np.sum(start_band, axis=1)).T
         uniform_cdf = np.linspace(0, 1, start_cdf.shape[1])
 
-        unif_dist = (start_cdf - uniform_cdf).sum(axis=1) / start_cdf.shape[1]
+        unif_dist = abs((start_cdf - uniform_cdf)).sum(axis=1) / start_cdf.shape[1]
 
         return np.expand_dims(unif_dist, axis=1)
 
