@@ -28,6 +28,37 @@ def invert_chunks(chunks):
     return ret
 
 
+def ordered_array_histogram(lst, bins, i0):
+    max_abs = bins[-1]
+    bin_size = bins[1] - bins[0]
+    bin0 = len(bins) // 2
+    hist = np.zeros(len(bins) - 1)
+
+    i = i0 + 1
+    while i <= len(lst) - 1 and lst[i] < max_abs:
+        bin_ind = int(((lst[i] - (bin_size / 2)) // bin_size) + bin0)
+        hist[bin_ind] += 1
+        i += 1
+    i = i0 - 1
+    while i >= 0 and lst[i] >= -max_abs:
+        bin_ind = int(((lst[i] - (bin_size / 2)) // bin_size) + bin0)
+        hist[bin_ind] += 1
+        i -= 1
+
+    return hist
+
+def compare_hists(a, b):
+    if len(a) != len(b):
+        print('length problem')
+        return False
+    for i, vals in enumerate(zip(a, b)):
+        b1, b2 = vals
+        if b1 != b2:
+            print('val problem in index', i, b1, b2)
+            print(a[i+1], b[i+1])
+            return False
+    return True
+
 def calc_temporal_histogram(time_lst, bins, chunks):
     ret = np.zeros((len(chunks), len(bins) - 1))
     counter = np.zeros((len(chunks), 1))
@@ -37,9 +68,7 @@ def calc_temporal_histogram(time_lst, bins, chunks):
         """if time_lst[i] + ACH_WINDOW > end_time:
             break"""
         ref_time_list = time_lst - time_lst[i]
-        mask = (ref_time_list >= bins[0]) * (ref_time_list <= bins[-1]) * (ref_time_list != 0)
-        ref_time_list = ref_time_list[mask]
-        hist, _ = np.histogram(ref_time_list, bins=bins)
+        hist = ordered_array_histogram(ref_time_list, bins, i)
         ret[chunks_inv[i]] += hist
         counter[chunks_inv[i]] += 1
     if DEBUG:

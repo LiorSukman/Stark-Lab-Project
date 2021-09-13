@@ -33,12 +33,16 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
         total_pyr += 1 if label == 1 else 0
         total_in += 1 if label == 0 else 0
         try:
-            preds = model.predict_proba(features).argmax(axis=1)  # support probabilistic prediction
+            preds = model.predict_proba(features)
+            preds_argmax = preds.argmax(axis=1)  # support probabilistic prediction
+            preds_mean = preds.mean(axis=0)
         except AttributeError:
-            preds = model.predict(features)  # do not support probabilistic prediction
-        prediction = round(preds.mean())
+            preds = preds_argmax = model.predict(features)  # do not support probabilistic prediction
+            preds_mean = round(preds_argmax.mean())
+        # prediction = round(preds_argmax.mean())
+        prediction = preds_mean.argmax()
         total_chunks += preds.shape[0]
-        correct_chunks += preds[preds == label].shape[0]
+        correct_chunks += preds[preds_argmax == label].shape[0]
         correct_clusters += 1 if prediction == label else 0
         correct_pyr += 1 if prediction == label and label == 1 else 0
         correct_in += 1 if prediction == label and label == 0 else 0
@@ -75,6 +79,10 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
         print('Chosen model is Random Forest')
 
     train, dev, test, _, _, test_names = ML_util.get_dataset(dataset_path)
+
+    # test_path = dataset_path.replace('200', '500').replace('500', '0')
+    # _, _, test, _, _, test_names = ML_util.get_dataset(test_path)
+
     train = np.concatenate((train, dev))
     # train_names = np.concatenate((train_names, dev_names))
     train_squeezed = ML_util.squeeze_clusters(train)

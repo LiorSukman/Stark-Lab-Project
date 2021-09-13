@@ -13,7 +13,8 @@ from gs_svm import grid_search as grid_search_svm
 from gs_gb import grid_search as grid_search_gb
 from SVM_RF import run as run_model
 
-from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
+from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO, STARK_SPAT, STARK_SPAT_TEMPO, STARK
+from constants import WIDTH, T2P, WIDTH_SPAT, T2P_SPAT
 from utils.hideen_prints import HiddenPrints
 
 chunks = [0, 500, 200]
@@ -48,6 +49,8 @@ n = 5
 
 def calc_auc(clf, data_path):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
+    # test_path = data_path.replace('200', '500').replace('500', '0')
+    # _, _, test, _, _, _ = ML_util.get_dataset(test_path)
     train = np.concatenate((train, dev))
     train_squeezed = ML_util.squeeze_clusters(train)
     train_features, train_labels = ML_util.split_features(train_squeezed)
@@ -163,15 +166,15 @@ def do_test(data_path, model):
 
 
 if __name__ == "__main__":
-    model = 'gb'
-    iterations = 10
+    model = 'rf'
+    iterations = 20
     results = pd.DataFrame(
         {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
          'auc': []})
     save_path = '../data_sets'
-    restrictions = ['complete', 'no_small_sample']
-    modalities = [('spatial', SPATIAL), ('morphological', MORPHOLOGICAL), ('temporal', TEMPORAL),
-                  ('spat_tempo', SPAT_TEMPO)]
+    restrictions = ['complete']
+    modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('spat_tempo', SPAT_TEMPO),
+                  ('morphological', MORPHOLOGICAL)]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -193,4 +196,4 @@ if __name__ == "__main__":
 
             results = results.append(do_test(new_path, model), ignore_index=True)
 
-    results.to_csv(f'results_{model}.csv')
+    results.to_csv(f'results_{model}_alt_test.csv')
