@@ -2,7 +2,7 @@ import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-PATH = "Data/"
+PATH = "Data/es25nov11_13"
 
 
 def read_xml(path):
@@ -16,6 +16,10 @@ def read_xml(path):
             continue
         tree = ET.parse(xml_path)
         root = tree.getroot()
+        """for child in root:
+            print(child)
+            for c in child:
+                print(' ', c)"""
 
         spikes = root.find('spikeDetection')
         groups = spikes.find('channelGroups').findall('group')

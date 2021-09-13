@@ -1,7 +1,6 @@
 .git
-**/clustersData
+**/clustersData*
 **/.ipynb_checkpoints
-**/clustersData_default
 **/Data
 **/temp_state*
 **/__pycache__
@@ -9,3 +8,4 @@
 **/data_sets
 **/graphs
 **/.idea
+**/temps_to_save
