@@ -31,6 +31,7 @@ def wavelet_info(length, centers):
 
 def match_spike(spike, w, w_norm, rss):
     mul_val = -spike.min()
+    mul_val = spike.max() - spike.min()
     spike = spike - spike.mean()
 
     corrs = np.dot(w_norm, spike) / rss
@@ -84,8 +85,8 @@ def calc_spatial_features(chunks):
     feature_mat_for_cluster = None
     start_time = time.time()
     # print('Starting wavelet transformation...')
+    # wavelets = sp_wavelet_transform(chunks, False)
     wavelets = sp_wavelet_transform(chunks, False)
-    cons_wavelets = sp_wavelet_transform(chunks, True)
     end_time = time.time()
     if VERBOS:
         print(f"wavelet transformation took {end_time - start_time:.3f} seconds")
@@ -94,7 +95,7 @@ def calc_spatial_features(chunks):
         if isinstance(feature, GeometricalEstimation):
             mat_result = feature.calculate_feature(wavelets, chunks)  # calculates the features, returns a matrix
         else:
-            mat_result = feature.calculate_feature(cons_wavelets)  # calculates the features, returns a matrix
+            mat_result = feature.calculate_feature(wavelets)  # calculates the features, returns a matrix
         if feature_mat_for_cluster is None:
             feature_mat_for_cluster = mat_result
         else:

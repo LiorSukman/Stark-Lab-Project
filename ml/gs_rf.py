@@ -5,6 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import time
 import argparse
+import pickle
 
 import ML_util
 
@@ -21,10 +22,12 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
         label = labels[0]  # as they are the same for all the cluster
         total_pyr += 1 if label == 1 else 0
         total_in += 1 if label == 0 else 0
-        preds = model.predict(features)
-        prediction = round(preds.mean())
+        preds = model.predict_proba(features)
+        preds_argmax = preds.argmax(axis=1)  # support probabilistic prediction
+        preds_mean = preds.mean(axis=0)
+        prediction = preds_mean.argmax()
         total_chunks += preds.shape[0]
-        correct_chunks += preds[preds == label].shape[0]
+        correct_chunks += preds[preds_argmax == label].shape[0]
         correct_clusters += 1 if prediction == label else 0
         correct_pyr += 1 if prediction == label and label == 1 else 0
         correct_in += 1 if prediction == label and label == 0 else 0
@@ -97,6 +100,10 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     print('Starting evaluation on test set...')
 
     clust_count, acc, pyr_acc, in_acc = evaluate_predictions(classifier, test, scaler, verbos)
+
+    """with open('rf_trained_model', 'wb') as fid:  # save the model
+        pickle.dump(clf, fid)"""
+
     return classifier, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf
 
 
@@ -104,7 +111,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Random forest grid search\n")
 
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
-                        default='../data_sets/complete_0/spatial/200_0.60.20.2/')
+                        default='../data_sets/complete_0/spatial/0_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
     parser.add_argument('--n_estimators_min', type=int, help='minimal power of n_estimators (base 10)', default=0)
     parser.add_argument('--n_estimators_max', type=int, help='maximal power of n_estimators (base 10)', default=2)

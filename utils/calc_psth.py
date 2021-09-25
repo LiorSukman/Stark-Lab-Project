@@ -12,7 +12,8 @@ def gaussian_func(sig, x):
     return np.exp(- (x ** 2) / (2 * sig ** 2))
 
 def create_window(n, sig, sup):
-    xs = np.linspace(-sup * sig, sup * sig, n)
+    assert n - 1 == sig * sup * 2
+    xs = np.linspace(-sup * sig, sup * sig + 1, n)
     wind = gaussian_func(sig, xs)
     return wind / wind.sum()
 
@@ -58,7 +59,7 @@ def calc_hist(spike_train, stims, bins):
 
 if __name__ == "__main__":
     data_path = '..\\Data\\'
-    cluster_name = '04feb12_1_2_22'
+    cluster_name = 'es25nov11_3_4_5'
 
     cluster = load_cluster('..\\temp_state\\', cluster_name)
 
@@ -86,7 +87,7 @@ if __name__ == "__main__":
     conv_hist = np.convolve(mirr_hist, g_wind, mode='valid')
 
     fig, ax = plt.subplots()
-    rect = patches.Rectangle((0, 0), 50, conv_hist.max(), facecolor='r', alpha=0.2)
+    rect = patches.Rectangle((0, 0), 50, conv_hist.max(), facecolor='c', alpha=0.2)
 
     # Add the patch to the Axes
     ax.add_patch(rect)

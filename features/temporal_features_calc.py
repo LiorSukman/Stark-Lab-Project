@@ -101,7 +101,7 @@ def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW,
     zero_bin_ind = histograms.shape[1] // 2
     histograms = (histograms[:, :zero_bin_ind + 1:][:, ::-1] + histograms[:, zero_bin_ind:]) / 2
 
-    histograms = np.array([signal.resample(histogram, upsample * N) for histogram in histograms])
+    histograms = np.array([signal.resample_poly(histogram, upsample ** 2, upsample, padtype='line') for histogram in histograms])
     histograms = np.where(histograms >= 0, histograms, 0)
     end_time = time.time()
     if VERBOS:
