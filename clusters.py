@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import os
-from constants import SAMPLE_RATE, NUM_CHANNELS, TIMESTEPS, PYR_COLOR, PV_COLOR, UT_COLOR
+from constants import SAMPLE_RATE, NUM_CHANNELS, TIMESTEPS
+from constants import PYR_COLOR, PV_COLOR, UT_COLOR, LIGHT_PYR, LIGHT_PV, LIGHT_UT
 
 
 class Spike(object):
@@ -156,13 +157,14 @@ class Cluster(object):
             fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True, figsize=(6, 20))
             mean_spike = self.np_spikes.mean(axis=0)
             std_spike = self.np_spikes.std(axis=0)
-            color = PYR_COLOR if self.label == 1 else PV_COLOR if self.label == 0 else UT_COLOR
+            color1 = PYR_COLOR if self.label == 1 else PV_COLOR if self.label == 0 else UT_COLOR
+            color2 = LIGHT_PYR if self.label == 1 else LIGHT_PV if self.label == 0 else LIGHT_UT
             for i, c_ax in enumerate(ax[::-1]):
                 mean_channel = mean_spike[i]
                 std_channel = std_spike[i]
-                c_ax.plot(np.arange(TIMESTEPS), mean_channel, c=color)
+                c_ax.plot(np.arange(TIMESTEPS), mean_channel, c=color1)
                 c_ax.fill_between(np.arange(TIMESTEPS), mean_channel - std_channel, mean_channel + std_channel,
-                                  color=color, alpha=0.2)
+                                  color=color2, alpha=0.2)
                 c_ax.axis('off')
             fig.suptitle(f"Cluster {self.get_unique_name()} of type {'PYR' if self.label == 1 else 'IN' if self.label == 0 else 'UT' }")
             pp = PdfPages(f"{self.get_unique_name()}.pdf")

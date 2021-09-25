@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-import scipy.signal as signal
 import argparse
 import os
 from os import listdir
@@ -13,6 +12,7 @@ import matplotlib.pyplot as plt
 from read_data import read_all_directories
 from clusters import Spike, Cluster
 from xml_reader import read_xml
+from utils.upsampling import upsample_spike
 from light_removal import remove_light
 from constants import UPSAMPLE, VERBOS, SEED, SESSION_TO_ANIMAL
 
@@ -21,7 +21,7 @@ from features.spatial_features_calc import calc_spatial_features, get_spatial_fe
 from features.morphological_features_calc import calc_morphological_features, get_morphological_features_names
 from features.temporal_features_calc import calc_temporal_features, get_temporal_features_names
 
-TEMP_PATH = 'temp_state_only_light\\'
+TEMP_PATH = 'temp_state_minus_light\\'
 
 punits = {'es04feb12_1_3_2',
           'es04feb12_1_4_17',
@@ -284,8 +284,11 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
             np.save(path, cluster.calc_mean_waveform().data)
 
             for chunk_size, rel_data, inds in zip(chunk_sizes, spike_chunks, ind_chunks):
+                path = csv_folder + str(chunk_size)
+                if os.path.exists(path + '\\' + cluster.get_unique_name() + ".csv"):
+                    continue
                 # upsample
-                rel_data = [Spike(data=signal.resample(spike.data, UPSAMPLE * spike.data.shape[1], axis=1))
+                rel_data = [Spike(data=upsample_spike(spike.data, UPSAMPLE))
                             for spike in rel_data]
                 temporal_features_mat = calc_temporal_features(cluster.timings, inds)
                 spatial_features_mat = calc_spatial_features(rel_data)
@@ -303,7 +306,6 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, labels), axis=1)
 
                 # Save the data to a separate file (one for each cluster)
-                path = csv_folder + str(chunk_size)
                 if not os.path.isdir(path):
                     os.mkdir(path)
                 path += '\\' + cluster.get_unique_name() + ".csv"
@@ -318,7 +320,7 @@ if __name__ == "__main__":
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
                         default=[0, 200, 500])
-    parser.add_argument('--save_path', type=str, default='clustersData\\',
+    parser.add_argument('--save_path', type=str, default='clustersData_no_light_new\\',
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')
@@ -333,7 +335,7 @@ if __name__ == "__main__":
                         help='if True remove light induced spikes, otherwise keeps only light induced spikes')
     parser.add_argument('--light_processing', type=bool, default=False,
                         help='create new temp states based on the stimulus times')
-    parser.add_argument('--plot_cluster', type=str, default='es25nov11_13_1_6',
+    parser.add_argument('--plot_cluster', type=str, default=None,
                         help='display a specific cluster')
     parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
     parser.add_argument('--xml', type=bool, default=True, help='whether to assert using information in xml files when '
