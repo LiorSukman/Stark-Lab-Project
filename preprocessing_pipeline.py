@@ -8,6 +8,7 @@ from os.path import isfile, join
 import time
 import sys
 import matplotlib.pyplot as plt
+import scipy.io as io
 
 from read_data import read_all_directories
 from clusters import Spike, Cluster
@@ -230,6 +231,19 @@ def only_save(path, mat_file, xml, consider_lights, remove_lights):
     print(f"number of punits is {punits_counter}")
 
 
+def get_clu_reg(cluster, mat_file):
+    mat = io.loadmat(mat_file, simplify_cells=True)['sPV']
+    shank, clu = cluster.shank, cluster.num_within_file
+    filename = cluster.filename
+    for i in range(len(mat['filename'])):
+        if mat['filename'][i] != filename:
+            continue
+        else:
+            if shank == mat['shankclu'][i][0] and clu == mat['shankclu'][i][1]:
+                return mat['region'][i]
+    raise KeyError
+
+
 def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
     """
     main pipeline function
@@ -253,10 +267,10 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
         clusters_generator = load_clusters(load_path, groups)
 
     # define headers for saving later 
-    headers = get_spatial_features_names()
-    headers += get_morphological_features_names()
-    headers += get_temporal_features_names()
-    headers += ['max_abs', 'name', 'label']
+    #headers = get_spatial_features_names()
+    headers = get_morphological_features_names()
+    #headers += get_temporal_features_names()
+    headers += ['max_abs', 'name', 'region', 'label']
 
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
@@ -266,6 +280,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
                 print('Skipped cluster from animal 401')
                 continue
             max_abs = np.absolute(cluster.calc_mean_waveform().get_data()).max()
+            region = get_clu_reg(cluster, mat_file)
             # print('Fixing punits...')
             if load_path is None:
                 cluster.fix_punits()
@@ -290,17 +305,20 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
                 # upsample
                 rel_data = [Spike(data=upsample_spike(spike.data, UPSAMPLE))
                             for spike in rel_data]
-                temporal_features_mat = calc_temporal_features(cluster.timings, inds)
-                spatial_features_mat = calc_spatial_features(rel_data)
-                morphological_features_mat = calc_morphological_features(rel_data)
-                feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
-                                                          temporal_features_mat), axis=1)
+                #temporal_features_mat = calc_temporal_features(cluster.timings, inds)
+                #spatial_features_mat = calc_spatial_features(rel_data)
+                feature_mat_for_cluster = morphological_features_mat = calc_morphological_features(rel_data, True)
+                #feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
+                #                                          temporal_features_mat), axis=1)
                 # Append metadata for the cluster
                 max_abss = np.ones((len(rel_data), 1)) * max_abs
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, max_abss), axis=1)
 
                 names = np.ones((len(rel_data), 1), dtype=object) * cluster.get_unique_name()
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, names), axis=1)
+
+                regions = np.ones((len(rel_data), 1)) * region
+                feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, regions), axis=1)
 
                 labels = np.ones((len(rel_data), 1)) * cluster.label
                 feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, labels), axis=1)
@@ -320,7 +338,7 @@ if __name__ == "__main__":
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
                         default=[0, 200, 500])
-    parser.add_argument('--save_path', type=str, default='clustersData_no_light_new\\',
+    parser.add_argument('--save_path', type=str, default='clustersData_no_light_trans_morph\\',
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')

@@ -2,6 +2,7 @@ import numpy as np
 from clusters import Spike
 import time
 from constants import VERBOS
+from features.spatial_features_calc import sp_wavelet_transform
 
 from features.morphological_features.FET_break import BreakMeasurement
 from features.morphological_features.FET_fwhm import FWHM
@@ -26,8 +27,12 @@ def get_main_chnnels(chunks):
     return ret
 
 
-def calc_morphological_features(chunks):
+def calc_morphological_features(chunks, transform=False):
     feature_mat_for_cluster = None
+
+    if transform:
+        chunks = sp_wavelet_transform(chunks, False)
+
     main_chunks = get_main_chnnels(chunks)
 
     for feature in features:

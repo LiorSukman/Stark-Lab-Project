@@ -57,7 +57,7 @@ def sp_match_spike(channel, x_data, cons, w, w_norm, rss):
         spike = calc_window(a, b, len(x_data))
     else:
         spike = match_spike(channel, w, w_norm, rss)
-    return spike
+    return spike / abs(spike.min())
 
 
 def sp_match_chunk(chunk, cons, w, w_norm, rss):

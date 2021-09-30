@@ -1,9 +1,8 @@
 import numpy as np
 import scipy.signal as signal
 import time
-from constants import MIN_TIME_LIST, VERBOS, INF, DEBUG, ACH_WINDOW
+from constants import VERBOS, DEBUG, ACH_WINDOW
 import matplotlib.pyplot as plt
-import scipy.io as io
 
 from features.temporal_features.FET_DKL import DKL
 from features.temporal_features.FET_jump_index import Jump

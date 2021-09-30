@@ -17,8 +17,9 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
     total_pyr = total_in = correct_pyr = correct_in = correct_chunks = correct_clusters = total_chunks = 0
     for cluster in clusters:
         features, labels = ML_util.split_features(cluster)
-        features = scaler.transform(features)
         features = np.nan_to_num(features)
+        # features = np.random.normal(size=features.shape)
+        features = scaler.transform(features)
         label = labels[0]  # as they are the same for all the cluster
         total_pyr += 1 if label == 1 else 0
         total_in += 1 if label == 0 else 0
@@ -59,9 +60,14 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
-    train_data = np.concatenate((train_squeezed, dev_squeezed))
+    if len(dev_squeezed) > 0:
+        train_data = np.concatenate((train_squeezed, dev_squeezed))
+    else:
+        train_data = train_squeezed
     features, labels = ML_util.split_features(train_data)
+    # np.random.shuffle(labels)
     features = np.nan_to_num(features)
+    # features = np.random.normal(size=features.shape)
 
     scaler = StandardScaler()
     scaler.fit(features)

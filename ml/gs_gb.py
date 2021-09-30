@@ -55,7 +55,10 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
-    train_data = np.concatenate((train_squeezed, dev_squeezed))
+    if len(dev_squeezed) > 0:
+        train_data = np.concatenate((train_squeezed, dev_squeezed))
+    else:
+        train_data = train_squeezed
     features, labels = ML_util.split_features(train_data)
     features = np.nan_to_num(features)
 

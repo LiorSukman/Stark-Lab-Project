@@ -5,7 +5,7 @@
 **/temp_state*
 **/__pycache__
 **/saved_models
-**/data_sets
+**/data_sets*
 **/graphs
 **/.idea
 **/temps_to_save

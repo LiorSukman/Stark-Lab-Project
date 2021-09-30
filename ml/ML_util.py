@@ -64,11 +64,14 @@ def is_legal(cluster, mode):
     if mode == 'complete':
         return row[-1] >= 0
     elif mode == 'no_noise':  # currently obsolete
-        return row[-1] >= 0 and row[-2] >= 100
-    elif mode == 'no_small_sample':
-        return row[-1] >= 0 and row[-3] >= 8000
+        raise NotImplementedError
+        return row[-1] >= 0 and row[-3] >= 100
+    elif mode == 'no_small_sample':  # currently obsolete
+        raise NotImplementedError
+        return row[-1] >= 0 and row[-4] >= 8000
     else:   # currently obsolete
-        return row[-1] >= 0 and row[-2] >= 100 and row[-3] >= 8000
+        raise NotImplementedError
+        return row[-1] >= 0 and row[-3] >= 100 and row[-4] >= 8000
 
 
 def read_data(path, mode='complete', should_filter=True, keep=None):
