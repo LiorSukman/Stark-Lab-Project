@@ -39,7 +39,7 @@ class SPD(object):
             the spatial dispersion vector
         """
         dep = np.min(spike, axis=1)
-        main_chn = np.argmin(spike) // (TIMESTEPS * UPSAMPLE)  # Finding the main channel
+        main_chn = (spike.max(axis=1) - spike.min(axis=1)).argmax()  # Finding the main channel
         rel_dep = dep / dep[main_chn]  # Scaling according to the main channel
         count = np.count_nonzero(rel_dep > self.ratio)
         sd = np.std(rel_dep)

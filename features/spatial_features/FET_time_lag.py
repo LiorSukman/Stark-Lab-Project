@@ -52,10 +52,10 @@ class TimeLagFeature(object):
         channel) -dep_sd: the standard deviation of the depolarization vector -hyp_red: the reduction of the
         hyperpolarization vector - hyp_sd: the standard deviation of the hyperpolarization vector
         """
-        # remove channels with lower depolarization than required
-        deps = np.min(spike, axis=1)  # max depolarization of each channel
-        max_dep = np.min(deps)
-        fix_inds = deps <= self.ratio * max_dep
+        # remove channels with lower amplitude than required
+        amps = np.max(spike, axis=1) - np.min(spike, axis=1)  # max ampilitude of each channel
+        max_amp = np.max(amps)
+        fix_inds = amps >= self.ratio * max_amp
         spike = spike[fix_inds]
 
         # find timestamps for depolarization in ok channels, filter again to assure depolarization is reached before the
@@ -70,7 +70,7 @@ class TimeLagFeature(object):
 
         # offset according to the main channel
         # set main channel to be the one with highest depolariztion
-        main_chn = np.argmin(spike) // (TIMESTEPS * UPSAMPLE)
+        main_chn = (spike.max(axis=1) - spike.min(axis=1)).argmax()
         dep_rel = dep_ind - dep_ind[main_chn]  # offsetting
 
         # calculate sd of depolarization time differences

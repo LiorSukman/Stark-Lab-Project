@@ -6,6 +6,7 @@ import numpy as np
 import time
 import argparse
 import pickle
+from constants import INF
 
 import ML_util
 
@@ -18,6 +19,7 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
     for cluster in clusters:
         features, labels = ML_util.split_features(cluster)
         features = np.nan_to_num(features)
+        features = np.clip(features, -INF, INF)
         # features = np.random.normal(size=features.shape)
         features = scaler.transform(features)
         label = labels[0]  # as they are the same for all the cluster
@@ -67,6 +69,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     features, labels = ML_util.split_features(train_data)
     # np.random.shuffle(labels)
     features = np.nan_to_num(features)
+    features = np.clip(features, -INF, INF)
     # features = np.random.normal(size=features.shape)
 
     scaler = StandardScaler()

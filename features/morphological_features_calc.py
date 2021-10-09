@@ -21,10 +21,17 @@ def get_main_chnnels(chunks):
 
     for i, chunk in enumerate(chunks):
         chunk_data = chunk.get_data()
-        main_channel = np.argmin(chunk_data) // chunk_data.shape[-1]
-        ret.append(Spike(data=chunk_data[main_channel]))  # set main channel to be the one with highest depolariztion
+        chunk_amp = chunk_data.max(axis=1) - chunk_data.min(axis=1)
+        main_channel = np.argmax(chunk_amp)
+        ret.append(Spike(data=chunk_data[main_channel]))  # set main channel to be the one with highest peak - trough
 
     return ret
+
+
+def get_trough_time(main_chunks):
+    result = [[spike.data.argmin()] for spike in main_chunks]
+    result = np.asarray(result)
+    return result
 
 
 def calc_morphological_features(chunks, transform=False):
@@ -46,6 +53,9 @@ def calc_morphological_features(chunks, transform=False):
         if VERBOS:
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
 
+    mat_result = get_trough_time(main_chunks)
+    feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
+
     return feature_mat_for_cluster
 
 
@@ -53,4 +63,4 @@ def get_morphological_features_names():
     names = []
     for feature in features:
         names += feature.headers
-    return names
+    return names + ['t_time']

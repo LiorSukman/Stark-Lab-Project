@@ -87,10 +87,12 @@ def read_data(path, mode='complete', should_filter=True, keep=None):
     clusters = []
     names = []
     recordings = []
+    regions = []
     for file in sorted(files):
         df = pd.read_csv(path + '/' + file)
         name = df.name[0]
-        df = df.drop(columns=['name'])
+        region = df.region[0]
+        df = df.drop(columns=['name', 'region'])
         nd = df.to_numpy(dtype='float64')
 
         if should_filter:
@@ -105,8 +107,9 @@ def read_data(path, mode='complete', should_filter=True, keep=None):
                 nd = nd[:, keep]
             clusters.append(nd)
         names.append(name)
+        regions.append(region)
         recordings.append(SESSION_TO_ANIMAL['_'.join(name.split('_')[0:-2])])
-    return np.asarray(clusters), np.array(names), np.array(recordings)
+    return np.asarray(clusters), np.array(names), np.array(recordings), np.array(regions)
 
 
 def break_data(data, cluster_names, recording_names):
@@ -123,19 +126,22 @@ def break_data(data, cluster_names, recording_names):
     return ret, names, recordings
 
 
-def was_created(paths, per_train, per_dev, per_test):
+def was_created(paths, per_train, per_dev, per_test, region_based):
     """
    The function checks if all datasets were already creted and return True iff so
    """
     for path in paths:
-        path = path + str(per_train) + str(per_dev) + str(per_test)
+        if region_based:
+            path = path + 'region'
+        else:
+            path = path + str(per_train) + str(per_dev) + str(per_test)
         if not os.path.isdir(path):
             return False
     return True
 
 
 def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt', mode='complete', should_filter=True,
-                    save_path='../data_sets', verbos=False, keep=None, group_split=False, seed=None):
+                    save_path='../data_sets', verbos=False, keep=None, group_split=False, seed=None, region_based=False):
     """
    The function creates all datasets from the data referenced by the datasets file and saves them
    """
@@ -151,15 +157,15 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
                 paths.append(path.rstrip())
     names = [path.split('/')[-1] + '_' for path in paths]
 
-    should_load = was_created([save_path + '/' + name for name in names], per_train, per_dev, per_test)
+    should_load = was_created([save_path + '/' + name for name in names], per_train, per_dev, per_test, region_based)
 
     inds = []
     inds_initialized = False
     for name, path in zip(names, paths):
         if not should_load:
             print('Reading data from %s...' % path)
-            data, cluster_names, recording_names = read_data(path, mode, should_filter, keep=keep)
-            if not group_split:
+            data, cluster_names, recording_names, regions = read_data(path, mode, should_filter, keep=keep)
+            if not group_split and not region_based:
                 data, cluster_names, recording_names = break_data(data, cluster_names, recording_names)
                 if not inds_initialized:
                     if seed is None:
@@ -178,10 +184,11 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
             data = None  # only because we need to send something to split_data()
             cluster_names = None
             recording_names = None
+            regions = None
         print('Splitting %s set...' % name)
         split_data(data, cluster_names, recording_names,  per_train=per_train, per_dev=per_dev, per_test=per_test,
-                   path=save_path, data_name=name, should_shuffle=False, should_load=should_load, verbos=verbos,
-                   group_split=group_split, seed=seed)
+                   path=save_path, data_name=name, should_load=should_load, verbos=verbos,
+                   group_split=group_split, seed=seed, region_based=region_based, regions=regions)
 
 
 def get_dataset(path):
@@ -222,8 +229,13 @@ def take_partial_data(data, start, end):
     return ret
 
 
+def take_region_data(data, names, region, regions):
+    inds = np.argwhere(regions == float(region)).flatten()
+    return data[inds], names[inds]
+
+
 def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True,
-               data_name='', should_shuffle=True, verbos=False, group_split=True, seed=None):
+               data_name='', verbos=False, group_split=True, seed=None, region_based=False, regions=None):
     """
    This function recieves the data as an ndarray. The first level is the different clusters, i.e each file,
    the second level is the different waveforms whithin each clusters and the third is the actual features
@@ -233,7 +245,10 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
    arguments the number of waveforms in each set is actually distributed independently.
    """
     assert per_train + per_dev + per_test == 1
-    name = data_name + str(per_train) + str(per_dev) + str(per_test) + '/'
+    if region_based:
+        name = data_name + 'region/'
+    else:
+        name = data_name + str(per_train) + str(per_dev) + str(per_test) + '/'
     full_path = path + '/' + name if path is not None else None
     if path is not None and os.path.exists(full_path) and should_load:
         print('Loading data set from %s...' % full_path)
@@ -243,12 +258,13 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
     else:
         per_dev += per_train
 
-        if should_shuffle:
-            raise Warning('Passing should_shuffle = True is not fully supported, please avoid')
-            data = break_data(data)
-            [np.random.shuffle(d) for d in data]
-
-        if not group_split:
+        if region_based:
+            train, train_names = take_region_data(data, names, 1, regions)
+            test, test_names = take_region_data(data, names, 0, regions)
+            dev_shape = tuple([0]) + train.shape[1:]
+            dev = np.empty(dev_shape)  # shape for compatabillity
+            dev_names = np.empty(dev_shape)
+        elif not group_split:
             train = take_partial_data(data, 0, per_train)
             train_names = take_partial_data(names, 0, per_train)
             dev = take_partial_data(data, per_train, per_dev)

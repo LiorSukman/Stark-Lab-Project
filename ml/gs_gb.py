@@ -7,6 +7,7 @@ import time
 import argparse
 
 import ML_util
+from constants import INF
 
 N = 10
 
@@ -16,8 +17,9 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
     total_pyr = total_in = correct_pyr = correct_in = correct_chunks = correct_clusters = total_chunks = 0
     for cluster in clusters:
         features, labels = ML_util.split_features(cluster)
-        features = scaler.transform(features)
         features = np.nan_to_num(features)
+        features = np.clip(features, -INF, INF)
+        features = scaler.transform(features)
         label = labels[0]  # as they are the same for all the cluster
         total_pyr += 1 if label == 1 else 0
         total_in += 1 if label == 0 else 0
@@ -61,6 +63,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
         train_data = train_squeezed
     features, labels = ML_util.split_features(train_data)
     features = np.nan_to_num(features)
+    features = np.clip(features, -INF, INF)
 
     scaler = StandardScaler()
     scaler.fit(features)

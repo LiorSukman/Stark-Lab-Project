@@ -49,6 +49,9 @@ def calc_window(a, b, n):
 
 
 def sp_match_spike(channel, x_data, cons, w, w_norm, rss):
+    spike = np.zeros(channel.shape)
+    spike[channel.argmin()] = channel.min()
+    return spike
     if not cons:
         popt, _ = curve_fit(cons_gaussian_function, x_data, channel,
                             bounds=([2 * min(-1, channel.min()), 0], [0, len(x_data)]),
@@ -57,16 +60,16 @@ def sp_match_spike(channel, x_data, cons, w, w_norm, rss):
         spike = calc_window(a, b, len(x_data))
     else:
         spike = match_spike(channel, w, w_norm, rss)
-    return spike / abs(spike.min())
+    return spike
 
 
 def sp_match_chunk(chunk, cons, w, w_norm, rss):
     x_data = np.arange(chunk.data.shape[-1])
     ret = np.zeros(chunk.data.shape)
     for i, channel in enumerate(chunk.data):
-        ret[i] = sp_match_spike(channel, x_data, cons, w, w_norm, rss)
+        ret[i] = sp_match_spike(np.where(channel > 0, 0, channel), x_data, cons, w, w_norm, rss)
 
-    chunk = Spike(data=ret)
+    chunk = Spike(data=ret / abs(ret.min()))
     
     return chunk
 

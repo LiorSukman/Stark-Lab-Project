@@ -11,6 +11,7 @@ import os
 
 import ML_util
 from VIS_model import visualize_model
+from constants import INF
 
 N = 10
 
@@ -23,6 +24,8 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
     for cluster, name in zip(clusters, names):
         features, labels = ML_util.split_features(cluster)
         features = np.nan_to_num(features)
+        features = np.clip(features, -INF, INF)
+        # features = np.random.normal(size=features.shape)
         if scaler is not None:
             features = scaler.transform(features)
         if pca is not None:
@@ -83,10 +86,15 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     # test_path = dataset_path.replace('200', '500').replace('500', '0')
     # _, _, test, _, _, test_names = ML_util.get_dataset(test_path)
 
-    train = np.concatenate((train, dev))
+    if len(dev) > 0:
+        train = np.concatenate((train, dev))
     # train_names = np.concatenate((train_names, dev_names))
     train_squeezed = ML_util.squeeze_clusters(train)
     train_features, train_labels = ML_util.split_features(train_squeezed)
+    train_features = np.nan_to_num(train_features)
+    train_features = np.clip(train_features, -INF, INF)
+    # np.random.shuffle(train_labels)
+    # train_features = np.random.normal(size=train_features.shape)
 
     if loading_path is None:
 

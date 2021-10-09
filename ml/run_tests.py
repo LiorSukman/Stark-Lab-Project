@@ -15,10 +15,13 @@ from SVM_RF import run as run_model
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO, STARK_SPAT, STARK_SPAT_TEMPO, STARK
 from constants import WIDTH, T2P, WIDTH_SPAT, T2P_SPAT
+from constants import TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
+from constants import INF
 
 chunks = [0, 500, 200]
 restrictions = ['complete', 'no_small_sample']
+dataset_identifier = '0.800.2'
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -54,6 +57,8 @@ def calc_auc(clf, data_path):
     train = np.concatenate((train, dev))
     train_squeezed = ML_util.squeeze_clusters(train)
     train_features, train_labels = ML_util.split_features(train_squeezed)
+    train_features = np.nan_to_num(train_features)
+    train_features = np.clip(train_features, -INF, INF)
 
     scaler = StandardScaler()
     scaler.fit(train_features)
@@ -65,6 +70,7 @@ def calc_auc(clf, data_path):
     for cluster in test:
         features, labels = ML_util.split_features(cluster)
         features = np.nan_to_num(features)
+        features = np.clip(features, -INF, INF)
         features = scaler.transform(features)
         label = labels[0]  # as they are the same for all the cluster
         pred = clf.predict_proba(features).mean(axis=0)[1]
@@ -83,17 +89,17 @@ def get_modality_results(data_path, seed, model):
 
     if model == 'rf':
         clf, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
-            data_path + "/0_0.60.20.2/", False, n_estimators_min, n_estimators_max, n_estimators_num,
+            data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
             max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
             min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n)
-        auc = calc_auc(clf, data_path + "/0_0.60.20.2/")
+        auc = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
 
         accs.append(acc)
         pyr_accs.append(pyr_acc)
         in_accs.append(in_acc)
         aucs.append(auc)
     elif model == 'svm':
-        _, acc, pyr_acc, in_acc, C, gamma = grid_search_svm(data_path + "/0_0.60.20.2/", False, None, min_gamma,
+        _, acc, pyr_acc, in_acc, C, gamma = grid_search_svm(data_path + f"/0_{dataset_identifier}/", False, None, min_gamma,
                                                             max_gamma, num_gamma, min_c, max_c, num_c, kernel, n)
         accs.append(acc)
         pyr_accs.append(pyr_acc)
@@ -101,9 +107,9 @@ def get_modality_results(data_path, seed, model):
         aucs.append(0)
     elif model == 'gb':
         clf, acc, pyr_acc, in_acc, n_estimators, max_depth, lr = grid_search_gb(
-            data_path + "/0_0.60.20.2/", False, n_estimators_min, n_estimators_max, n_estimators_num,
+            data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
             max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max, lr_num, n)
-        auc = calc_auc(clf, data_path + "/0_0.60.20.2/")
+        auc = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
 
         accs.append(acc)
         pyr_accs.append(pyr_acc)
@@ -119,9 +125,9 @@ def get_modality_results(data_path, seed, model):
         clf, acc, pyr_acc, in_acc = run_model(model, None, None, None, False, None, False, True, False, gamma, C,
                                               kernel,
                                               n_estimators, max_depth, min_samples_split, min_samples_leaf, lr,
-                                              data_path + f"/{chunk_size}_0.60.20.2/")
+                                              data_path + f"/{chunk_size}_{dataset_identifier}/")
         if model == 'rf':
-            auc = calc_auc(clf, data_path + f"/{chunk_size}_0.60.20.2/")
+            auc = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/")
         elif model == 'svm':
             auc = 0
 
@@ -171,10 +177,11 @@ if __name__ == "__main__":
     results = pd.DataFrame(
         {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
          'auc': []})
-    save_path = '../data_sets'
+    save_path = '../data_sets_newest'
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('spat_tempo', SPAT_TEMPO),
                   ('morphological', MORPHOLOGICAL)]
+    #modalities = [('trans_morph', TRANS_MORPH)]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -187,13 +194,12 @@ if __name__ == "__main__":
                 if not os.path.isdir(new_new_path):
                     os.mkdir(new_new_path)
                 keep = places
-                # TODO make sure that the per_dev=0 is ok
                 # TODO in group split it might not be good to just change the seed like this
                 with HiddenPrints():
-                    ML_util.create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt',
+                    ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt',
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                            seed=i)
+                                            seed=i, region_based=False)
 
             results = results.append(do_test(new_path, model), ignore_index=True)
 
-    results.to_csv(f'results_{model}_alt_test.csv')
+    results.to_csv(f'results_{model}_trans_morph.csv')

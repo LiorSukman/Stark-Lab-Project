@@ -3,17 +3,16 @@ import numpy as np
 from constants import NUM_CHANNELS
 
 
-def find_dominant_channel(spike):
+def find_main_channel(spike):
     """
     inputs:
     spike: the spike to be processed; it is a matrix with the dimensions of (NUM_CHANNELS, TIMESTEPS)
 
     returns:
-    the channel that contains the maximum depolarization and the sample in which that depolarization occurs
+    the channel that contains the maximum truogh to peak and the sample in which that depolarization occurs
     """
-    arg_min_channel = spike.min(axis=1).argmin()
-    arg_min_time = spike.min(axis=0).argmin()
-    return arg_min_channel, arg_min_time
+    arg_min_channel = (spike.max(axis=1) - spike.min(axis=1)).argmax()
+    return arg_min_channel
 
 
 class ChannelContrast(object):
@@ -38,19 +37,19 @@ class ChannelContrast(object):
         for i, spike in enumerate(spike_lst):
 
             # Find the dominant channel
-            dominant_channel, dom_time = find_dominant_channel(spike.data)
+            main_channel = find_main_channel(spike.data)
             reduced_arr = spike.data / spike.data.shape[1]
 
             # Iterate over the other channels and check the contrast wrt the dominant one
             res = np.zeros((1, NUM_CHANNELS))
             for j in range(NUM_CHANNELS):
-                if j != dominant_channel:
+                if j != main_channel:
                     """
                     TODO: consider just looking at the nonagreeing steps (i.e. instead of
-                    reduced_arr[dominant_channel] use reduced_arr[dominant_channel] *
-                    ((reduced_arr[j] * reduced_arr[dominant_channel]) < 0)
+                    reduced_arr[main_channel] use reduced_arr[main_channel] *
+                    ((reduced_arr[j] * reduced_arr[main_channel]) < 0)
                     """
-                    dot = np.dot(reduced_arr[j], reduced_arr[dominant_channel])
+                    dot = np.dot(reduced_arr[j], reduced_arr[main_channel])
 
                     # if there is a contrast write it, o.w write zero
                     res[0, j] = dot if dot < 0 else 0
