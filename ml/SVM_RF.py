@@ -1,5 +1,6 @@
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
+from imblearn.ensemble import BalancedRandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.decomposition import PCA, FastICA
 from sklearn.preprocessing import StandardScaler
@@ -139,9 +140,8 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
             clf = svm.SVC(kernel=kernel, gamma=gamma, C=C, class_weight='balanced', probability=False)
             print('Fitting SVM model...')
         elif model == 'rf':
-            clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                                         min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
-                                         class_weight='balanced')
+            clf = BalancedRandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
+                                         min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf)
             print('Fitting Random Forest model...')
         elif model == 'gb':
             ones = train_labels.sum()
