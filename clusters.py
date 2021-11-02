@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import os
+import re
 from constants import SAMPLE_RATE, NUM_CHANNELS, TIMESTEPS
 from constants import PYR_COLOR, PV_COLOR, UT_COLOR, LIGHT_PYR, LIGHT_PV, LIGHT_UT
 
@@ -114,7 +115,7 @@ class Cluster(object):
         np.save(path + self.get_unique_name() + '__' + str(self.label) + '__' + 'timings', self.timings)
 
     def load_cluster(self, path):
-        path_elements = path.split('\\')[-1].split('__')
+        path_elements = re.split("//|/", path)[-1].split('__')
         if 'spikes' in path_elements[-1]:
             unique_name_elements = path_elements[0].split('_')
             self.spikes = np.load(path)
@@ -149,7 +150,7 @@ class Cluster(object):
             return False
         return True
 
-    def plot_cluster(self, ax=None):
+    def plot_cluster(self, ax=None, save=False):
         if ax is not None:
             mean_spike = self.calc_mean_waveform()
             mean_spike.plot_spike(ax)
@@ -167,7 +168,8 @@ class Cluster(object):
                                   color=color2, alpha=0.2)
                 c_ax.axis('off')
             fig.suptitle(f"Cluster {self.get_unique_name()} of type {'PYR' if self.label == 1 else 'IN' if self.label == 0 else 'UT' }")
-            pp = PdfPages(f"{self.get_unique_name()}.pdf")
-            pp.savefig(fig)
-            pp.close()
+            if save:
+                pp = PdfPages(f"{self.get_unique_name()}.pdf")
+                pp.savefig(fig)
+                pp.close()
             plt.show()

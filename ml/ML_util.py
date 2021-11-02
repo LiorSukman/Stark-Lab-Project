@@ -38,6 +38,7 @@ def split_features(data):
     """
    The function simply separates the features and the labels of the clusters
    """
+    print(data.shape)
     return data[:, :-1], data[:, -1]
 
 
@@ -61,8 +62,9 @@ def is_legal(cluster, mode):
    To learn more about the different labels please refer to the pdf file or the read_data.py file
    """
     row = cluster[0]
+    t_time = cluster[:, 8] if len(cluster) == 1 else 128
     if mode == 'complete':
-        return row[-1] >= 0
+        return row[-1] >= 0# and 127 <= t_time <= 129
     elif mode == 'no_noise':  # currently obsolete
         raise NotImplementedError
         return row[-1] >= 0 and row[-3] >= 100
@@ -74,7 +76,7 @@ def is_legal(cluster, mode):
         return row[-1] >= 0 and row[-3] >= 100 and row[-4] >= 8000
 
 
-def read_data(path, mode='complete', should_filter=True, keep=None):
+def read_data(path, mode='complete', should_filter=True, keep=None, filter=None):
     """
    The function reads the data from all files in the path.
    It is assumed that each file represents a single cluster, and have some number of waveforms.
@@ -88,7 +90,10 @@ def read_data(path, mode='complete', should_filter=True, keep=None):
     names = []
     recordings = []
     regions = []
-    for file in sorted(files):
+    filter_set = set() if filter is None else filter
+    print(filter_set)
+    print(filter)
+    for i, file in enumerate(sorted(files)):
         df = pd.read_csv(path + '/' + file)
         name = df.name[0]
         region = df.region[0]
@@ -96,10 +101,16 @@ def read_data(path, mode='complete', should_filter=True, keep=None):
         nd = df.to_numpy(dtype='float64')
 
         if should_filter:
-            if is_legal(nd, mode):
+            if filter is not None:
+                if i in filter:
+                    if keep:  # i.e. keep != []
+                        nd = nd[:, keep]
+                    clusters.append(nd)
+            elif is_legal(nd, mode):
                 if keep:  # i.e. keep != []
                     nd = nd[:, keep]
                 clusters.append(nd)
+                filter_set.add(i)
             else:
                 continue
         else:
@@ -109,7 +120,8 @@ def read_data(path, mode='complete', should_filter=True, keep=None):
         names.append(name)
         regions.append(region)
         recordings.append(SESSION_TO_ANIMAL['_'.join(name.split('_')[0:-2])])
-    return np.asarray(clusters), np.array(names), np.array(recordings), np.array(regions)
+    print(filter_set)
+    return np.asarray(clusters), np.array(names), np.array(recordings), np.array(regions), filter_set
 
 
 def break_data(data, cluster_names, recording_names):
@@ -161,10 +173,11 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
 
     inds = []
     inds_initialized = False
+    filter_set = None
     for name, path in zip(names, paths):
         if not should_load:
             print('Reading data from %s...' % path)
-            data, cluster_names, recording_names, regions = read_data(path, mode, should_filter, keep=keep)
+            data, cluster_names, recording_names, regions, filter_set = read_data(path, mode, should_filter, keep=keep, filter=filter_set)
             if not group_split and not region_based:
                 data, cluster_names, recording_names = break_data(data, cluster_names, recording_names)
                 if not inds_initialized:
@@ -177,6 +190,7 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
                         np.random.shuffle(inds_temp)
                         inds.append(inds_temp)
                     inds_initialized = True
+
                 data = [c[inds[i]] for i, c in enumerate(data)]
                 cluster_names = [c[inds[i]] for i, c in enumerate(cluster_names)]
                 recording_names = [c[inds[i]] for i, c in enumerate(recording_names)]

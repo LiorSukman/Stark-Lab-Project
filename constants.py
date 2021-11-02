@@ -24,8 +24,8 @@ STARK_SPAT = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 18, -1]
 
 SPATIAL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, -1]
 MORPHOLOGICAL = [13, 14, 15, 16, 17, 18, 19, 20, -1]
-TEMPORAL = [21, 22, 23, 24, 25, 26, -1]
-SPAT_TEMPO = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 21, 22, 23, 24, 25, 26, -1]
+TEMPORAL = [22, 23, 24, 25, 26, 27, -1]
+SPAT_TEMPO = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 22, 23, 24, 25, 26, 27, -1]
 TRANS_MORPH = [0, 1, 2, 3, 4, 5, 6, 7, -1]
 
 PYR_COLOR = (0.416, 0.106, 0.604)
@@ -85,3 +85,10 @@ SESSION_TO_ANIMAL = {
     'm649r1_21': 649,
     'm649r1_22': 649
 }
+
+feature_names = ['dep_red',	'dep_sd', 'graph_avg_speed', 'graph_slowest_path', 'graph_fastest_path',
+                 'geometrical_avg_shift', 'geometrical_shift_sd', 'geometrical_max_dist', 'spatial_dispersion_count',
+                 'spatial_dispersion_sd', 'da', 'da_sd', 'Channels contrast', 'break_measure', 'fwhm', 'get_acc',
+                 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry',	't_time', 'd_kl', 'jump',
+                 'psd_center', 'der_psd_center', 'rise_time', 'unif_dist']
+

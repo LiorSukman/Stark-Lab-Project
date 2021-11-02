@@ -104,7 +104,7 @@ def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gam
     print()
     print('Starting evaluation on test set...')
     clust_count, acc, pyr_acc, in_acc = evaluate_predictions(calssifier, test, scaler, verbos)
-    return clust_count, acc, pyr_acc, in_acc, C, gamma
+    return calssifier, clust_count, acc, pyr_acc, in_acc, C, gamma
 
 
 if __name__ == "__main__":
