@@ -2,8 +2,6 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
-from imblearn.ensemble import BalancedRandomForestClassifier
-
 import numpy as np
 import time
 import argparse
@@ -88,7 +86,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     print()
     parameters = {'n_estimators': n_estimatorss, 'max_depth': max_depths, 'min_samples_split': min_samples_splits,
                   'min_samples_leaf': min_samples_leafs}
-    model = BalancedRandomForestClassifier()
+    model = RandomForestClassifier(class_weight='balanced')
     clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=0)
     print('Starting grid search...')
     start = time.time()
@@ -102,8 +100,9 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     min_samples_split = clf.best_params_['min_samples_split']
     min_samples_leaf = clf.best_params_['min_samples_leaf']
     # need to create another one as the other trains on both train and dev
-    classifier = BalancedRandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                                                min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf)
+    classifier = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
+                                        min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
+                                        class_weight='balanced')
     classifier.fit(features, labels)
 
     print()

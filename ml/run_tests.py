@@ -5,8 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils.testing import ignore_warnings
+from sklearn.inspection import permutation_importance
+# from sklearn.utils.testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
+import pickle
 
 from gs_rf import grid_search as grid_search_rf
 from gs_svm import grid_search as grid_search_svm
@@ -22,6 +24,9 @@ from constants import INF
 chunks = [0, 500, 200]
 restrictions = ['complete', 'no_small_sample']
 dataset_identifier = '0.800.2'
+importance_mode = 'perm'
+# try_load = '../saved_models' # TODO implement
+NUM_FETS = 28
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -49,6 +54,31 @@ num_c = 7
 kernel = 'rbf'
 
 n = 5
+
+def get_test_set(data_path):
+    train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
+
+    train_squeezed = ML_util.squeeze_clusters(train)
+    dev_squeezed = ML_util.squeeze_clusters(dev)
+    if len(dev_squeezed) > 0:
+        train_data = np.concatenate((train_squeezed, dev_squeezed))
+    else:
+        train_data = train_squeezed
+    features, labels = ML_util.split_features(train_data)
+    # np.random.shuffle(labels)
+    features = np.nan_to_num(features)
+    features = np.clip(features, -INF, INF)
+    # features = np.random.normal(size=features.shape)
+
+    scaler = StandardScaler()
+    scaler.fit(features)
+
+    test_squeezed = ML_util.squeeze_clusters(test)
+    x, y = ML_util.split_features(test_squeezed)
+    x = scaler.transform(x)
+
+    return x, y
+
 
 def calc_auc(clf, data_path):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
@@ -83,9 +113,12 @@ def calc_auc(clf, data_path):
     return auc_val
 
 
-def get_modality_results(data_path, seed, model):
-    accs, pyr_accs, in_accs, aucs = [], [], [], []
+def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'):
+    accs, pyr_accs, in_accs, aucs, importances = [], [], [], [], []
     C, gamma, n_estimators, max_depth, min_samples_split, min_samples_leaf, lr = [None] * 7
+
+    path_split = data_path.split('/')
+    dest = f"../saved_models/{model}_{path_split[3]}_{path_split[2]}"
 
     if model == 'rf':
         clf, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
@@ -93,30 +126,49 @@ def get_modality_results(data_path, seed, model):
             max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
             min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n)
         auc = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
+        if importance_mode == 'reg':
+            importance = clf.feature_importances_
+        elif importance_mode == 'perm':
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/")
+            importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+        else:
+            raise NotImplementedError
 
-        accs.append(acc)
-        pyr_accs.append(pyr_acc)
-        in_accs.append(in_acc)
-        aucs.append(auc)
     elif model == 'svm':
-        _, acc, pyr_acc, in_acc, C, gamma = grid_search_svm(data_path + f"/0_{dataset_identifier}/", False, None, min_gamma,
-                                                            max_gamma, num_gamma, min_c, max_c, num_c, kernel, n)
-        accs.append(acc)
-        pyr_accs.append(pyr_acc)
-        in_accs.append(in_acc)
-        aucs.append(0)
+        clf, _, acc, pyr_acc, in_acc, C, gamma = grid_search_svm(data_path + f"/0_{dataset_identifier}/", False, None,
+                                                                 min_gamma, max_gamma, num_gamma, min_c, max_c, num_c,
+                                                                 kernel, n)
+        if importance_mode == 'perm':
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/")
+            importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+        else:
+            raise NotImplementedError
+
+        auc = 0
+
     elif model == 'gb':
         clf, acc, pyr_acc, in_acc, n_estimators, max_depth, lr = grid_search_gb(
             data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
             max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max, lr_num, n)
         auc = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
 
-        accs.append(acc)
-        pyr_accs.append(pyr_acc)
-        in_accs.append(in_acc)
-        aucs.append(auc)
+        if importance_mode == 'perm':
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/")
+            importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+        else:
+            raise NotImplementedError
+
     else:
         raise Exception(f"model {model} is not suppurted, only svm or rf are supported at the moment")
+
+    accs.append(acc)
+    pyr_accs.append(pyr_acc)
+    in_accs.append(in_acc)
+    aucs.append(auc)
+    importances.append(importance)
+
+    with open(dest + "_0", 'wb') as fid:  # save the model
+        pickle.dump(clf, fid)
 
     restriction, modality = data_path.split('/')[-2:]
     restriction = '_'.join(restriction.split('_')[:-1])
@@ -126,47 +178,73 @@ def get_modality_results(data_path, seed, model):
                                               kernel,
                                               n_estimators, max_depth, min_samples_split, min_samples_leaf, lr,
                                               data_path + f"/{chunk_size}_{dataset_identifier}/")
-        if model == 'rf':
+        if model == 'rf' or model == 'gb':
             auc = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/")
+            if model == 'rf':
+                if importance_mode == 'reg':
+                    importance = clf.feature_importances_
+                elif importance_mode == 'perm':
+                    x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
+                    importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                else:
+                    raise NotImplementedError
+            else:
+                if importance_mode == 'perm':
+                    x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
+                    importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                else:
+                    raise NotImplementedError
+
         elif model == 'svm':
+            if importance_mode == 'perm':
+                x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
+                importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            else:
+                raise NotImplementedError
             auc = 0
 
         accs.append(acc)
         pyr_accs.append(pyr_acc)
         in_accs.append(in_acc)
         aucs.append(auc)
+        importances.append(importance)
+
+        with open(dest + f"_{chunk_size}", 'wb') as fid:  # save the model
+            pickle.dump(clf, fid)
 
     df = pd.DataFrame(
-        {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [seed] * len(accs),
+        {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [str(seed)] * len(accs),
          'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs})
+
+    features = [f"feature {f+1}" for f in range(NUM_FETS)]
+    importances_row = np.nan * np.ones((len(accs), NUM_FETS))
+    importances_row[:, fet_inds[:-1]] = importances
+    df[features] = pd.DataFrame(importances_row, index=df.index)
 
     return df
 
 
 def get_folder_results(data_path, model):
-    df = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
-         'auc': []})
-    seed = data_path.split('_')[-1]
+    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'auc'] + \
+              [f"feature {f+1}" for f in range(NUM_FETS)]
+    df = pd.DataFrame({col: [] for col in df_cols})
+    seed = int(data_path.split('_')[-1])
     for modality in modalities:
         print(f"        Starting modality {modality[0]}")
         with HiddenPrints():
-            modality_df = get_modality_results(data_path + '/' + modality[0], seed, model)
+            modality_df = get_modality_results(data_path + '/' + modality[0], seed, model, modality[1],
+                                               importance_mode=importance_mode)
         df = df.append(modality_df, ignore_index=True)
 
     return df
 
 
 def get_results(data_path, model):
-    df = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
-         'auc': []})
     folder_df = get_folder_results(data_path, model)
-    df = df.append(folder_df, ignore_index=True)
 
-    return df
+    return folder_df
 
-@ignore_warnings(category=ConvergenceWarning)
+#@ignore_warnings(category=ConvergenceWarning)
 def do_test(data_path, model):
     return get_results(data_path, model)
 
@@ -177,7 +255,7 @@ if __name__ == "__main__":
     results = pd.DataFrame(
         {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
          'auc': []})
-    save_path = '../data_sets_newest'
+    save_path = '../data_sets'
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('spat_tempo', SPAT_TEMPO),
                   ('morphological', MORPHOLOGICAL)]
@@ -202,4 +280,4 @@ if __name__ == "__main__":
 
             results = results.append(do_test(new_path, model), ignore_index=True)
 
-    results.to_csv(f'results_{model}_trans_morph.csv')
+    results.to_csv(f'results_{model}_w_perm_imp.csv')

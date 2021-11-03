@@ -22,7 +22,7 @@ from features.spatial_features_calc import calc_spatial_features, get_spatial_fe
 from features.morphological_features_calc import calc_morphological_features, get_morphological_features_names
 from features.temporal_features_calc import calc_temporal_features, get_temporal_features_names
 
-TEMP_PATH = 'temp_state_minus_light\\'
+TEMP_PATH = 'temp_state_minus_light/'
 
 punits = {'es04feb12_1_3_2',
           'es04feb12_1_4_17',
@@ -65,7 +65,7 @@ def create_fig(load_path, rows, cols):
     for i, file in enumerate(files_list):
         if counter == rows * cols:
             break
-        path_elements = file.split('\\')[-1].split('__')
+        path_elements = file.split('/')[-1].split('__')
         if path_elements[0].split('/')[-1] not in punits:
             continue
         if 'timing' in path_elements[-1]:
@@ -94,11 +94,11 @@ def load_clusters(load_path, groups=None):
     files_list = [TEMP_PATH + f for f in listdir(load_path) if isfile(join(load_path, f))]
     clusters = set()
     for file in tqdm(files_list):
-        name = '_'.join(file.split('\\')[-1].split('__')[0].split('_')[:-1])
+        name = '_'.join(file.split('/')[-1].split('__')[0].split('_')[:-1])
         if groups is not None and groups[name] != 8:
             continue
         start_time = time.time()
-        path_elements = file.split('\\')[-1].split('__')
+        path_elements = file.split('/')[-1].split('__')
         if 'timing' in path_elements[-1]:
             continue
         unique_name = path_elements[0]
@@ -184,7 +184,7 @@ def light_processing(path):
             cluster_copy.timings = cluster.timings[inds]
             cluster_copy.np_spikes = cluster.np_spikes[inds]
 
-            save_path = 'temp_state_minus_light//' if remove_lights else "temp_state_only_light//"
+            save_path = 'temp_state_minus_light/' if remove_lights else "temp_state_only_light/"
 
             cluster_copy.save_cluster(save_path)
 
@@ -268,6 +268,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
 
     # define headers for saving later 
     headers = get_spatial_features_names()
+    # headers = get_morphological_features_names()
     headers += get_morphological_features_names()
     headers += get_temporal_features_names()
     headers += ['max_abs', 'name', 'region', 'label']
@@ -295,19 +296,20 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
             path = csv_folder + 'mean_spikes'
             if not os.path.isdir(path):
                 os.mkdir(path)
-            path += '\\' + cluster.get_unique_name()
+            path += '/' + cluster.get_unique_name()
             np.save(path, cluster.calc_mean_waveform().data)
 
             for chunk_size, rel_data, inds in zip(chunk_sizes, spike_chunks, ind_chunks):
                 path = csv_folder + str(chunk_size)
-                if os.path.exists(path + '\\' + cluster.get_unique_name() + ".csv"):
+                if os.path.exists(path + '/' + cluster.get_unique_name() + ".csv"):
                     continue
                 # upsample
                 rel_data = [Spike(data=upsample_spike(spike.data, UPSAMPLE))
                             for spike in rel_data]
                 temporal_features_mat = calc_temporal_features(cluster.timings, inds)
                 spatial_features_mat = calc_spatial_features(rel_data)
-                morphological_features_mat = calc_morphological_features(rel_data)
+                # feature_mat_for_cluster = morphological_features_mat = calc_morphological_features(rel_data, True)
+                morphological_features_mat = calc_morphological_features(rel_data, False)
                 feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
                                                           temporal_features_mat), axis=1)
                 # Append metadata for the cluster
@@ -326,7 +328,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
                 # Save the data to a separate file (one for each cluster)
                 if not os.path.isdir(path):
                     os.mkdir(path)
-                path += '\\' + cluster.get_unique_name() + ".csv"
+                path += '/' + cluster.get_unique_name() + ".csv"
                 df = pd.DataFrame(data=feature_mat_for_cluster)
                 df.to_csv(path_or_buf=path, index=False, header=headers)  # save to csv
             print('saved clusters to csv')
@@ -338,7 +340,7 @@ if __name__ == "__main__":
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
                         default=[0, 200, 500])
-    parser.add_argument('--save_path', type=str, default='clustersData_no_light_newest\\',
+    parser.add_argument('--save_path', type=str, default='clustersData_no_light/',
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')
@@ -355,7 +357,7 @@ if __name__ == "__main__":
                         help='create new temp states based on the stimulus times')
     parser.add_argument('--plot_cluster', type=str, default=None,
                         help='display a specific cluster')
-    parser.add_argument('--spv_mat', type=str, default='Data\\CelltypeClassification.mat', help='path to SPv matrix')
+    parser.add_argument('--spv_mat', type=str, default='Data/CelltypeClassification.mat', help='path to SPv matrix')
     parser.add_argument('--xml', type=bool, default=True, help='whether to assert using information in xml files when '
                                                                'reading the raw data')
 
