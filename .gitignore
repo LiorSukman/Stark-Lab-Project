@@ -9,3 +9,5 @@
 **/graphs
 **/.idea
 **/temps_to_save
+**/sample_data
+ml/results*

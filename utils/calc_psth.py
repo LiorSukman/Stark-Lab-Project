@@ -30,7 +30,7 @@ def get_pair_lst(path):
         stm_pairs = mat['stim']['times']
         amps = mat['stim']['vals']
         durs = np.array([b-a for a, b in stm_pairs])
-        mask = (types == 'PULSE') * (amps > 0.064) * (amps < 0.066) * (durs > 900) * (durs < 1100)
+        mask = (types == 'PULSE') * (amps > 0.059) * (amps < 0.066) * (durs > 900) * (durs < 1100)
         stm_pairs = stm_pairs[mask]
         amps = amps[mask]
 
@@ -56,15 +56,49 @@ def calc_hist(spike_train, stims, bins):
 
     return 20_000 * ret / len(stims)
 
+def main(data_path, cluster_name, temp_state, ax):
+    cluster = load_cluster(temp_state, cluster_name)
+
+    file_lst = glob.glob(data_path + f'{cluster.filename}/{cluster.filename}.stm.*')
+    pairs_temp = []
+    for f in file_lst:
+        p = get_pair_lst(f)
+        if p is None:
+            continue
+        pairs_temp.append(p)
+    pairs = combine_list(pairs_temp)
+
+    bins = np.linspace(-50 * 20, 100 * 20, 150 * 20 + 1)
+
+    spike_train = cluster.timings
+
+    hist = calc_hist(spike_train, [start for start, end in pairs], bins)
+
+    wind_size = 141
+    mirr_hist = mirror_edges(hist, wind_size)
+
+    g_wind = create_window(wind_size, 20, 3.5)
+    conv_hist = np.convolve(mirr_hist, g_wind, mode='valid')
+
+    rect = patches.Rectangle((0, 0), 50, conv_hist.max(), facecolor='c', alpha=0.2)
+
+    # Add the patch to the Axes
+    ax.add_patch(rect)
+    ax.plot(np.linspace(-50, 100, 150 * 20), conv_hist)
+    ax.set_ylabel('avg spike/second')
+    ax.set_xlabel('ms')
+    ax.set_title(cluster_name)
+
+    return ax
 
 if __name__ == "__main__":
-    data_path = '..\\Data\\'
-    cluster_name = 'es25nov11_3_4_5'
+    data_path = '../Data/'
+    cluster_name = 'es04feb12_1_2_22'
 
-    cluster = load_cluster('..\\temp_state\\', cluster_name)
+    cluster = load_cluster('../temp_state/', cluster_name)
 
-    file_lst = glob.glob(data_path + f'{cluster.filename}\\{cluster.filename}.stm.*')
-    print(data_path + f'{cluster.filename}\\{cluster.filename}.stm.*')
+    file_lst = glob.glob(data_path + f'{cluster.filename}/{cluster.filename}.stm.*')
+    print(data_path + f'{cluster.filename}/{cluster.filename}.stm.*')
     pairs_temp = []
     print('reading stm files')
     for f in file_lst:
@@ -85,6 +119,7 @@ if __name__ == "__main__":
 
     g_wind = create_window(wind_size, 20, 3.5)
     conv_hist = np.convolve(mirr_hist, g_wind, mode='valid')
+    print(conv_hist)
 
     fig, ax = plt.subplots()
     rect = patches.Rectangle((0, 0), 50, conv_hist.max(), facecolor='c', alpha=0.2)
