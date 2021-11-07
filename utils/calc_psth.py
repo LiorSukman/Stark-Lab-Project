@@ -5,6 +5,7 @@ import scipy.io as io
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from enum import Enum
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
 
@@ -23,14 +24,28 @@ def mirror_edges(arr, wind_size):
 
     return np.concatenate((left_edge, arr, right_edge), axis=0)
 
-def get_pair_lst(path):
+class STIM_MODE(Enum):
+    ALL = 1
+    SIM = 2
+    CUR = 3
+
+def get_pair_lst(path, mode = STIM_MODE.ALL):
     mat = io.loadmat(path, appendmat=False, simplify_cells=True)
     try:
         types = mat['stim']['types']  # Only need pulse
         stm_pairs = mat['stim']['times']
         amps = mat['stim']['vals']
+        indexes = None
+        if mode == STIM_MODE.ALL:
+            indexes = np.ones(len(types))
+        elif mode == STIM_MODE.SIM:
+            indexes = 1 - mat['stim']['index']
+        elif mode == STIM_MODE.CUR:
+            indexes = mat['stim']['index']
+        else:
+            raise NotImplementedError
         durs = np.array([b-a for a, b in stm_pairs])
-        mask = (types == 'PULSE') * (amps > 0.059) * (amps < 0.066) * (durs > 900) * (durs < 1100)
+        mask = (types == 'PULSE') * (amps > 0.059) * (amps < 0.066) * (durs > 900) * (durs < 1100) * indexes
         stm_pairs = stm_pairs[mask]
         amps = amps[mask]
 
@@ -56,13 +71,24 @@ def calc_hist(spike_train, stims, bins):
 
     return 20_000 * ret / len(stims)
 
-def main(data_path, cluster_name, temp_state, ax):
+
+def check_stim_shank(shank, f):
+    try:
+        f_shank = int(f.split('.')[-1]) - 32
+        return f_shank == shank
+    except ValueError:
+        return False
+
+
+def main(data_path, cluster_name, temp_state, ax, mode=STIM_MODE.ALL):
     cluster = load_cluster(temp_state, cluster_name)
 
     file_lst = glob.glob(data_path + f'{cluster.filename}/{cluster.filename}.stm.*')
     pairs_temp = []
     for f in file_lst:
-        p = get_pair_lst(f)
+        if not check_stim_shank(cluster.shank, f):
+            continue
+        p = get_pair_lst(f, mode)
         if p is None:
             continue
         pairs_temp.append(p)
