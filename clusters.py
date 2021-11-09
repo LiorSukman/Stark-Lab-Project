@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 import os
 import re
 from constants import SAMPLE_RATE, NUM_CHANNELS, TIMESTEPS
@@ -150,7 +149,7 @@ class Cluster(object):
             return False
         return True
 
-    def plot_cluster(self, ax=None, save=False):
+    def plot_cluster(self, ax=None, save=False, path=None):
         if ax is not None:
             mean_spike = self.calc_mean_waveform()
             mean_spike.plot_spike(ax)
@@ -167,9 +166,8 @@ class Cluster(object):
                 c_ax.fill_between(np.arange(TIMESTEPS), mean_channel - std_channel, mean_channel + std_channel,
                                   color=color2, alpha=0.2)
                 c_ax.axis('off')
-            fig.suptitle(f"Cluster {self.get_unique_name()} of type {'PYR' if self.label == 1 else 'IN' if self.label == 0 else 'UT' }")
+            if not save:
+                fig.suptitle(f"Cluster {self.get_unique_name()} of type {'PYR' if self.label == 1 else 'IN' if self.label == 0 else 'UT' }")
+                plt.show()
             if save:
-                pp = PdfPages(f"{self.get_unique_name()}.pdf")
-                pp.savefig(fig)
-                pp.close()
-            plt.show()
+                plt.savefig(f"{path}{self.get_unique_name()}.pdf", transparent=True)

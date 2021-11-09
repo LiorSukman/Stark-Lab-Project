@@ -14,22 +14,27 @@ from features.temporal_features_calc import calc_temporal_histogram
 from features.spatial_features_calc import sp_wavelet_transform
 from utils.upsampling import upsample_spike
 
-TEMP_PATH = '..\\temp_state\\'
-pyr_name = name = 'es25nov11_5_3_10'  # pyr 16 17
-pv_name = 'es25nov11_5_2_13'  # pv
+SAVE_PATH = '../../../data for figures/'
+TEMP_PATH = '../temp_state/'
+upsample = 8
+pyr_name = name = 'es25nov11_13_3_3'  # pyr
+pv_name = 'es25nov11_13_3_11'  # pv
 
+# Load wanted units
 pyr_cluster = load_cluster(TEMP_PATH, pyr_name)
 pv_cluster = load_cluster(TEMP_PATH, pv_name)
 
-pyr_cluster.plot_cluster()
-pv_cluster.plot_cluster()
+"""# Waveforms
+pyr_cluster.plot_cluster(save=True, path=SAVE_PATH)
+pv_cluster.plot_cluster(save=True, path=SAVE_PATH)
 
 # Spike train
 # _, _, _, stims = remove_light(pyr_cluster, True, data_path='../Data/')
 # check indicated that it is way after the first 50 spikes so it is ignored in plotting
 
-pyr_mask = (pyr_cluster.timings > 500000) * (pyr_cluster.timings < 501000)
-pv_mask = (pv_cluster.timings > 500000) * (pv_cluster.timings < 501000)
+# Spike Train
+pyr_mask = (pyr_cluster.timings > 3509050) * (pyr_cluster.timings < 3510050)
+pv_mask = (pv_cluster.timings > 3509050) * (pv_cluster.timings < 3510050)
 pyr_train = pyr_cluster.timings[pyr_mask]
 pv_train = pv_cluster.timings[pv_mask]
 
@@ -45,22 +50,26 @@ scalebar = AnchoredSizeBar(ax.transData,
                            size_vertical=0.01)
 
 ax.add_artist(scalebar)
-plt.show()
+plt.savefig(SAVE_PATH + "spike_train.pdf", transparent=True)
 
 # Temporal features
+# PV ACH 50
 bin_range = 50
 N = 2 * bin_range + 2
 offset = 1 / 2
 bins = np.linspace(-bin_range - offset, bin_range + offset, N)
 chunks = np.array([np.arange(len(pv_cluster.timings))])
 hist = calc_temporal_histogram(pv_cluster.timings, bins, chunks)[0]
+hist = signal.resample_poly(hist, upsample ** 2, upsample, padtype='line')
 bin_inds = []
-for i in range(len(bins) - 1):
-    bin_inds.append((bins[i] + bins[i + 1]) / 2)
-plt.bar(bin_inds, hist)
-print('pv')
-plt.show()
+bin_inds = np.linspace(bins[0]+offset, bins[-1]-offset, N-1)
 
+fig, ax = plt.subplots()
+ax.bar(bin_inds, hist, color=PV_COLOR)
+plt.savefig(SAVE_PATH + "PV_ACH_50.pdf", transparent=True)
+exit(0)
+
+# PV unif_dist
 zero_bin_ind = len(hist) // 2
 hist = (hist[:zero_bin_ind + 1:][::-1] + hist[zero_bin_ind:]) / 2
 cdf = np.cumsum(hist) / np.sum(hist)
@@ -76,7 +85,6 @@ bin_inds = []
 for i in range(len(bins) - 1):
     bin_inds.append((bins[i] + bins[i + 1]) / 2)
 plt.bar(bin_inds, hist)
-print('pyr')
 plt.show()
 
 zero_bin_ind = len(hist) // 2
@@ -125,9 +133,6 @@ for i, c_ax in enumerate(ax[::-1]):
     # Put a legend to the right of the current axis
     if i == NUM_CHANNELS - 1:
         c_ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize='xx-large')
-"""pp = PdfPages(f"{clu.get_unique_name()}_cons_t2p.pdf")
-pp.savefig(fig)
-pp.close()"""
 plt.show()
 
 fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True, figsize=(9, 20))
@@ -142,7 +147,7 @@ for i, c_ax in enumerate(ax[::-1]):
     c_ax.scatter(np.arange(TIMESTEPS * UPSAMPLE)[n_inds][::5], mean_channel[n_inds][::5], c='r', marker='v', s=12)
     c_ax.axis('off')
 
-plt.show()
+plt.show()"""
 
 # constrained transformation
 """cons_wavelets = sp_wavelet_transform([chunks], True)[0].get_data()
@@ -212,46 +217,55 @@ ax.axis('off')
 plt.show()"""
 
 # Morphological features
-"""NUM_CHANNELS = 8
+NUM_CHANNELS = 8
 TIMESTEPS = 32
 UPSAMPLE = 8
+
 clu = pyr_cluster
 color = PYR_COLOR
-chunks = clu.calc_mean_waveform()
-if UPSAMPLE != 1:
-    # chunks = Spike(signal.resample(chunks.data, UPSAMPLE * TIMESTEPS, axis=1)).get_data()
-    chunks = Spike(signal.resample_poly(chunks.data, UPSAMPLE ** 2, UPSAMPLE, axis=1, padtype='line')).get_data()
 
-spike = chunks[chunks.argmin() // (TIMESTEPS * UPSAMPLE)]
+def t2p_fwhm(clu, color, name):
+    chunks = clu.calc_mean_waveform()
+    if UPSAMPLE != 1:
+        chunks = upsample_spike(chunks.data)
 
-dep_ind = spike.argmin()
-dep = spike[dep_ind]
-hyp_ind = spike.argmax()
-hyp = spike[hyp_ind]
-print(hyp_ind - dep_ind + 1)
+    spike = chunks[chunks.argmin() // (TIMESTEPS * UPSAMPLE)]
 
-fwhm_inds = np.argwhere(spike <= dep / 2).flatten()
-print(fwhm_inds[-1] - fwhm_inds[0] + 1)
+    dep_ind = spike.argmin()
+    dep = spike[dep_ind]
+    hyp_ind = spike.argmax()
+    hyp = spike[hyp_ind]
+    print(f"{name} t2p is {1.6 * (hyp_ind - dep_ind + 1) / len(spike)} ms")  # 1.6 ms is the time of every spike (32 ts in 20khz)
 
-fig, ax = plt.subplots()
-ax.plot(spike, c=color)
-ax.plot(fwhm_inds, spike[fwhm_inds], c='k', linewidth=3)
-ax.plot([dep_ind, hyp_ind], [dep, hyp], marker='o', linestyle='None', c=color)
-# ax.plot([dep_ind, hyp_ind], [dep, dep], linestyle='--', c='k')
-# ax.hlines(dep / 2, fwhm_inds[0], fwhm_inds[-1], colors=PYR_COLOR)
-ax.axis('off')
+    fwhm_inds = np.argwhere(spike <= dep / 2).flatten()
+    print(f"{name} fwhm is {1.6 * (fwhm_inds[-1] - fwhm_inds[0] + 1) / len(spike)} ms")
 
-plt.show()
+    fig, ax = plt.subplots()
+    ax.plot(spike, c=color)
+    ax.plot(fwhm_inds, spike[fwhm_inds], c='k', linewidth=3)
+    ax.plot([dep_ind, hyp_ind], [dep, hyp], marker='o', linestyle='None', c=color)
 
-spike_der = np.gradient(spike)
-max_speed_inds = np.argwhere(spike_der > spike_der[131]).flatten()
-print(max_speed_inds[-1] - max_speed_inds[0] + 1)
-
-fig, ax = plt.subplots()
-ax.plot(spike_der, c=color)
-ax.plot(max_speed_inds, spike_der[max_speed_inds], c='k', linewidth=3)
-ax.axis('off')
-
-plt.show()"""
+    plt.savefig(SAVE_PATH + f"{name}_t2p_fwhm.pdf", transparent=True)
 
 
+t2p_fwhm(pyr_cluster, PYR_COLOR, 'pyr')
+t2p_fwhm(pv_cluster, PV_COLOR, 'pv')
+
+def max_speed(clu, color, name):
+    chunks = clu.calc_mean_waveform()
+    if UPSAMPLE != 1:
+        chunks = upsample_spike(chunks.data)
+    spike = chunks[chunks.argmin() // (TIMESTEPS * UPSAMPLE)]
+    spike_der = np.convolve(spike, [1, -1], mode='valid')
+    max_speed_inds = np.argwhere(spike_der > spike_der[131]).flatten()
+    print(f"{name} max_speed is {1.6 * (max_speed_inds[-1] - max_speed_inds[0] + 1) / len(spike)} ms")
+
+    fig, ax = plt.subplots()
+    ax.plot(spike_der, c=color)
+    ax.plot(max_speed_inds, spike_der[max_speed_inds], c='k', linewidth=3)
+
+    plt.savefig(SAVE_PATH + f"{name}_max_speed.pdf", transparent=True)
+
+
+max_speed(pyr_cluster, PYR_COLOR, 'pyr')
+max_speed(pv_cluster, PV_COLOR, 'pv')
