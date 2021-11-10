@@ -14,8 +14,8 @@ from features.temporal_features_calc import calc_temporal_histogram
 from features.spatial_features_calc import sp_wavelet_transform
 from utils.upsampling import upsample_spike
 
-SAVE_PATH = '../../../data for figures/'
-TEMP_PATH = '../temp_state/'
+SAVE_PATH = '../data_for_figures/'
+TEMP_PATH = '../sample_data/'
 upsample = 8
 pyr_name = name = 'es25nov11_13_3_3'  # pyr
 pv_name = 'es25nov11_13_3_11'  # pv
@@ -29,6 +29,7 @@ pyr_cluster.plot_cluster(save=True, path=SAVE_PATH)
 pv_cluster.plot_cluster(save=True, path=SAVE_PATH)
 
 # Spike train
+# TODO consider the following to make sure we don't show a spike train while there is a light activation
 # _, _, _, stims = remove_light(pyr_cluster, True, data_path='../Data/')
 # check indicated that it is way after the first 50 spikes so it is ignored in plotting
 
@@ -42,6 +43,7 @@ fig, ax = plt.subplots()
 ax.axis('off')
 ax.vlines(pyr_train, 0.05, 0.45, colors=PYR_COLOR)
 ax.vlines(pv_train, 0.55, 0.95, colors=PV_COLOR)
+# TODO assert that timing is in ms and not sample rate for scale bar
 scalebar = AnchoredSizeBar(ax.transData,
                            200, '200 ms', 'lower right',
                            pad=0.1,
@@ -53,7 +55,8 @@ ax.add_artist(scalebar)
 plt.savefig(SAVE_PATH + "spike_train.pdf", transparent=True)
 
 # Temporal features
-# PV ACH 50
+# PV ACH (50 ms)
+# TODO consider showing for the entire 1 second interval
 bin_range = 50
 N = 2 * bin_range + 2
 offset = 1 / 2
@@ -78,7 +81,11 @@ lin = np.linspace(cdf[0], cdf[-1], len(cdf))
 plt.plot(lin, c='k')
 plt.vlines(np.arange(len(cdf)), np.minimum(lin, cdf), np.maximum(lin, cdf), colors='k', linestyles='dashed')
 plt.show()
+uniform_cdf = np.linspace(0, 1, len(cdf))
+pv_unif_dist_value = abs((cdf - uniform_cdf)).sum() / len(cdf)
+print(pv_unif_dist_value)
 
+# PYR ACH (50 ms)
 chunks = np.array([np.arange(len(pyr_cluster.timings))])
 hist = calc_temporal_histogram(pyr_cluster.timings, bins, chunks)[0]
 bin_inds = []
@@ -87,6 +94,7 @@ for i in range(len(bins) - 1):
 plt.bar(bin_inds, hist)
 plt.show()
 
+# PYR unif_dest
 zero_bin_ind = len(hist) // 2
 hist = (hist[:zero_bin_ind + 1:][::-1] + hist[zero_bin_ind:]) / 2
 cdf = np.cumsum(hist) / np.sum(hist)
@@ -95,6 +103,8 @@ lin = np.linspace(cdf[0], cdf[-1], len(cdf))
 plt.plot(lin, c='k')
 plt.vlines(np.arange(len(cdf)), np.minimum(lin, cdf), np.maximum(lin, cdf), colors='k', linestyles='dashed')
 plt.show()
+pyr_unif_dist_value = abs((cdf - uniform_cdf)).sum() / len(cdf)
+print(pyr_unif_dist_value)
 
 # Spatial features
 NUM_CHANNELS = 8
@@ -250,6 +260,7 @@ def t2p_fwhm(clu, color, name):
 
 t2p_fwhm(pyr_cluster, PYR_COLOR, 'pyr')
 t2p_fwhm(pv_cluster, PV_COLOR, 'pv')
+
 
 def max_speed(clu, color, name):
     chunks = clu.calc_mean_waveform()
