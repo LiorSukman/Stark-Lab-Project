@@ -12,6 +12,7 @@ chunks = [0, 500, 200]
 restrictions = ['complete', 'no_small_sample']
 modalities = ['spatial', 'morphological', 'temporal', 'spat_tempo']
 NUM_FETS = 28
+SAVE_PATH = '../../../data for figures/'
 
 
 def get_title(restriction):
@@ -29,7 +30,7 @@ def get_title(restriction):
            f"{np.std(tst)}, PYR={np.mean(pyr)}+-{np.std(pyr)}, IN={np.mean(intn)}+-{np.std(intn)} "
 
 
-def autolabel(rects, ax):
+def autolabel(rects, ax, acc):
     """
     Attach a text label above each bar in *rects*, displaying its height.
     This function was taken from https://matplotlib.org/stable/gallery/lines_bars_and_markers/barchart.html#sphx-glr-gallery-lines-bars-and-markers-barchart-py
@@ -38,7 +39,7 @@ def autolabel(rects, ax):
         height = rect.get_height()
         if height == 0:
             continue
-        ax.annotate(f'{round(height, 3)}%',
+        ax.annotate(f"{round(height, 2 if acc else 3)}{'%' if acc else ''}",
         # ax.annotate('{}'.format(round(height, 3)),
                     xy=(rect.get_x() + rect.get_width() / 2, height),
                     xytext=(0, 11),  # 3 points vertical offset
@@ -103,7 +104,6 @@ def plot_fet_imp(df, sems, restriction):
 
 def plot_results(df, sems, restriction, acc=True):
     title = get_title(restriction)
-    print(title)
 
     labels = get_labels([ind[1] for ind in df.index])
 
@@ -132,32 +132,31 @@ def plot_results(df, sems, restriction, acc=True):
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel('Scores (percentage)')
-    # ax.set_ylim(ymin=60)
-    # ax.set_title(title)
+
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.legend()
 
-    autolabel(rects1, ax)
-    autolabel(rects2, ax)
-    autolabel(rects3, ax)
-    ax.axis('off')
+    autolabel(rects1, ax, acc)
+    autolabel(rects2, ax, acc)
+    autolabel(rects3, ax, acc)
 
     fig.tight_layout()
 
-    plt.show()
+    plt.savefig(SAVE_PATH + f"{title}_{'acc' if acc else 'auc'}.pdf", transparent=True)
 
 if __name__ == "__main__":
     model = 'rf'
-    results = pd.read_csv(f'results_{model}_w_perm_imp.csv', index_col=0)
+    results = pd.read_csv(f'results_{model}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
-    #complete = complete[complete.modality == 'morphological']
+    complete = complete[complete.modality == 'spatial']
     no_small_sample = results[results.restriction == 'no_small_sample']
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
 
-    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True)
-    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False)
+    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True)
+    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False)
+    exit(0)
     plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
     plot_results(grouped_no_small_sample.mean(), grouped_no_small_sample.sem(), 'no_small_sample', acc=True)
     plot_results(grouped_no_small_sample.mean(), grouped_no_small_sample.sem(), 'no_small_sample', acc=False)

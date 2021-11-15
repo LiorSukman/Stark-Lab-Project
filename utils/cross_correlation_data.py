@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io as io
 from preprocessing_pipeline import load_cluster
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
 def calc_hist(spike_train, stims, bins):
     ret = np.zeros(len(bins) - 1)
@@ -14,7 +15,7 @@ def calc_hist(spike_train, stims, bins):
         hist, _ = np.histogram(ref_time_list, bins=bins)
         ret += hist
 
-    return 20 * ret / len(stims)
+    return 1000 * ret / len(stims)
 
 def calc_cc(pv_name, pyr_name, temp_path, ax, loc):
     pyr_clu = load_cluster(temp_path, pyr_name)
@@ -45,9 +46,8 @@ def calc_cc(pv_name, pyr_name, temp_path, ax, loc):
 
 if __name__ == "__main__":
     temp_path = '../temp_state/'
-    pyr_name = name = 'es25nov11_13_3_3'  # pyr 16 17
+    pyr_name = name = 'es25nov11_13_3_3'  # pyr
     pv_name = 'es25nov11_13_3_11'  # pv
-
 
     pyr_clu = load_cluster(temp_path, pyr_name)
     pv_clu = load_cluster(temp_path, pv_name)
@@ -63,14 +63,15 @@ if __name__ == "__main__":
     classes = classes[sort_inds]
 
     mdic = {"timings": timings * 20, "classes": classes}
-    # io.savemat("cc_mat_new.mat", mdic)
+    # io.savemat("cc_mat.mat", mdic)
 
-    N = 2 * 1 * 20 + 2
+    N = 2 * 1 * 50 + 2
     offset = 1 / (2 * 1)
-    bins = np.linspace(-20 - offset, 20 + offset, N)
+    bins = np.linspace(-50 - offset, 50 + offset, N)
 
     hist = calc_hist(pv_timings, pyr_timings, bins)
-    print(hist.max())
-    plt.vlines(0, ymin=0, ymax=hist.max(), color='k', linestyle='--')
-    plt.bar(np.linspace(-20, 20, N - 1), hist)
+    fig, ax = plt.subplots(figsize=(30, 8))
+    ax.vlines(0, ymin=0, ymax=hist.max(), color='k', linestyle='--')
+    ax.bar(np.linspace(-50, 50, N - 1), hist)
+    ax.axis('off')
     plt.show()

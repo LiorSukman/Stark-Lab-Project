@@ -52,7 +52,7 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
 def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_estimators_num,
                 max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
                 min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n,
-                train=None, dev=None, test=None):
+                train=None, dev=None, test=None, seed=0):
     """
     grid search runner function
     see help for parameter explanations
@@ -62,7 +62,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
-    if len(dev_squeezed) > 0:
+    if len(dev_squeezed) > 0:  # for region change to if False
         train_data = np.concatenate((train_squeezed, dev_squeezed))
     else:
         train_data = train_squeezed
