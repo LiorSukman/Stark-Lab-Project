@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch.autograd import Variable
 from clusters import Spike
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import GroupShuffleSplit, StratifiedShuffleSplit
 
 from constants import SEED, SESSION_TO_ANIMAL
 
@@ -91,8 +91,6 @@ def read_data(path, mode='complete', should_filter=True, keep=None, filter=None)
     recordings = []
     regions = []
     filter_set = set() if filter is None else filter
-    print(filter_set)
-    print(filter)
     for i, file in enumerate(sorted(files)):
         df = pd.read_csv(path + '/' + file)
         name = df.name[0]
@@ -106,6 +104,8 @@ def read_data(path, mode='complete', should_filter=True, keep=None, filter=None)
                     if keep:  # i.e. keep != []
                         nd = nd[:, keep]
                     clusters.append(nd)
+                else:
+                    continue
             elif is_legal(nd, mode):
                 if keep:  # i.e. keep != []
                     nd = nd[:, keep]
@@ -120,7 +120,6 @@ def read_data(path, mode='complete', should_filter=True, keep=None, filter=None)
         names.append(name)
         regions.append(region)
         recordings.append(SESSION_TO_ANIMAL['_'.join(name.split('_')[0:-2])])
-    print(filter_set)
     return np.asarray(clusters), np.array(names), np.array(recordings), np.array(regions), filter_set
 
 
@@ -143,10 +142,7 @@ def was_created(paths, per_train, per_dev, per_test, region_based):
    The function checks if all datasets were already creted and return True iff so
    """
     for path in paths:
-        if region_based:
-            path = path + 'region'
-        else:
-            path = path + str(per_train) + str(per_dev) + str(per_test)
+        path = path + str(per_train) + str(per_dev) + str(per_test)
         if not os.path.isdir(path):
             return False
     return True
@@ -248,6 +244,14 @@ def take_region_data(data, names, region, regions):
     return data[inds], names[inds]
 
 
+def split_region_data(data, names, seed, test_per):
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=test_per, random_state=seed)
+    n_samples = len(data)
+    labels = np.array([row[0][-1] for row in data])
+    train_inds, dev_inds = next(sss.split(np.zeros(n_samples), labels))
+    return data[train_inds], names[train_inds], data[dev_inds], names[dev_inds]
+
+
 def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True,
                data_name='', verbos=False, group_split=True, seed=None, region_based=False, regions=None):
     """
@@ -259,10 +263,7 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
    arguments the number of waveforms in each set is actually distributed independently.
    """
     assert per_train + per_dev + per_test == 1
-    if region_based:
-        name = data_name + 'region/'
-    else:
-        name = data_name + str(per_train) + str(per_dev) + str(per_test) + '/'
+    name = data_name + str(per_train) + str(per_dev) + str(per_test) + '/'
     full_path = path + '/' + name if path is not None else None
     if path is not None and os.path.exists(full_path) and should_load:
         print('Loading data set from %s...' % full_path)
@@ -273,11 +274,10 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
         per_dev += per_train
 
         if region_based:
+            print(len(data), len(names))
             train, train_names = take_region_data(data, names, 1, regions)
+            train, train_names, dev, dev_names = split_region_data(train, train_names, seed, per_test)
             test, test_names = take_region_data(data, names, 0, regions)
-            dev_shape = tuple([0]) + train.shape[1:]
-            dev = np.empty(dev_shape)  # shape for compatabillity
-            dev_names = np.empty(dev_shape)
         elif not group_split:
             train = take_partial_data(data, 0, per_train)
             train_names = take_partial_data(names, 0, per_train)

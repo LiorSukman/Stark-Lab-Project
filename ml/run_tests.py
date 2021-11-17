@@ -75,6 +75,8 @@ def get_test_set(data_path):
 
     test_squeezed = ML_util.squeeze_clusters(test)
     x, y = ML_util.split_features(test_squeezed)
+    x = np.nan_to_num(x)
+    x = np.clip(x, -INF, INF)
     x = scaler.transform(x)
 
     return x, y
@@ -124,7 +126,7 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
         clf, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
             data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
             max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
-            min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n)
+            min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed)
         auc = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
         if importance_mode == 'reg':
             importance = clf.feature_importances_
@@ -177,7 +179,7 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
         clf, acc, pyr_acc, in_acc = run_model(model, None, None, None, False, None, False, True, False, gamma, C,
                                               kernel,
                                               n_estimators, max_depth, min_samples_split, min_samples_leaf, lr,
-                                              data_path + f"/{chunk_size}_{dataset_identifier}/")
+                                              data_path + f"/{chunk_size}_{dataset_identifier}/", seed)
         if model == 'rf' or model == 'gb':
             auc = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/")
             if model == 'rf':
@@ -224,11 +226,10 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
     return df
 
 
-def get_folder_results(data_path, model):
+def get_folder_results(data_path, model, seed):
     df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'auc'] + \
               [f"feature {f+1}" for f in range(NUM_FETS)]
     df = pd.DataFrame({col: [] for col in df_cols})
-    seed = int(data_path.split('_')[-1])
     for modality in modalities:
         print(f"        Starting modality {modality[0]}")
         with HiddenPrints():
@@ -239,27 +240,37 @@ def get_folder_results(data_path, model):
     return df
 
 
-def get_results(data_path, model):
-    folder_df = get_folder_results(data_path, model)
+def get_results(data_path, model, seed):
+    folder_df = get_folder_results(data_path, model, seed)
 
     return folder_df
 
 #@ignore_warnings(category=ConvergenceWarning)
-def do_test(data_path, model):
-    return get_results(data_path, model)
+def do_test(data_path, model, seed):
+    return get_results(data_path, model, seed)
 
 
 if __name__ == "__main__":
+    """
+    checks:
+    1) weights!=balanced should be only for baselines
+    2) dev should be used only when not using region data
+    3) make sure nothing is permutated (keyword: shuffle) or randomly generated
+    4) save_path for datasets is correct
+    5) modalities are correct
+    6) csv name doesn't overide anything
+    7) datas.txt is updated 
+    8) region_based flag is updated
+    """
     model = 'rf'
     iterations = 20
     results = pd.DataFrame(
         {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
          'auc': []})
-    save_path = '../data_sets'
+    save_path = '../data_sets_perm_morph'
     restrictions = ['complete']
-    modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('spat_tempo', SPAT_TEMPO),
-                  ('morphological', MORPHOLOGICAL)]
-    #modalities = [('trans_morph', TRANS_MORPH)]
+    #modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+    modalities = [('perm_morph', TRANS_MORPH)]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -278,6 +289,6 @@ if __name__ == "__main__":
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
                                             seed=i, region_based=False)
 
-            results = results.append(do_test(new_path, model), ignore_index=True)
+            results = results.append(do_test(new_path, model, i), ignore_index=True)
 
-    results.to_csv(f'results_{model}_w_perm_imp.csv')
+    results.to_csv(f'results_{model}_perm_morph.csv')

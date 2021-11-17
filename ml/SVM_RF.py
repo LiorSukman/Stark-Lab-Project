@@ -68,7 +68,7 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
 
 def run(model, saving_path, loading_path, pca_n_components, use_pca,
         ica_n_components, use_ica, use_scale, visualize, gamma, C, kernel,
-        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path):
+        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path, seed):
     """
     runner function for the SVM and RF models.
     explanations about the parameters is in the help
@@ -86,7 +86,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     # test_path = dataset_path.replace('200', '500').replace('500', '0')
     # _, _, test, _, _, test_names = ML_util.get_dataset(test_path)
 
-    if len(dev) > 0:
+    if len(dev) > 0:  # for region change to if False
         train = np.concatenate((train, dev))
     # train_names = np.concatenate((train_names, dev_names))
     train_squeezed = ML_util.squeeze_clusters(train)
