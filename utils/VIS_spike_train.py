@@ -2,12 +2,9 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
-import pandas as pd
 from os import listdir
 from os.path import isfile, join
 import scipy.signal as signal
-import os
-import seaborn as sns
 
 from clusters import Cluster, Spike
 from preprocessing_pipeline import load_cluster
@@ -17,9 +14,8 @@ from features.temporal_features_calc import calc_temporal_histogram
 from features.spatial_features_calc import sp_wavelet_transform
 from utils.upsampling import upsample_spike
 
-SAVE_PATH = '../../../data for figures/'
-TEMP_PATH = '../temp_state/'
-DATA_PATH = '../clustersData_no_light/0'
+SAVE_PATH = '../data_for_figures/'
+TEMP_PATH = '../sample_data/'
 upsample = 8
 pyr_name = name = 'es25nov11_13_3_3'  # pyr
 pv_name = 'es25nov11_13_3_11'  # pv
@@ -33,6 +29,7 @@ pyr_cluster.plot_cluster(save=True, path=SAVE_PATH)
 pv_cluster.plot_cluster(save=True, path=SAVE_PATH)
 
 # Spike train
+# TODO consider the following to make sure we don't show a spike train while there is a light activation
 # _, _, _, stims = remove_light(pyr_cluster, True, data_path='../Data/')
 # check indicated that it is way after the first 50 spikes so it is ignored in plotting
 
@@ -46,6 +43,7 @@ fig, ax = plt.subplots()
 ax.axis('off')
 ax.vlines(pyr_train, 0.05, 0.45, colors=PYR_COLOR)
 ax.vlines(pv_train, 0.55, 0.95, colors=PV_COLOR)
+# TODO assert that timing is in ms and not sample rate for scale bar
 scalebar = AnchoredSizeBar(ax.transData,
                            200, '200 ms', 'lower right',
                            pad=0.1,
@@ -57,7 +55,8 @@ ax.add_artist(scalebar)
 plt.savefig(SAVE_PATH + "spike_train.pdf", transparent=True)
 
 # Temporal features
-# PV ACH 50
+# PV ACH (50 ms)
+# TODO consider showing for the entire 1 second interval
 bin_range = 50
 N = 2 * bin_range + 2
 offset = 1 / 2
@@ -82,7 +81,11 @@ lin = np.linspace(cdf[0], cdf[-1], len(cdf))
 plt.plot(lin, c='k')
 plt.vlines(np.arange(len(cdf)), np.minimum(lin, cdf), np.maximum(lin, cdf), colors='k', linestyles='dashed')
 plt.show()
+uniform_cdf = np.linspace(0, 1, len(cdf))
+pv_unif_dist_value = abs((cdf - uniform_cdf)).sum() / len(cdf)
+print(pv_unif_dist_value)
 
+# PYR ACH (50 ms)
 chunks = np.array([np.arange(len(pyr_cluster.timings))])
 hist = calc_temporal_histogram(pyr_cluster.timings, bins, chunks)[0]
 bin_inds = []
@@ -91,6 +94,7 @@ for i in range(len(bins) - 1):
 plt.bar(bin_inds, hist)
 plt.show()
 
+# PYR unif_dest
 zero_bin_ind = len(hist) // 2
 hist = (hist[:zero_bin_ind + 1:][::-1] + hist[zero_bin_ind:]) / 2
 cdf = np.cumsum(hist) / np.sum(hist)
@@ -98,9 +102,82 @@ plt.bar(np.arange(len(cdf)), cdf)
 lin = np.linspace(cdf[0], cdf[-1], len(cdf))
 plt.plot(lin, c='k')
 plt.vlines(np.arange(len(cdf)), np.minimum(lin, cdf), np.maximum(lin, cdf), colors='k', linestyles='dashed')
+plt.show()
+pyr_unif_dist_value = abs((cdf - uniform_cdf)).sum() / len(cdf)
+print(pyr_unif_dist_value)
+
+# Spatial features
+NUM_CHANNELS = 8
+TIMESTEPS = 32
+UPSAMPLE = 8
+clu = pyr_cluster
+chunks = clu.calc_mean_waveform()
+if UPSAMPLE != 1:
+    #chunks1 = Spike(signal.resample_poly(chunks.data, UPSAMPLE ** 2, UPSAMPLE, axis=1, padtype='line')).get_data()
+    chunks = Spike(upsample_spike(chunks.data, UPSAMPLE, 20_000))
+    #chunks3 = Spike(signal.resample(chunks.data, UPSAMPLE * TIMESTEPS, axis=1)).get_data()
+
+#chunks1, chunks2 = sp_wavelet_transform([chunks2], True)[0].get_data(), sp_wavelet_transform([chunks2], False)[0].get_data()
+chunks = chunks.get_data()
+
+fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True, figsize=(9, 20))
+main_channel = np.argmin(chunks) // (TIMESTEPS * UPSAMPLE)
+for i, c_ax in enumerate(ax[::-1]):
+    #mean_channel1 = chunks1[i]
+    mean_channel = chunks[i]
+    #mean_channel4 = chunks3[i]
+    #mean_channel3 = chunks.get_data()[i]
+    #c_ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel1, c=PYR_COLOR, label='Constrained', linestyle='dotted')
+    if i != main_channel:
+        c_ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=PYR_COLOR, label='Unconstrained')
+    else:
+        c_ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c='k',
+                  label='Unconstrained')
+    #c_ax.plot(np.arange(TIMESTEPS) * UPSAMPLE, mean_channel3, c=PYR_COLOR, label='Original')
+    box = c_ax.get_position()
+    c_ax.axis('off')
+
+    c_ax.set_position([box.x0, box.y0, box.width * 0.7, box.height])
+    c_ax.vlines(131, ymin=mean_channel.min(), ymax=mean_channel.max())
+
+    # Put a legend to the right of the current axis
+    if i == NUM_CHANNELS - 1:
+        c_ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize='xx-large')
+plt.show()
+
+fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True, figsize=(9, 20))
+median = np.median(chunks)
+main_channel = np.argmin(chunks) // (TIMESTEPS * UPSAMPLE)
+for i, c_ax in enumerate(ax[::-1]):
+    mean_channel = chunks[i]
+    c_ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=PYR_COLOR, label='Unconstrained')
+    p_inds = mean_channel >= median
+    n_inds = mean_channel < median
+    c_ax.scatter(np.arange(TIMESTEPS * UPSAMPLE)[p_inds][::5], mean_channel[p_inds][::5], c='b', marker='^', s=12)
+    c_ax.scatter(np.arange(TIMESTEPS * UPSAMPLE)[n_inds][::5], mean_channel[n_inds][::5], c='r', marker='v', s=12)
+    c_ax.axis('off')
+
 plt.show()"""
 
 # constrained transformation
+"""cons_wavelets = sp_wavelet_transform([chunks], True)[0].get_data()
+fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True)
+for i, c_ax in enumerate(ax[::-1]):
+    mean_channel = cons_wavelets[i]
+    c_ax.plot(np.arange(TIMESTEPS), mean_channel)
+    c_ax.plot(np.arange(TIMESTEPS), chunks.get_data()[i], c='k')
+    fig.suptitle(f"Cluster {cluster.get_unique_name()} of type {'PYR' if cluster.label == 1 else 'IN' if cluster.label==0 else 'UT' }")
+plt.show()"""
+
+"""chunks = Spike(signal.resample_poly(chunks.data, UPSAMPLE ** 2, UPSAMPLE, axis=1, padtype='line'))
+cons_wavelets = sp_wavelet_transform([chunks], True)[0].get_data()
+fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True)
+for i, c_ax in enumerate(ax[::-1]):
+    mean_channel = cons_wavelets[i]
+    c_ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel)
+    c_ax.plot(np.arange(TIMESTEPS * UPSAMPLE), chunks.get_data()[i], c='k')
+    fig.suptitle(f"Cluster {cluster.get_unique_name()} of type {'PYR' if cluster.label == 1 else 'IN' if cluster.label==0 else 'UT' }")
+plt.show()"""
 
 """main_chn = np.argmin(chunks.get_data()) // (TIMESTEPS * UPSAMPLE)
 dep = chunks.get_data()[main_chn].min()
@@ -118,6 +195,35 @@ for i, c_ax in enumerate(ax[::-1]):
         c_ax.vlines(np.argmin(chunks.get_data()[main_chn]), np.min(mean_channel), np.max(mean_channel), colors='k', linestyles='dashed')
     #fig.suptitle(f"Cluster {cluster.get_unique_name()} of type {'PYR' if cluster.label == 1 else 'IN' if cluster.label==0 else 'UT' }")
     c_ax.axis('off')
+plt.show()
+
+main_chn = np.argmin(chunks.get_data()) // (TIMESTEPS * UPSAMPLE)
+dep = chunks.get_data()[main_chn].min()
+fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True)
+for i, c_ax in enumerate(ax[::-1]):
+    mean_channel = chunks.get_data()[i]
+    if i == main_chn:
+        c_ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c='r')
+    else:
+        c = 'k' if mean_channel.min() > 0.5 * dep else 'b'
+        c_ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=c)
+    c_ax.hlines(dep * 0.5, 0, TIMESTEPS * UPSAMPLE - 1, colors='k', linestyles='dashed')
+    fig.suptitle(f"Cluster {cluster.get_unique_name()} of type {'PYR' if cluster.label == 1 else 'IN' if cluster.label==0 else 'UT' }")
+plt.show()"""
+
+"""fig, ax = plt.subplots()
+main_chn = np.argmin(chunks.get_data()) // (TIMESTEPS * UPSAMPLE)
+dep = chunks.get_data()[main_chn].min()
+for i, ch in enumerate(chunks.get_data()):
+    mean_channel = ch
+    if i == main_chn:
+        ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=PV_COLOR)
+    else:
+        c = 'k' if mean_channel.min() > 0.5 * dep else LIGHT_PV
+        ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=c)
+ax.hlines(dep * 0.5, 0, TIMESTEPS * UPSAMPLE - 1, colors='k', linestyles='dashed')
+# plt.title(f"Cluster {cluster.get_unique_name()} of type {'PYR' if cluster.label == 1 else 'IN' if cluster.label==0 else 'UT' }")
+ax.axis('off')
 plt.show()"""
 
 # Morphological features
@@ -128,26 +234,18 @@ UPSAMPLE = 8
 clu = pyr_cluster
 color = PYR_COLOR
 
-
-def get_main(chunks):
-    chunk_amp = chunks.max(axis=1) - chunks.min(axis=1)
-    main_channel = np.argmax(chunk_amp)
-    return main_channel
-
-
 def t2p_fwhm(clu, color, name):
     chunks = clu.calc_mean_waveform()
     if UPSAMPLE != 1:
         chunks = upsample_spike(chunks.data)
 
-    spike = chunks[get_main(chunks)]
+    spike = chunks[chunks.argmin() // (TIMESTEPS * UPSAMPLE)]
 
     dep_ind = spike.argmin()
     dep = spike[dep_ind]
     hyp_ind = spike.argmax()
     hyp = spike[hyp_ind]
-    print(
-        f"{name} t2p is {1.6 * (hyp_ind - dep_ind + 1) / len(spike)} ms")  # 1.6 ms is the time of every spike (32 ts in 20khz)
+    print(f"{name} t2p is {1.6 * (hyp_ind - dep_ind + 1) / len(spike)} ms")  # 1.6 ms is the time of every spike (32 ts in 20khz)
 
     fwhm_inds = np.argwhere(spike <= dep / 2).flatten()
     print(f"{name} fwhm is {1.6 * (fwhm_inds[-1] - fwhm_inds[0] + 1) / len(spike)} ms")
@@ -168,9 +266,7 @@ def max_speed(clu, color, name):
     chunks = clu.calc_mean_waveform()
     if UPSAMPLE != 1:
         chunks = upsample_spike(chunks.data)
-
-    spike = chunks[get_main(chunks)]
-
+    spike = chunks[chunks.argmin() // (TIMESTEPS * UPSAMPLE)]
     spike_der = np.convolve(spike, [1, -1], mode='valid')
     max_speed_inds = np.argwhere(spike_der > spike_der[131]).flatten()
     print(f"{name} max_speed is {1.6 * (max_speed_inds[-1] - max_speed_inds[0] + 1) / len(spike)} ms")
@@ -184,136 +280,3 @@ def max_speed(clu, color, name):
 
 max_speed(pyr_cluster, PYR_COLOR, 'pyr')
 max_speed(pv_cluster, PV_COLOR, 'pv')
-
-
-def load_df(features):
-    df = None
-    files = os.listdir(DATA_PATH)
-    for file in sorted(files):
-        if df is None:
-            df = pd.read_csv(DATA_PATH + '/' + file)
-        else:
-            temp = pd.read_csv(DATA_PATH + '/' + file)
-            df = df.append(temp)
-
-    df = df.loc[df.label >= 0]
-    df.label = df.label.map({1: 'PYR', 0: 'IN'})
-    df = df[features]
-
-    return df
-
-
-features = ['Channels contrast', 'break_measure', 'fwhm', 'get_acc',
-            'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry', 'label']
-df = load_df(features)
-
-
-def corr_mat(df, modality):
-    correlation_matrix = df.corr()
-    mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
-    plt.yticks(rotation=30)
-    _ = sns.heatmap(correlation_matrix, annot=True, fmt='.2f', mask=mask)
-    plt.savefig(SAVE_PATH + f"{modality}_cor_mat.pdf", transparent=True)
-
-
-corr_mat(df, 'morph')
-
-
-def density_plots(df, d_features, modality):
-    palette = {"PYR": PYR_COLOR, "IN": PV_COLOR}
-
-    for c in df.columns:
-        if c not in d_features:
-            continue
-        bw_adjust = (df[c].max() - df[c].min()) / 50
-        sns.displot(data=df, x=c, hue="label", common_norm=False, kind="kde", fill=True,
-                    palette=palette, bw_adjust=bw_adjust)
-        plt.savefig(SAVE_PATH + f"{modality}_density_{c}.pdf", transparent=True)
-
-
-d_features = ['fwhm', 'trough2peak', 'max_speed']
-density_plots(df, d_features, 'morph')
-
-
-# Spatial features
-def spd(clu, name):
-    color_main = PYR_COLOR if name == 'pyr' else PV_COLOR
-    color_second = LIGHT_PYR if name == 'pyr' else LIGHT_PV
-    chunks = clu.calc_mean_waveform()
-    if UPSAMPLE != 1:
-        chunks = Spike(upsample_spike(chunks.data, UPSAMPLE, 20_000))
-
-    chunks = chunks.get_data()
-
-    main_chn = get_main(chunks)
-    dep = chunks[main_chn].min()
-    fig, ax = plt.subplots()
-    for i in range(NUM_CHANNELS):
-        mean_channel = chunks[i]
-        if i == main_chn:
-            ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=color_main)
-        else:
-            c = color_second if mean_channel.min() <= 0.5 * dep else 'k'
-            ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=c)
-    ax.hlines(dep * 0.5, 0, TIMESTEPS * UPSAMPLE - 1, colors='k', linestyles='dashed')
-
-    print(f"{name} spatial dispersion count is {np.sum(chunks.min(axis=1) <= chunks.min() * 0.5)}")
-
-    plt.savefig(SAVE_PATH + f"{name}_spatial_dispersion.pdf", transparent=True)
-
-
-spd(pyr_cluster, 'pyr')
-spd(pv_cluster, 'pv')
-
-def da(clu, name):
-    plt.clf()
-
-    color_main = PYR_COLOR if name == 'pyr' else PV_COLOR
-    color_second = LIGHT_PYR if name == 'pyr' else LIGHT_PV
-    chunks = clu.calc_mean_waveform()
-    if UPSAMPLE != 1:
-        chunks = Spike(upsample_spike(chunks.data, UPSAMPLE, 20_000))
-
-    chunks = chunks.get_data()
-    main_chn = get_main(chunks)
-    #fig, ax = plt.subplots()
-    median = np.median(chunks)
-
-    direction = chunks >= median
-    counter = np.sum(direction, axis=0)
-
-    # Iterating over the channels and calculating a direction agreeableness value
-    for ind in range(counter.shape[0]):
-        temp = counter[ind]
-        counter[ind] = temp if temp <= NUM_CHANNELS // 2 else NUM_CHANNELS - temp
-
-    cmap = sns.color_palette("gray", as_cmap=True)
-    ax = sns.heatmap(np.array([counter]).repeat(10, axis=0), cmap=cmap, cbar=False)
-    ax.axis('off')
-    plt.savefig(SAVE_PATH + f"{name}_da_bg.pdf", transparent=True)
-
-    min = chunks.min()
-    max = chunks.max()
-    chunks = (-chunks / (max - min)) * 6 + 4
-    median = np.median(chunks)
-    print(chunks.max(), chunks.min())
-    for i in range(NUM_CHANNELS):
-        mean_channel = chunks[i]
-        c = color_main if i == main_chn else color_second
-        ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=c)
-    ax.hlines(median, 0, TIMESTEPS * UPSAMPLE - 1, colors='k', linestyles='dashed')
-    plt.savefig(SAVE_PATH + f"{name}_da.pdf", transparent=True)
-
-features = ['dep_red', 'dep_sd', 'graph_avg_speed', 'graph_slowest_path', 'graph_fastest_path',
-            'geometrical_avg_shift', 'geometrical_shift_sd', 'geometrical_max_dist', 'spatial_dispersion_count',
-            'spatial_dispersion_sd', 'da', 'da_sd', 'Channels contrast', 'label']
-df = load_df(features)
-
-corr_mat(df, 'spatial')
-d_features = ['spatial_dispersion_count', 'da']
-
-density_plots(df, d_features, 'spatial')
-
-da(pyr_cluster, 'pyr')
-da(pv_cluster, 'pv')
-
