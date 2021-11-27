@@ -24,9 +24,9 @@ from constants import INF
 chunks = [0, 500, 200]
 restrictions = ['complete', 'no_small_sample']
 dataset_identifier = '0.800.2'
-importance_mode = 'perm'
+importance_mode = 'reg'
 # try_load = '../saved_models' # TODO implement
-NUM_FETS = 28
+NUM_FETS = 12
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -161,7 +161,7 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
             raise NotImplementedError
 
     else:
-        raise Exception(f"model {model} is not suppurted, only svm or rf are supported at the moment")
+        raise Exception(f"model {model} is not suppurted, only svm, gb or rf are supported at the moment")
 
     accs.append(acc)
     pyr_accs.append(pyr_acc)

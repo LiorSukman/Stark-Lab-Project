@@ -136,18 +136,19 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
             train_features = ica.transform(train_features)
 
         if model == 'svm':
-            clf = svm.SVC(kernel=kernel, gamma=gamma, C=C, class_weight='balanced', probability=False)
+            clf = svm.SVC(kernel=kernel, gamma=gamma, C=C, class_weight='balanced', probability=False,
+                          random_state=seed)
             print('Fitting SVM model...')
         elif model == 'rf':
             clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
                                          min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
-                                         class_weight='balanced')
+                                         random_state=seed, class_weight='balanced')
             print('Fitting Random Forest model...')
         elif model == 'gb':
             ones = train_labels.sum()
             zeros = len(train_labels) - ones
             clf = XGBClassifier(scale_pos_weight=zeros / ones, use_label_encoder=False, n_estimators=n_estimators,
-                                max_depth=max_depth, learning_rate=lr)
+                                max_depth=max_depth, learning_rate=lr, random_state=seed)
             print('Fitting Gradient Boosting model...')
         start = time.time()
         clf.fit(train_features, train_labels)

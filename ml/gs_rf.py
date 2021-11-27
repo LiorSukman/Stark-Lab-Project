@@ -86,8 +86,9 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     print()
     parameters = {'n_estimators': n_estimatorss, 'max_depth': max_depths, 'min_samples_split': min_samples_splits,
                   'min_samples_leaf': min_samples_leafs}
-    model = RandomForestClassifier(class_weight='balanced')
-    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=0)
+    model = RandomForestClassifier(random_state=seed, class_weight='balanced')
+    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=seed), verbose=0,
+                       scoring='balanced_accuracy')
     print('Starting grid search...')
     start = time.time()
     clf.fit(features, labels)
@@ -102,7 +103,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     # need to create another one as the other trains on both train and dev
     classifier = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
                                         min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
-                                        class_weight='balanced')
+                                        random_state=seed, class_weight='balanced')
     classifier.fit(features, labels)
 
     print()
