@@ -19,7 +19,7 @@ def get_title(restriction):
     seeds = np.arange(20)
     tot, tst, pyr, intn = [], [], [], []
     for seed in seeds:
-        data_path = f"../data_sets/{restriction}_{seed}/spatial/0_0.800.2/"
+        data_path = f"../data_sets_new/{restriction}_{seed}/spatial/0_0.800.2/"
         train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
         tot.append(len(train) + len(dev) + len(test))
         tst.append(len(test))
@@ -177,16 +177,16 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None):
 
 if __name__ == "__main__":
     model = 'rf'
-    results = pd.read_csv(f'results_{model}_spat_delta.csv', index_col=0)
+    results = pd.read_csv(f'results_{model}_newest.csv', index_col=0)
     complete = results[results.restriction == 'complete']
-    complete = complete[complete.modality == 'spatial']
+    #complete = complete[complete.modality == 'spatial']
     no_small_sample = results[results.restriction == 'no_small_sample']
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
 
     plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True)
     plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False)
-    plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete', modalities=[('spatial', SPATIAL)])
+    plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
     exit(0)
     plot_results(grouped_no_small_sample.mean(), grouped_no_small_sample.sem(), 'no_small_sample', acc=True)
     plot_results(grouped_no_small_sample.mean(), grouped_no_small_sample.sem(), 'no_small_sample', acc=False)

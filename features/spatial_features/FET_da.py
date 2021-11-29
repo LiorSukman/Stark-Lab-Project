@@ -35,6 +35,23 @@ class DA(object):
 
         return result
 
+    def calc_pos(self, arr, start_pos):
+        left = start_pos
+        while left >= 0:
+            if arr[left] == 0:
+                left -= 1
+            else:
+                break
+
+        right = start_pos
+        while right < len(arr):
+            if arr[right] == 0:
+                right += 1
+            else:
+                break
+
+        return left, right
+
     def calc_feature_spike(self, spike):
         """
         inputs:
@@ -45,7 +62,8 @@ class DA(object):
         returns:
         a tuple containing the sum of squares of the da vector and it's standard deviation
         """
-        median = np.median(spike)  # The median value in terms of amplitude across all channels
+
+        """median = np.median(spike)  # The median value in terms of amplitude across all channels
         direction = spike >= median
         counter = np.sum(direction, axis=0)
 
@@ -63,8 +81,20 @@ class DA(object):
         # Calculate the standard deviation of the da vector
         sd = np.std(counter)
 
-        return [res, sd]
+        return [res, sd]"""
+
+        med = np.median(spike)
+        sig_m = np.where(spike <= med, -1, 1)
+        changes = np.zeros((2, len(sig_m)))
+        for i, channel in enumerate(sig_m):
+            change = np.convolve(channel, [-1, 1])
+            l, r = self.calc_pos(change, spike[i].argmin())
+            changes[0, i] = l
+            changes[1, i] = r
+
+        return changes.std(axis=1).flatten()
 
     @property
     def headers(self):
-        return ['da', 'da_sd']
+        #return ['da', 'da_sd']
+        return ['da_left', 'da_right']

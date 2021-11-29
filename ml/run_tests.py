@@ -26,7 +26,7 @@ restrictions = ['complete', 'no_small_sample']
 dataset_identifier = '0.800.2'
 importance_mode = 'reg'
 # try_load = '../saved_models' # TODO implement
-NUM_FETS = 12
+NUM_FETS = 29
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -267,10 +267,10 @@ if __name__ == "__main__":
     results = pd.DataFrame(
         {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
          'auc': []})
-    save_path = '../data_sets_perm_morph'
+    save_path = '../data_sets_new'
     restrictions = ['complete']
-    #modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
-    modalities = [('perm_morph', TRANS_MORPH)]
+    modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+    # modalities = [('spatial', SPATIAL)]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -291,4 +291,4 @@ if __name__ == "__main__":
 
             results = results.append(do_test(new_path, model, i), ignore_index=True)
 
-    results.to_csv(f'results_{model}_perm_morph.csv')
+    results.to_csv(f'results_{model}_newest.csv')

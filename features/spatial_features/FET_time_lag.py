@@ -16,19 +16,22 @@ class TimeLagFeature(object):
     maximal depolarization of the main channel.
     """
 
-    def __init__(self, type_dep='ss', type_hyp='ss', ratio=0.25):
-        assert type_dep in reduction_types and type_hyp in reduction_types
+    def __init__(self, red_type='ss', ratio=0.25, data_name='dep'):
+        assert red_type in reduction_types
 
         # Reduction types
-        self.type_dep = type_dep
-        self.type_hyp = type_hyp
+        self.red_type = red_type
 
         # Indicates the percentage of the maximum depolarization that will be considered as a threshold
         self.ratio = ratio
 
         self.name = 'time lag feature'
+        self.data = data_name
 
-    def calculate_feature(self, spike_lst):
+    def set_data(self, new_data):
+        self.data = new_data
+
+    def calculate_feature(self, spike_lst, amps):
         """
         inputs:
         spike_lst: A list of Spike object that the feature will be calculated upon.
@@ -36,11 +39,11 @@ class TimeLagFeature(object):
         returns:
         A matrix in which entry (i, j) refers to the j metric of Spike number i.
         """
-        result = [self.calc_feature_spike(spike.get_data()) for spike in spike_lst]
+        result = [self.calc_feature_spike(spike.get_data(), amp) for spike, amp in zip(spike_lst, amps)]
         result = np.asarray(result)
         return result
 
-    def calc_feature_spike(self, spike):
+    def calc_feature_spike(self, spike, amp):
         """
         inputs:
         spike: the spike to be processed; it is a matrix with the dimensions of (NUM_CHANNELS, TIMESTEPS * UPSAMPLE)
@@ -53,58 +56,40 @@ class TimeLagFeature(object):
         hyperpolarization vector - hyp_sd: the standard deviation of the hyperpolarization vector
         """
         # remove channels with lower amplitude than required
-        amps = np.max(spike, axis=1) - np.min(spike, axis=1)  # max ampilitude of each channel
-        max_amp = np.max(amps)
-        fix_inds = amps >= self.ratio * max_amp
+        max_amp = np.max(amp)
+        fix_inds = amp >= self.ratio * max_amp
+        amp = amp[fix_inds]
         spike = spike[fix_inds]
 
-        # find timestamps for depolarization in ok channels, filter again to assure depolarization is reached before the
-        # end
-        dep_ind = np.argmin(spike, axis=1)
-        # if max depolarization is reached at the end, it indicates noise
-        fix_inds = dep_ind < (TIMESTEPS * UPSAMPLE - 1)
-        dep_ind = dep_ind[fix_inds]
+        # find timestamps for the event in ok channels, filter again to assure the event is reached before the end
+        ind = np.argmin(spike, axis=1)
+        # if event is reached at the end, it indicates noise
+        fix_inds = ind < (TIMESTEPS * UPSAMPLE - 1)
+        amp = amp[fix_inds]
+        ind = ind[fix_inds]
         spike = spike[fix_inds]
         if spike.shape[0] <= 1:  # if no channel passes filtering return zeros (or if only one channel)
             return [0, 0]
 
         # offset according to the main channel
-        # set main channel to be the one with highest depolariztion
-        main_chn = (spike.max(axis=1) - spike.min(axis=1)).argmax()
-        dep_rel = dep_ind - dep_ind[main_chn]  # offsetting
+        # set main channel to be the one with highest t2p
+        main_chn = amp.argmax()
+        rel = ind - ind[main_chn]  # offsetting
 
-        # calculate sd of depolarization time differences
-        dep_sd = np.std(dep_rel)
+        # calculate sd of event time differences
+        sd = np.std(rel)
 
         # calculate reduction
-        if self.type_dep == 'ss':
-            dep_red = np.mean(dep_rel ** 2)
+        if self.red_type == 'ss':
+            red = np.mean(rel ** 2)
         else:  # i.e sa
-            dep_red = np.mean(np.absolute(dep_rel))
+            red = np.mean(np.absolute(rel))
 
-        # After wavelet transformation this is redundant
-        """# find hyperpolarization indices
-        hyp_ind = []
-        for i, channel in enumerate(spike):
-            trun_channel = channel[dep_ind[i] + 1:]
-            hyp_ind.append(trun_channel.argmax() + dep_ind[i] + 1)
-        hyp_ind = np.asarray(hyp_ind)
-
-        # repeat calculations
-        hyp_rel = hyp_ind - hyp_ind[main_chn]
-        hyp_sd = np.std(hyp_rel)
-        if self.type_hyp == 'ss':
-            hyp_red = np.mean(hyp_rel ** 2)
-        else:  # i.e sa
-            hyp_red = np.mean(np.absolute(hyp_rel))
-
-        return [dep_red, dep_sd, hyp_red, hyp_sd]"""
-
-        return [dep_red, dep_sd]
+        return [red, sd]
 
     @property
     def headers(self):
         """
         Returns a list of titles of the different metrics
         """
-        return ['dep_red', 'dep_sd']
+        return [f"{self.data}_red", f"{self.data}_sd"]

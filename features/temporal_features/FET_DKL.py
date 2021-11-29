@@ -8,14 +8,16 @@ class DKL(object):
     using the D_kl metric.
     """
 
-    def __init__(self, resolution=2, cdf_range=50):
+    def __init__(self, resolution=2, cdf_range=50, jmp_min=50, jmp_max=1000):
         # see temporal_features_calc.py for use of those fields
         self.resolution = resolution
         self.cdf_range = cdf_range
+        self.jmp_min = jmp_min
+        self.jmp_max = jmp_max
 
         self.name = 'D_KL'
 
-    def calculate_feature(self, start_cdf=None, rhs=None, **kwargs):
+    def calculate_feature(self, start_cdf=None, rhs=None, midband=None, **kwargs):
         """
         inputs:
         start_cdf: One dimensional ndarray. Starting part of the cumulative distribution function
@@ -31,23 +33,39 @@ class DKL(object):
             start_cdf = (np.cumsum(start_band, axis=1).T / np.sum(start_band, axis=1)).T
         uniform = np.ones(start_cdf.shape[1]) / start_cdf.shape[1]
 
-        result = np.zeros((len(start_cdf), 1))
+        result = np.zeros((len(start_cdf), 2))
+
         for i, cdf in enumerate(start_cdf):
-            dkl = stats.entropy(np.where(cdf > 0, cdf, 0), uniform)  # TODO maybe on the mid-band as well?
+            dkl = stats.entropy(np.where(cdf > 0, cdf, 0), uniform)
             if dkl == float('inf'):
                 print(cdf)
                 raise AssertionError
             result[i, 0] = dkl
 
+        if midband is None:
+            assert rhs is not None
+            midband = rhs[:, self.resolution * self.jmp_min: self.resolution * self.jmp_max]
+            mid_cdf = (np.cumsum(midband, axis=1).T / np.sum(midband, axis=1)).T
+        uniform = np.ones(mid_cdf.shape[1]) / mid_cdf.shape[1]
+
+        for i, cdf in enumerate(mid_cdf):
+            dkl = stats.entropy(np.where(cdf > 0, cdf, 0), uniform)
+            if dkl == float('inf'):
+                print(cdf)
+                raise AssertionError
+            result[i, 1] = dkl
+
         return result
 
-    def set_fields(self, resolution, cdf_range, **kwargs):
+    def set_fields(self, resolution, cdf_range, jmp_min, jmp_max, **kwargs):
         self.resolution = resolution
         self.cdf_range = cdf_range
+        self.jmp_min = jmp_min
+        self.jmp_max = jmp_max
 
     @property
     def headers(self):
         """
         Returns a list of titles of the different metrics
         """
-        return ["d_kl"]
+        return ["d_kl_start", "d_kl_mid"]

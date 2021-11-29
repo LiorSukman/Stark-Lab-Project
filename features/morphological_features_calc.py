@@ -2,7 +2,8 @@ import numpy as np
 from clusters import Spike
 import time
 from constants import VERBOS
-from features.spatial_features_calc import sp_wavelet_transform
+from features.spatial_features_calc import wavelet_transform
+import matplotlib.pyplot as plt
 
 from features.morphological_features.FET_break import BreakMeasurement
 from features.morphological_features.FET_fwhm import FWHM
@@ -23,7 +24,9 @@ def get_main_chnnels(chunks):
         chunk_data = chunk.get_data()
         chunk_amp = chunk_data.max(axis=1) - chunk_data.min(axis=1)
         main_channel = np.argmax(chunk_amp)
-        ret.append(Spike(data=chunk_data[main_channel]))  # set main channel to be the one with highest peak - trough
+        plt.plot(chunk_data[main_channel])
+        data = chunk_data[main_channel].copy()
+        ret.append(Spike(data=data))  # set main channel to be the one with highest peak - trough
 
     return ret
 
@@ -38,7 +41,7 @@ def calc_morphological_features(chunks, transform=False):
     feature_mat_for_cluster = None
 
     if transform:
-        chunks = sp_wavelet_transform(chunks, False)
+        chunks = wavelet_transform(chunks, False)  # TODO False isn't valid anymore
 
     main_chunks = get_main_chnnels(chunks)
 

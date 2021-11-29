@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.signal as signal
+from constants import UPSAMPLE
 
 
 class PSD(object):
@@ -8,7 +9,10 @@ class PSD(object):
     density and the centroid of its derivative
     """
 
-    def __init__(self):
+    def __init__(self, resolution=2, jmp_max=1000):
+        self.resolution = resolution
+        self.jmp_max = jmp_max
+
         self.name = 'Power Spectral Density'
 
     def calculate_feature(self, rhs, **kwargs):
@@ -21,8 +25,12 @@ class PSD(object):
         Calculated measurements of the feature value as described before.
         """
         result = np.zeros((len(rhs), 2))
+        fs = self.jmp_max * self.resolution * UPSAMPLE
         for i, rh in enumerate(rhs):
-            f, pxx = signal.periodogram(rh, 20_000)
+            rh = rh - rh.mean()
+            f, pxx = signal.periodogram(rh, fs)
+            inds = f <= 100
+            f, pxx = f[inds], pxx[inds]
             centroid = np.sum(f * pxx) / np.sum(pxx)  # TODO maybe it should be the || of pxx
 
             der_pxx = np.abs(np.gradient(pxx))  # TODO check if there really can be negative values here
@@ -33,8 +41,9 @@ class PSD(object):
 
         return result
 
-    def set_fields(self, **kwargs):
-        pass
+    def set_fields(self, resolution, jmp_max, **kwargs):
+        self.resolution = resolution
+        self.jmp_max = jmp_max
 
     @property
     def headers(self):

@@ -11,4 +11,5 @@ def upsample_spike(spike, upsample_factor=UPSAMPLE, fs=20_000):
     start = pad * upsample_factor
     end = start + spike.shape[1] * upsample_factor
 
-    return up_spike[:, start: end]
+    # We copy to free the full fs * Upsample size ndarray
+    return up_spike[:, start: end].copy()

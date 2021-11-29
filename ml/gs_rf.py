@@ -88,7 +88,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
                   'min_samples_leaf': min_samples_leafs}
     model = RandomForestClassifier(random_state=seed, class_weight='balanced')
     clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=seed), verbose=0,
-                       scoring='balanced_accuracy')
+                       scoring='roc_auc')
     print('Starting grid search...')
     start = time.time()
     clf.fit(features, labels)
