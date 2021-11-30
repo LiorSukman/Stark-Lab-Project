@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import ML_util
 
@@ -13,6 +14,56 @@ restrictions = ['complete', 'no_small_sample']
 modalities = ['spatial', 'morphological', 'temporal', 'spat_tempo']
 NUM_FETS = 28
 SAVE_PATH = '../../../data for figures/'
+
+
+def plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz, v_max):
+    data = np.array([[tp, fn], [fp, tn]])
+    data = data / data.sum(axis=1)
+    pn_sign = u"\u00B1"
+    labels = [[f"{tp:2g}{pn_sign}{tp_std:3f}", f"{fn:2g}{pn_sign}{fn_std:3f}"],
+              [f"{fp:2g}{pn_sign}{fp_std:3f}", f"{tn:2g}{pn_sign}{tn_std:3f}"]]
+    cmap = sns.light_palette("seagreen", as_cmap=True)
+    ticklabels = ['PYR', 'IN']
+    _ = sns.heatmap(data, annot=labels, fmt='', vmin=0, vmax=1, cmap=cmap, ax=cz_ax, xticklabels=ticklabels, yticklabels=ticklabels)
+    cz_ax.set_title(f"Chunk size={cz}")
+
+
+def plot_conf_mats(df, restriction, name=None, chunk_size=[0, 200], modalities=None):
+    data_path = f'../data_sets_new/{restriction}_0/spatial/0_0.800.2/'
+    _, _, test, _, _, _ = ML_util.get_dataset(data_path)
+    test = np.squeeze(test)
+    positive, negative = np.sum(test[:, -1] == 1), np.sum(test[:, -1] == 0)
+    if modalities is None:
+        modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+
+    tpp = df.pyr_acc * 0.01
+    tnp = df.in_acc * 0.01
+
+    df['tp'] = positive * tpp
+    df['tn'] = negative * tnp
+    df['fp'] = negative * (1 - tnp)
+    df['fn'] = positive * (1 - tpp)
+
+    grouped = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
+    mean = grouped.mean()
+    std = grouped.std()
+
+    for m_name, _ in modalities:
+        mean_m = mean.xs(m_name, level="modality")
+        std_m = std.xs(m_name, level="modality")
+        fig, ax = plt.subplots(len(chunk_size))
+        if len(chunk_size) == 1:
+            ax = [ax]
+        for cz, cz_ax in zip(chunk_size, ax):
+            mean_cz = mean_m.xs(cz, level="chunk_size")
+            std_cz = std_m.xs(cz, level="chunk_size")
+            tp, tn, fp, fn = mean_cz.tp[0], mean_cz.tn[0], mean_cz.fp[0], mean_cz.fn[0]
+            tp_std, tn_std, fp_std, fn_std = std_cz.tp[0], std_cz.tn[0], std_cz.fp[0], std_cz.fn[0]
+            plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz, max(positive, negative))
+        if name is None:
+            plt.show()
+        else:
+            plt.savefig(SAVE_PATH + f"{name}_{m_name}_conf_mat.pdf", transparent=True)
 
 
 def get_title(restriction):
@@ -176,13 +227,21 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None):
 
 
 if __name__ == "__main__":
+    """
+    checks:
+    1) Is the name of the model correct?
+    2) Are we passing all the modalities we wish to plot?
+    3) Have we the correct path for the confusion matrix?
+    """
     model = 'rf'
-    results = pd.read_csv(f'results_{model}_newest.csv', index_col=0)
+    results = pd.read_csv(f'results_{model}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
     #complete = complete[complete.modality == 'spatial']
     no_small_sample = results[results.restriction == 'no_small_sample']
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
+    plot_conf_mats(complete, 'complete')
+    exit(0)
 
     plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True)
     plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False)

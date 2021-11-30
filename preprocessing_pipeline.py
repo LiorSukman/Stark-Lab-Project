@@ -1,5 +1,3 @@
-import gc
-
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -18,6 +16,7 @@ from xml_reader import read_xml
 from utils.upsampling import upsample_spike
 from light_removal import remove_light
 from constants import UPSAMPLE, VERBOS, SEED, SESSION_TO_ANIMAL
+from features.spatial_features_calc import DELTA_MODE
 
 # import the different features
 from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names

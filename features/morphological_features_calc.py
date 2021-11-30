@@ -37,11 +37,11 @@ def get_trough_time(main_chunks):
     return result
 
 
-def calc_morphological_features(chunks, transform=False):
+def calc_morphological_features(chunks, transform=None):
     feature_mat_for_cluster = None
 
-    if transform:
-        chunks = wavelet_transform(chunks, False)  # TODO False isn't valid anymore
+    if transform is not None:
+        chunks = wavelet_transform(chunks, transform)  # TODO False isn't valid anymore
 
     main_chunks = get_main_chnnels(chunks)
 
