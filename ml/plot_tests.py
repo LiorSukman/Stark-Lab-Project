@@ -47,16 +47,14 @@ def str2lst(str):
     return ret
 
 
-def plot_roc_curve(df, name=None, chunk_size=[0], modalities=None):
+def plot_roc_curve(df, name=None, chunk_size=[0, 200, 500], modalities=None):
     if modalities is None:
         modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
 
     for m_name, _ in modalities:
         df_m = df[df.modality == m_name]
-        fig, ax = plt.subplots(len(chunk_size))
-        if len(chunk_size) == 1:
-            ax = [ax]
-        for cz, cz_ax in zip(chunk_size, ax):
+        fig, ax = plt.subplots()
+        for cz in chunk_size:
             df_cz = df_m[df_m.chunk_size == cz]
             fprs = [str2lst(lst) for lst in df_cz.fpr]
             tprs = [str2lst(lst) for lst in df_cz.tpr]
@@ -67,8 +65,14 @@ def plot_roc_curve(df, name=None, chunk_size=[0], modalities=None):
             mean_tprs = tprs.mean(axis=0)
             std = tprs.std(axis=0)
 
-            cz_ax.plot(mean_fprs, mean_tprs)
-            cz_ax.fill_between(mean_fprs, mean_tprs - std, mean_tprs + std, alpha=0.2)
+            auc = df_cz.auc.mean()
+
+            ax.plot(mean_fprs, mean_tprs, label=f"AUC={auc:2g}, CZ={cz}")
+            ax.fill_between(mean_fprs, mean_tprs - std, mean_tprs + std, alpha=0.2)
+        ax.plot(mean_fprs, mean_fprs, color='k', linestyle='--', label='chance level')
+        ax.legend()
+        ax.set_xlabel("False Positive rate")
+        ax.set_ylabel("True Positive rate")
 
         if name is None:
             plt.show()
