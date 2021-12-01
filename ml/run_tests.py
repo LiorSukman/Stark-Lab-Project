@@ -108,7 +108,7 @@ def calc_auc(clf, data_path):
         preds.append(pred)
         targets.append(label)
 
-    fpr, tpr, thresholds = roc_curve(targets, preds)  # calculate fpr and tpr values for different thresholds
+    fpr, tpr, thresholds = roc_curve(targets, preds, drop_intermediate=False)  # calculate fpr and tpr values for different thresholds
     auc_val = auc(fpr, tpr)
 
     return auc_val, fpr, tpr
