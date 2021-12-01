@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, f1_score, precision_recall_curve
 from sklearn.preprocessing import StandardScaler
 from sklearn.inspection import permutation_importance
 # from sklearn.utils.testing import ignore_warnings
@@ -96,6 +96,7 @@ def calc_auc(clf, data_path):
     _ = scaler.transform(train_features)
 
     preds = []
+    bin_preds = []
     targets = []
 
     for cluster in test:
@@ -104,13 +105,19 @@ def calc_auc(clf, data_path):
         features = np.clip(features, -INF, INF)
         features = scaler.transform(features)
         label = labels[0]  # as they are the same for all the cluster
-        pred = clf.predict_proba(features).mean(axis=0)[1]
+        prob = clf.predict_proba(features).mean(axis=0)
+        pred = prob[1]
+        bin_pred = prob.argmax()
+        bin_preds.append(bin_pred)
         preds.append(pred)
         targets.append(label)
 
     fpr, tpr, thresholds = roc_curve(targets, preds, drop_intermediate=False)  # calculate fpr and tpr values for different thresholds
+    precision, recall, thresholds = precision_recall_curve(targets, preds)
     auc_val = auc(fpr, tpr)
+    f1 = f1_score(targets, bin_preds)
 
+    return f1, precision, recall
     return auc_val, fpr, tpr
 
 
@@ -284,4 +291,4 @@ if __name__ == "__main__":
             else:
                 results = results.append(get_folder_results(new_path, model, i), ignore_index=True)
 
-    results.to_csv(f'results_{model}.csv')
+    results.to_csv(f'results_{model}_f1.csv')

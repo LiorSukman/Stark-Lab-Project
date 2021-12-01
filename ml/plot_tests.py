@@ -4,8 +4,7 @@ import seaborn as sns
 import numpy as np
 import ML_util
 
-from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO, STARK_SPAT, STARK_SPAT_TEMPO, STARK
-from constants import WIDTH, T2P, WIDTH_SPAT, T2P_SPAT
+from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
 from constants import TRANS_MORPH
 from constants import feature_names as fet_names
 
@@ -17,17 +16,18 @@ SAVE_PATH = '../../../data for figures/'
 
 
 def change_length(lst, ref, length):
-    new_thrs = np.linspace(0, 1, length)
+    assert ref[0] == 0 and ref[-1] == 1
+    new_refs = np.linspace(0, 1, length)
     ref_ind = 0
     new_lst = []
     i = 0
     while i < length:
-        new_thr = new_thrs[i]
-        if ref[ref_ind] == new_thr:
+        new_ref = new_refs[i]
+        if ref[ref_ind] == new_ref:
             new_lst.append(lst[ref_ind])
             i += 1
-        elif ref_ind < len(ref) and ref[ref_ind] < new_thr < ref[ref_ind + 1]:
-            alpha = (ref[ref_ind + 1] - new_thr) / (ref[ref_ind + 1] - ref[ref_ind])
+        elif ref_ind < len(ref) and ref[ref_ind] < new_ref < ref[ref_ind + 1]:
+            alpha = (ref[ref_ind + 1] - new_ref) / (ref[ref_ind + 1] - ref[ref_ind])
             new_val = alpha * lst[ref_ind] + (1 - alpha) * lst[ref_ind + 1]
             new_lst.append(new_val)
             i += 1
@@ -228,9 +228,52 @@ def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=N
 
         fig.tight_layout()
 
-        plt.show()
-        # plt.savefig(SAVE_PATH + f"{name}_fet_imp.pdf", transparent=True)
+        if name is None:
+            plt.show()
+        else:
+            plt.savefig(SAVE_PATH + f"{name}_fet_imp.pdf", transparent=True)
 
+
+def plot_acc_vs_auc(df, name=None, chunk_size=[0], modalities=None):
+    if modalities is None:
+        modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+
+    for m_name, _ in modalities:
+        df_m = df[df.modality == m_name]
+        fig, ax1 = plt.subplots()
+        x = np.arange(len(chunk_size))  # the label locations
+        width = 0.4  # the width of the bars
+        for cz in chunk_size:
+            df_cz = df_m[df_m.chunk_size == cz]
+            ax2 = ax1.twinx()
+            ymax = 110
+            scale = 0.01
+            ax1.set_ylim(ymin=0, ymax=ymax)
+            ax2.set_ylim(ymin=0, ymax=ymax * scale)
+
+            grouped = df_cz.groupby(by=['restriction', 'modality', 'chunk_size'])
+            mean = grouped.mean()
+            sem = grouped.sem()
+            accs = df_cz.acc.to_numpy()
+            aucs = df_cz.auc.to_numpy()
+
+            auc_val = mean.auc
+            acc_val = mean.acc
+            auc_sem = sem.auc
+            acc_sem = sem.acc
+
+            rects1 = ax1.bar(x - width, acc_val, width, yerr=acc_sem, color='#404040', edgecolor='k')
+            rects2 = ax2.bar(x + width, auc_val, width, yerr=auc_sem, color='#404040', edgecolor='k')
+            autolabel(rects1, ax1, True)
+            autolabel(rects2, ax2, False)
+
+            for acc, auc in zip(accs, aucs):
+                ax2.plot([x - width, x + width], [acc * scale, auc], color='k', marker='o')
+
+        if name is None:
+            plt.show()
+        else:
+            plt.savefig(SAVE_PATH + f"{name}_{m_name}_acc_vs_auc.pdf", transparent=True)
 
 def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None):
     if name is None:
@@ -287,8 +330,11 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None):
     ax.legend()
 
     fig.tight_layout()
-    plt.show()
-    # plt.savefig(SAVE_PATH + f"{name}_{'acc' if acc else 'auc'}.pdf", transparent=True)
+
+    if name is None:
+        plt.show()
+    else:
+        plt.savefig(SAVE_PATH + f"{name}_{'acc' if acc else 'auc'}.pdf", transparent=True)
 
 
 if __name__ == "__main__":
@@ -299,14 +345,15 @@ if __name__ == "__main__":
     3) Have we the correct path for the confusion matrix?
     """
     model = 'rf'
-    results = pd.read_csv(f'git_results_{model}.csv', index_col=0)
+    results = pd.read_csv(f'results_{model}_f1.csv', index_col=0)
     complete = results[results.restriction == 'complete']
     # complete = complete[complete.modality == 'spatial']
     no_small_sample = results[results.restriction == 'no_small_sample']
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
+    plot_acc_vs_auc(complete)
     # plot_conf_mats(complete, 'complete')
-    plot_roc_curve(complete)
+    # plot_roc_curve(complete)
     exit(0)
 
     plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True)
