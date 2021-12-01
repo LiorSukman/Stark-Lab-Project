@@ -15,8 +15,7 @@ from gs_svm import grid_search as grid_search_svm
 from gs_gb import grid_search as grid_search_gb
 from SVM_RF import run as run_model
 
-from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO, STARK_SPAT, STARK_SPAT_TEMPO, STARK
-from constants import WIDTH, T2P, WIDTH_SPAT, T2P_SPAT
+from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
 from constants import TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
 from constants import INF
@@ -112,11 +111,11 @@ def calc_auc(clf, data_path):
     fpr, tpr, thresholds = roc_curve(targets, preds)  # calculate fpr and tpr values for different thresholds
     auc_val = auc(fpr, tpr)
 
-    return auc_val
+    return auc_val, fpr, tpr
 
 
 def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'):
-    accs, pyr_accs, in_accs, aucs, importances = [], [], [], [], []
+    accs, pyr_accs, in_accs, aucs, importances, fprs, tprs = [], [], [], [], [], [], []
     C, gamma, n_estimators, max_depth, min_samples_split, min_samples_leaf, lr = [None] * 7
 
     path_split = data_path.split('/')
@@ -127,7 +126,7 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
             data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
             max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
             min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed)
-        auc = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
+        auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
         if importance_mode == 'reg':
             importance = clf.feature_importances_
         elif importance_mode == 'perm':
@@ -147,12 +146,13 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
             raise NotImplementedError
 
         auc = 0
+        fpr = tpr = [0]
 
     elif model == 'gb':
         clf, acc, pyr_acc, in_acc, n_estimators, max_depth, lr = grid_search_gb(
             data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
             max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max, lr_num, n)
-        auc = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
+        auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
 
         if importance_mode == 'perm':
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/")
@@ -168,6 +168,8 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
     in_accs.append(in_acc)
     aucs.append(auc)
     importances.append(importance)
+    fprs.append(fpr)
+    tprs.append(tpr)
 
     with open(dest + "_0", 'wb') as fid:  # save the model
         pickle.dump(clf, fid)
@@ -181,7 +183,7 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                                               n_estimators, max_depth, min_samples_split, min_samples_leaf, lr,
                                               data_path + f"/{chunk_size}_{dataset_identifier}/", seed)
         if model == 'rf' or model == 'gb':
-            auc = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/")
+            auc, fpr, tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/")
             if model == 'rf':
                 if importance_mode == 'reg':
                     importance = clf.feature_importances_
@@ -210,13 +212,15 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
         in_accs.append(in_acc)
         aucs.append(auc)
         importances.append(importance)
+        fprs.append(fpr)
+        tprs.append(tpr)
 
         with open(dest + f"_{chunk_size}", 'wb') as fid:  # save the model
             pickle.dump(clf, fid)
 
     df = pd.DataFrame(
         {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [str(seed)] * len(accs),
-         'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs})
+         'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs, 'fpr': fprs, 'tpr': tprs})
 
     features = [f"feature {f+1}" for f in range(NUM_FETS)]
     importances_row = np.nan * np.ones((len(accs), NUM_FETS))
@@ -227,7 +231,7 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
 
 
 def get_folder_results(data_path, model, seed):
-    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'auc'] + \
+    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'auc', 'fpr', 'tpr',] + \
               [f"feature {f+1}" for f in range(NUM_FETS)]
     df = pd.DataFrame({col: [] for col in df_cols})
     for modality in modalities:
@@ -238,16 +242,6 @@ def get_folder_results(data_path, model, seed):
         df = df.append(modality_df, ignore_index=True)
 
     return df
-
-
-def get_results(data_path, model, seed):
-    folder_df = get_folder_results(data_path, model, seed)
-
-    return folder_df
-
-#@ignore_warnings(category=ConvergenceWarning)
-def do_test(data_path, model, seed):
-    return get_results(data_path, model, seed)
 
 
 if __name__ == "__main__":
@@ -264,13 +258,10 @@ if __name__ == "__main__":
     """
     model = 'rf'
     iterations = 20
-    results = pd.DataFrame(
-        {'restriction': [], 'modality': [], 'chunk_size': [], 'seed': [], 'acc': [], 'pyr_acc': [], 'in_acc': [],
-         'auc': []})
+    results = None
     save_path = '../data_sets_new'
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
-    # modalities = [('spatial', SPATIAL)]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -288,7 +279,9 @@ if __name__ == "__main__":
                     ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt',
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
                                             seed=i, region_based=False)
+            if results is None:
+                results = get_folder_results(new_path, model, i)
+            else:
+                results = results.append(get_folder_results(new_path, model, i), ignore_index=True)
 
-            results = results.append(do_test(new_path, model, i), ignore_index=True)
-
-    results.to_csv(f'results_{model}_newest.csv')
+    results.to_csv(f'results_{model}.csv')
