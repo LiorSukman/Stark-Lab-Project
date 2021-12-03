@@ -38,7 +38,6 @@ def split_features(data):
     """
    The function simply separates the features and the labels of the clusters
    """
-    print(data.shape)
     return data[:, :-1], data[:, -1]
 
 

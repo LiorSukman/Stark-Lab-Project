@@ -2,13 +2,12 @@ import ML_util
 import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, f1_score, precision_recall_curve
 from sklearn.preprocessing import StandardScaler
 from sklearn.inspection import permutation_importance
 # from sklearn.utils.testing import ignore_warnings
-from sklearn.exceptions import ConvergenceWarning
 import pickle
+import shap
 
 from gs_rf import grid_search as grid_search_rf
 from gs_svm import grid_search as grid_search_svm
@@ -20,10 +19,10 @@ from constants import TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0, 500, 200]
+chunks = [0, 100, 200, 400, 800, 1600]
 restrictions = ['complete', 'no_small_sample']
 dataset_identifier = '0.800.2'
-importance_mode = 'reg'
+importance_mode = 'shap'  # reg, perm or shap (for rf only)
 # try_load = '../saved_models' # TODO implement
 NUM_FETS = 29
 
@@ -81,6 +80,14 @@ def get_test_set(data_path):
     return x, y
 
 
+def get_shap_imp(clf, test, seed):
+    df = pd.DataFrame(test)
+    df_shap = df.sample(min(1000, len(test)), random_state=int(seed) + 1)
+    rf_explainer = shap.TreeExplainer(clf)  # define explainer
+    shap_values = rf_explainer(df_shap)  # calculate shap values
+    pyr_shap_values = shap_values[..., 1]
+    return np.mean(np.abs(pyr_shap_values.values), axis=0)
+
 def calc_auc(clf, data_path):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
     # test_path = data_path.replace('200', '500').replace('500', '0')
@@ -113,11 +120,11 @@ def calc_auc(clf, data_path):
         targets.append(label)
 
     fpr, tpr, thresholds = roc_curve(targets, preds, drop_intermediate=False)  # calculate fpr and tpr values for different thresholds
-    precision, recall, thresholds = precision_recall_curve(targets, preds)
+    # precision, recall, thresholds = precision_recall_curve(targets, preds)
     auc_val = auc(fpr, tpr)
-    f1 = f1_score(targets, bin_preds)
+    # f1 = f1_score(targets, bin_preds)
 
-    return f1, precision, recall
+    # return f1, precision, recall
     return auc_val, fpr, tpr
 
 
@@ -139,6 +146,9 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
         elif importance_mode == 'perm':
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/")
             importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+        elif importance_mode == 'shap':
+            x, _ = get_test_set(data_path + f"/{0}_{dataset_identifier}/")
+            importance = get_shap_imp(clf, x, seed)
         else:
             raise NotImplementedError
 
@@ -197,6 +207,9 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                 elif importance_mode == 'perm':
                     x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
                     importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                elif importance_mode == 'shap':
+                    x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
+                    importance = get_shap_imp(clf, x, seed)
                 else:
                     raise NotImplementedError
             else:
@@ -266,7 +279,7 @@ if __name__ == "__main__":
     model = 'rf'
     iterations = 20
     results = None
-    save_path = '../data_sets_new'
+    save_path = '../data_sets'
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
     for i in range(iterations):
@@ -291,4 +304,4 @@ if __name__ == "__main__":
             else:
                 results = results.append(get_folder_results(new_path, model, i), ignore_index=True)
 
-    results.to_csv(f'results_{model}_f1.csv')
+    results.to_csv(f'results_{model}_shap.csv')
