@@ -1,3 +1,6 @@
-../clustersData_no_light_new/0
-../clustersData_no_light_new/200
-../clustersData_no_light_new/500
+../clustersData_no_light/0
+../clustersData_no_light/100
+../clustersData_no_light/200
+../clustersData_no_light/400
+../clustersData_no_light/800
+../clustersData_no_light/1600

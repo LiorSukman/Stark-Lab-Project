@@ -310,7 +310,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None):
                 spatial_features_mat = calc_spatial_features(rel_data)
                 #feature_mat_for_cluster = morphological_features_mat = calc_morphological_features(rel_data, False)
                 #feature_mat_for_cluster = spatial_features_mat = calc_spatial_features(rel_data)
-                morphological_features_mat = calc_morphological_features(rel_data, False)
+                morphological_features_mat = calc_morphological_features(rel_data)
                 feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
                                                           temporal_features_mat), axis=1)
                 # Append metadata for the cluster
@@ -340,8 +340,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
-                        default=[0, 200, 500])
-    parser.add_argument('--save_path', type=str, default='clustersData_no_light_new/',
+                        default=[0, 100, 200, 400, 800, 1600])
+    parser.add_argument('--save_path', type=str, default='clustersData_no_light_full/',
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')
