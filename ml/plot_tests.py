@@ -268,7 +268,7 @@ def plot_acc_vs_auc(df, name=None, chunk_size=[0], modalities=None):
             plt.savefig(SAVE_PATH + f"{name}_{m_name}_acc_vs_auc.pdf", transparent=True)
 
 
-def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None):
+def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mode='bar'):
     if name is None:
         title = get_title(restriction)
 
@@ -282,20 +282,32 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None):
     x = np.arange(len(labels))  # the label locations
     width = 1 / (len(chunk_size) + 1)  # the width of the bars
 
-    for i, cz in enumerate(chunk_size):
-        col = 'acc' if acc else 'auc'
-        val = df.xs(cz, level="chunk_size")[col]
-        sem = sems.xs(cz, level="chunk_size")[col]
+    if mode == 'bar':
+        for i, cz in enumerate(chunk_size):
+            col = 'acc' if acc else 'auc'
+            val = df.xs(cz, level="chunk_size")[col]
+            sem = sems.xs(cz, level="chunk_size")[col]
 
-        rects = ax.bar(x - (i - len(chunk_size) // 2) * width, val, width, label=f'chunk_size = {cz}', yerr=sem,
-                       edgecolor='k')
-        autolabel(rects, ax, acc)
+            rects = ax.bar(x - (i - len(chunk_size) // 2) * width, val, width, label=f'chunk_size = {cz}', yerr=sem,
+                           edgecolor='k')
+            autolabel(rects, ax, acc)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels)
+    elif mode == 'plot':
+        x = chunk_size
+        for i, m_name in enumerate(labels):
+            col = 'acc' if acc else 'auc'
+            val = np.asarray(df.xs(m_name, level="modality")[col])  # [::-1]
+            sem = np.asarray(sems.xs(m_name, level="modality")[col])  # [::-1]
+            ax.plot(x, val, label=m_name)
+            ax.errorbar(x, val, yerr=sem)
+        ax.set_xticks(x)
+    else:
+        raise KeyError('mode can be only bar or plot')
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel('Scores (percentage)')
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels)
     ax.legend()
 
     fig.tight_layout()
@@ -320,12 +332,12 @@ if __name__ == "__main__":
     no_small_sample = results[results.restriction == 'no_small_sample']
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
-    plot_acc_vs_auc(complete)
-    plot_conf_mats(complete, 'complete',
-                   modalities=[('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)],
-                   chunk_size=[0, 1600, 800, 400, 200, 100])
+    # plot_acc_vs_auc(complete)
+    # plot_conf_mats(complete, 'complete',
+    #               modalities=[('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)],
+    #               chunk_size=[0, 1600, 800, 400, 200, 100])
     # plot_roc_curve(complete)
 
-    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, chunk_size=None)
-    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, chunk_size=None)
-    plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
+    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='plot')
+    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='plot')
+    # plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
