@@ -148,7 +148,8 @@ def was_created(paths, per_train, per_dev, per_test, region_based):
 
 
 def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt', mode='complete', should_filter=True,
-                    save_path='../data_sets', verbos=False, keep=None, group_split=False, seed=None, region_based=False):
+                    save_path='../data_sets', verbos=False, keep=None, group_split=False, seed=None, region_based=False,
+                    perm_labels=False):
     """
    The function creates all datasets from the data referenced by the datasets file and saves them
    """
@@ -197,7 +198,7 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
         print('Splitting %s set...' % name)
         split_data(data, cluster_names, recording_names,  per_train=per_train, per_dev=per_dev, per_test=per_test,
                    path=save_path, data_name=name, should_load=should_load, verbos=verbos,
-                   group_split=group_split, seed=seed, region_based=region_based, regions=regions)
+                   group_split=group_split, seed=seed, region_based=region_based, regions=regions, perm_labels=perm_labels)
 
 
 def get_dataset(path):
@@ -251,8 +252,17 @@ def split_region_data(data, names, seed, test_per):
     return data[train_inds], names[train_inds], data[dev_inds], names[dev_inds]
 
 
+def permutate_labels(org):
+    if len(org) <= 1:
+        return
+    labels = np.array([chunks[0, -1] for chunks in org])
+    np.random.shuffle(labels)
+    for chunks, new_label in zip(org, labels):
+        chunks[:, -1] = new_label
+
+
 def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True,
-               data_name='', verbos=False, group_split=True, seed=None, region_based=False, regions=None):
+               data_name='', verbos=False, group_split=True, seed=None, region_based=False, regions=None, perm_labels=False):
     """
    This function recieves the data as an ndarray. The first level is the different clusters, i.e each file,
    the second level is the different waveforms whithin each clusters and the third is the actual features
@@ -273,7 +283,6 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
         per_dev += per_train
 
         if region_based:
-            print(len(data), len(names))
             train, train_names = take_region_data(data, names, 1, regions)
             train, train_names, dev, dev_names = split_region_data(train, train_names, seed, per_test)
             test, test_names = take_region_data(data, names, 0, regions)
@@ -305,6 +314,10 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
             else:
                 dev = []
                 dev_names = []
+
+        if perm_labels:
+            permutate_labels(train)
+            permutate_labels(dev)
 
         if path is not None:
             try:

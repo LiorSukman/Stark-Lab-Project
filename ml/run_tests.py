@@ -21,7 +21,7 @@ from constants import INF
 
 chunks = [0, 100, 200, 400, 800, 1600]
 restrictions = ['complete', 'no_small_sample']
-dataset_identifier = '0.60.20.2'
+dataset_identifier = '0.800.2'
 importance_mode = 'shap'  # reg, perm or shap (for rf only)
 # try_load = '../saved_models' # TODO implement
 NUM_FETS = 29
@@ -73,6 +73,8 @@ def get_test_set(data_path, region_based=False, get_dev=False):
     scaler.fit(features)
 
     test_set = test if not get_dev else dev
+    if len(test_set) == 0:
+        return [], []
 
     test_squeezed = ML_util.squeeze_clusters(test_set)
     x, y = ML_util.split_features(test_squeezed)
@@ -112,6 +114,8 @@ def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
     targets = []
 
     test_set = test if not use_dev else dev
+    if len(test_set) == 0:
+        return 0, [0], [0]
 
     for cluster in test_set:
         features, labels = ML_util.split_features(cluster)
@@ -164,12 +168,18 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
             importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
-            dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            if len(x) > 0:
+                dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            else:
+                dev_importance = np.zeros(importance.shape)
         elif importance_mode == 'shap':
             x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
             importance = get_shap_imp(clf, x, seed)
             x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
-            dev_importance = get_shap_imp(clf, x, seed)
+            if len(x) > 0:
+                dev_importance = get_shap_imp(clf, x, seed)
+            else:
+                dev_importance = np.zeros(importance.shape)
         else:
             raise NotImplementedError
 
@@ -181,7 +191,10 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
             importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
-            dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            if len(x) > 0:
+                dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            else:
+                dev_importance = np.zeros(importance.shape)
         else:
             raise NotImplementedError
 
@@ -199,7 +212,10 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
             importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
-            dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            if len(x) > 0:
+                dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            else:
+                dev_importance = np.zeros(importance.shape)
         else:
             raise NotImplementedError
 
@@ -249,12 +265,18 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                     x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
                     importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
                     x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
-                    dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                    if len(x) > 0:
+                        dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                    else:
+                        dev_importance = np.zeros(importance.shape)
                 elif importance_mode == 'shap':
                     x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
                     importance = get_shap_imp(clf, x, seed)
                     x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
-                    dev_importance = get_shap_imp(clf, x, seed)
+                    if len(x) > 0:
+                        dev_importance = get_shap_imp(clf, x, seed)
+                    else:
+                        dev_importance = np.zeros(importance.shape)
                 else:
                     raise NotImplementedError
             else:
@@ -262,7 +284,10 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                     x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
                     importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
                     x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
-                    dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                    if len(x) > 0:
+                        dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                    else:
+                        dev_importance = np.zeros(importance.shape)
                 else:
                     raise NotImplementedError
 
@@ -271,7 +296,10 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                 x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
                 importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
                 x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
-                dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                if len(x) > 0:
+                    dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                else:
+                    dev_importance = np.zeros(importance.shape)
             else:
                 raise NotImplementedError
             auc, fpr, tpr = 0, [0], [0]
@@ -346,8 +374,9 @@ if __name__ == "__main__":
     model = 'rf'
     iterations = 20
     region_based = False
+    perm_labels = True
     results = None
-    save_path = '../data_sets_dev'
+    save_path = '../data_sets_perm_labels'
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
     for i in range(iterations):
@@ -364,12 +393,12 @@ if __name__ == "__main__":
                 keep = places
                 # TODO in group split it might not be good to just change the seed like this
                 with HiddenPrints():
-                    ML_util.create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt',
+                    ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt',
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                            seed=i, region_based=region_based)
+                                            seed=i, region_based=region_based, perm_labels=perm_labels)
             if results is None:
                 results = get_folder_results(new_path, model, i, region_based)
             else:
                 results = results.append(get_folder_results(new_path, model, i), ignore_index=True)
 
-    results.to_csv(f'results_{model}_dev.csv')
+    results.to_csv(f'results_{model}_chance_level.csv')

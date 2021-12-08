@@ -15,6 +15,8 @@ N = 10
 
 def evaluate_predictions(model, clusters, scaler, verbos=False):
     total = len(clusters)
+    if total == 0:
+        return 0, 0, 0, 0
     total_pyr = total_in = correct_pyr = correct_in = correct_chunks = correct_clusters = total_chunks = 0
     for cluster in clusters:
         features, labels = ML_util.split_features(cluster)

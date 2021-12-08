@@ -20,6 +20,8 @@ models = ['svm', 'rf', 'gb']  # the supported models
 
 def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False):
     total = len(clusters)
+    if total == 0:
+        return 0, 0, 0, 0
     total_pyr = total_in = correct_pyr = correct_in = correct_chunks = total_chunks = correct_clusters = 0
     for cluster, name in zip(clusters, names):
         features, labels = ML_util.split_features(cluster)

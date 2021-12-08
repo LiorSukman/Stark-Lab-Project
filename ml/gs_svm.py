@@ -15,6 +15,8 @@ N = 5
 
 def evaluate_predictions(model, clusters, scaler, verbos=False):
     total = len(clusters)
+    if total == 0:
+        return 0, 0, 0, 0
     total_pyr = 0
     total_in = 0
     correct_pyr = 0
