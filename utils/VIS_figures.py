@@ -4,6 +4,7 @@ from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import numpy as np
 import pandas as pd
 import scipy.signal as signal
+import scipy.stats as stats
 import os
 import seaborn as sns
 
@@ -154,6 +155,7 @@ def get_results(modality, chunk_size=[0], res_name='results_rf_shap'):
 
     plot_conf_mats(complete, 'complete', name=modality, chunk_size=[0], modalities=modalities)
     clear()
+    clear()
 
     plot_roc_curve(complete, name=modality, chunk_size=[0], modalities=modalities)
     clear()
@@ -263,6 +265,24 @@ def unif_dist(hist, name):
     print(f"{name} unif_dist is {np.sum(dists)}")
     plt.savefig(SAVE_PATH + f"{name}_unif_dist.pdf", transparent=True)
     clear()
+
+def dkl_mid(hist, name):
+    color_main = PYR_COLOR if name == 'pyr' else PV_COLOR
+    color_second = LIGHT_PYR if name == 'pyr' else LIGHT_PV
+    resolution = 2
+    hist = np.where(hist >= 0, hist, 0)
+    hist_up = signal.resample_poly(hist, UPSAMPLE ** 2, UPSAMPLE, padtype='line')
+    mid = hist_up[50 * resolution * UPSAMPLE]
+    probs = mid / np.sum(mid)
+    unif = np.ones(probs.shape)
+    dkl = stats.dkl(probs, unif)
+    print(f"mid_dkl value is {dkl}")
+    dkl_func = dkl * np.log2(dkl / unif)
+    fig, ax = plt.subplots()
+    ax.plot(dkl_func, c=color_main)
+    plt.show()
+    clear()
+
 
 
 def plot_delta(clu, name):
@@ -375,7 +395,7 @@ if __name__ == '__main__':
 
     get_results('morphological', chunk_size=[0])
 
-    """# Temporal features
+    # Temporal features
 
     # Spike train
     # _, _, _, stims = remove_light(pyr_cluster, True, data_path='../Data/')
@@ -406,8 +426,8 @@ if __name__ == '__main__':
 
     hist_pv = ach(50, 'pv', pv_cluster)
     hist_pyr = ach(50, 'pyr', pyr_cluster)
-    ach(1000, 'pv', pv_cluster)
-    ach(1000, 'pyr', pyr_cluster)
+    hist_pv_long = ach(1000, 'pv', pv_cluster)
+    hist_pyr_long = ach(1000, 'pyr', pyr_cluster)
 
     # unif_dist
 
@@ -415,14 +435,18 @@ if __name__ == '__main__':
     df = load_df(features)
 
     corr_mat(df, 'temporal')
-    d_features = ['unif_dist']
+    d_features = ['unif_dist', 'd_kl_mid']
 
     density_plots(df, d_features, 'temporal')
 
     unif_dist(hist_pv, 'pv')
     unif_dist(hist_pyr, 'pyr')
 
-    get_results('temporal', chunk_size=[0])"""
+    dkl_mid(hist_pv_long, 'pv')
+    dkl_mid(hist_pyr_long, 'pyr')
+    exit()
+
+    get_results('temporal', chunk_size=[0])
 
     # modified waveforms - fig 4
     plot_delta(pyr_cluster, 'pyr')
