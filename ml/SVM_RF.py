@@ -68,7 +68,7 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
 
 def run(model, saving_path, loading_path, pca_n_components, use_pca,
         ica_n_components, use_ica, use_scale, visualize, gamma, C, kernel,
-        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path, seed):
+        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path, seed, region_based=False):
     """
     runner function for the SVM and RF models.
     explanations about the parameters is in the help
@@ -86,7 +86,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     # test_path = dataset_path.replace('200', '500').replace('500', '0')
     # _, _, test, _, _, test_names = ML_util.get_dataset(test_path)
 
-    if len(dev) > 0:  # for region change to if False
+    if (not region_based) and len(dev) > 0:  # for region change to if False
         train = np.concatenate((train, dev))
     # train_names = np.concatenate((train_names, dev_names))
     train_squeezed = ML_util.squeeze_clusters(train)
@@ -174,6 +174,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
 
     print('Evaluating predictions...')
     chunk_per, clust_per, pyr_per, in_per = evaluate_predictions(clf, test, test_names, pca, ica, scaler, verbos=True)
+    dev_chunk_per, dev_clust_per, dev_pyr_per, dev_in_per = evaluate_predictions(clf, dev, test_names, pca, ica, scaler, verbos=True)
 
     if visualize:
         print('Working on visualization...')
@@ -198,7 +199,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
         # (default is first two)
         visualize_model(train_features[:20, :], train_labels[:20], clf, h=0.5)
 
-    return clf, clust_per, pyr_per, in_per
+    return clf, clust_per, pyr_per, in_per, dev_clust_per, dev_pyr_per, dev_in_per
 
 
 if __name__ == "__main__":

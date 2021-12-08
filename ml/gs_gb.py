@@ -47,7 +47,7 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
 
 def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_estimators_num,
                 max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max,
-                lr_num, n, train=None, dev=None, test=None):
+                lr_num, n, train=None, dev=None, test=None, region_based=False):
     """
     grid search runner function
     see help for parameter explanations
@@ -57,7 +57,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
-    if len(dev_squeezed) > 0:
+    if (not region_based) and len(dev_squeezed) > 0:
         train_data = np.concatenate((train_squeezed, dev_squeezed))
     else:
         train_data = train_squeezed
@@ -99,7 +99,9 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     print('Starting evaluation on test set...')
 
     clust_count, acc, pyr_acc, in_acc = evaluate_predictions(classifier, test, scaler, verbos)
-    return classifier, acc, pyr_acc, in_acc, n_estimators, max_depth, lr
+    dev_clust_count, dev_acc, dev_pyr_acc, dev_in_acc = evaluate_predictions(classifier, dev, scaler, verbos)
+
+    return classifier, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, lr
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ from constants import INF
 
 chunks = [0, 100, 200, 400, 800, 1600]
 restrictions = ['complete', 'no_small_sample']
-dataset_identifier = '0.800.2'
+dataset_identifier = '0.60.20.2'
 importance_mode = 'shap'  # reg, perm or shap (for rf only)
 # try_load = '../saved_models' # TODO implement
 NUM_FETS = 29
@@ -53,12 +53,13 @@ kernel = 'rbf'
 
 n = 5
 
-def get_test_set(data_path):
+
+def get_test_set(data_path, region_based=False, get_dev=False):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
-    if len(dev_squeezed) > 0:
+    if (not region_based) and len(dev_squeezed) > 0:
         train_data = np.concatenate((train_squeezed, dev_squeezed))
     else:
         train_data = train_squeezed
@@ -71,7 +72,9 @@ def get_test_set(data_path):
     scaler = StandardScaler()
     scaler.fit(features)
 
-    test_squeezed = ML_util.squeeze_clusters(test)
+    test_set = test if not get_dev else dev
+
+    test_squeezed = ML_util.squeeze_clusters(test_set)
     x, y = ML_util.split_features(test_squeezed)
     x = np.nan_to_num(x)
     x = np.clip(x, -INF, INF)
@@ -88,11 +91,13 @@ def get_shap_imp(clf, test, seed):
     pyr_shap_values = shap_values[..., 1]
     return np.mean(np.abs(pyr_shap_values.values), axis=0)
 
-def calc_auc(clf, data_path):
+
+def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
     # test_path = data_path.replace('200', '500').replace('500', '0')
     # _, _, test, _, _, _ = ML_util.get_dataset(test_path)
-    train = np.concatenate((train, dev))
+    if not region_based:
+        train = np.concatenate((train, dev))
     train_squeezed = ML_util.squeeze_clusters(train)
     train_features, train_labels = ML_util.split_features(train_squeezed)
     train_features = np.nan_to_num(train_features)
@@ -106,7 +111,9 @@ def calc_auc(clf, data_path):
     bin_preds = []
     targets = []
 
-    for cluster in test:
+    test_set = test if not use_dev else dev
+
+    for cluster in test_set:
         features, labels = ML_util.split_features(cluster)
         features = np.nan_to_num(features)
         features = np.clip(features, -INF, INF)
@@ -119,61 +126,80 @@ def calc_auc(clf, data_path):
         preds.append(pred)
         targets.append(label)
 
-    fpr, tpr, thresholds = roc_curve(targets, preds, drop_intermediate=False)  # calculate fpr and tpr values for different thresholds
-    # precision, recall, thresholds = precision_recall_curve(targets, preds)
-    auc_val = auc(fpr, tpr)
-    # f1 = f1_score(targets, bin_preds)
+    if calc_f1:
+        precision, recall, thresholds = precision_recall_curve(targets, preds)
+        f1 = f1_score(targets, bin_preds)
 
-    # return f1, precision, recall
-    return auc_val, fpr, tpr
+        return f1, precision, recall
+    else:
+        fpr, tpr, thresholds = roc_curve(targets, preds,
+                                         drop_intermediate=False)  # calculate fpr and tpr values for different thresholds
+        auc_val = auc(fpr, tpr)
+        return auc_val, fpr, tpr
 
 
-def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'):
-    accs, pyr_accs, in_accs, aucs, importances, fprs, tprs = [], [], [], [], [], [], []
+def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg', region_based=False):
+    accs, pyr_accs, in_accs, aucs, fprs, tprs, importances = [], [], [], [], [], [], []
+    dev_accs, dev_pyr_accs, dev_in_accs, dev_aucs, dev_fprs, dev_tprs, dev_importances = [], [], [], [], [], [], []
     C, gamma, n_estimators, max_depth, min_samples_split, min_samples_leaf, lr = [None] * 7
 
     path_split = data_path.split('/')
     dest = f"../saved_models/{model}_{path_split[3]}_{path_split[2]}"
 
     if model == 'rf':
-        clf, acc, pyr_acc, in_acc, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
-            data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
-            max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
-            min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed)
-        auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
+        clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, min_samples_split, \
+        min_samples_leaf = grid_search_rf(data_path + f"/0_{dataset_identifier}/", False, n_estimators_min,
+                                          n_estimators_max, n_estimators_num,
+                                          max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min,
+                                          min_samples_splits_max,
+                                          min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max,
+                                          min_samples_leafs_num, n, seed,
+                                          region_based)
+        auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
+        dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
+
         if importance_mode == 'reg':
-            importance = clf.feature_importances_
+            dev_importance = importance = clf.feature_importances_
         elif importance_mode == 'perm':
-            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/")
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
             importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
+            dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
         elif importance_mode == 'shap':
-            x, _ = get_test_set(data_path + f"/{0}_{dataset_identifier}/")
+            x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
             importance = get_shap_imp(clf, x, seed)
+            x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
+            dev_importance = get_shap_imp(clf, x, seed)
         else:
             raise NotImplementedError
 
     elif model == 'svm':
-        clf, _, acc, pyr_acc, in_acc, C, gamma = grid_search_svm(data_path + f"/0_{dataset_identifier}/", False, None,
-                                                                 min_gamma, max_gamma, num_gamma, min_c, max_c, num_c,
-                                                                 kernel, n)
+        clf, _, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, C, gamma = \
+            grid_search_svm(data_path + f"/0_{dataset_identifier}/", False, None, min_gamma, max_gamma, num_gamma,
+                            min_c, max_c, num_c, kernel, n)
         if importance_mode == 'perm':
-            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/")
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
             importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
+            dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
         else:
             raise NotImplementedError
 
-        auc = 0
-        fpr = tpr = [0]
+        auc, fpr, tpr = 0, [0], [0]
+        dev_auc, dev_fpr, dev_tpr = 0, [0], [0]
 
     elif model == 'gb':
-        clf, acc, pyr_acc, in_acc, n_estimators, max_depth, lr = grid_search_gb(
+        clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, lr = grid_search_gb(
             data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
-            max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max, lr_num, n)
-        auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/")
+            max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max, lr_num, n, region_based)
+        auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
+        dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
 
         if importance_mode == 'perm':
-            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/")
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
             importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+            x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
+            dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
         else:
             raise NotImplementedError
 
@@ -183,10 +209,19 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
     accs.append(acc)
     pyr_accs.append(pyr_acc)
     in_accs.append(in_acc)
+    dev_accs.append(dev_acc)
+    dev_pyr_accs.append(dev_pyr_acc)
+    dev_in_accs.append(dev_in_acc)
+
     aucs.append(auc)
-    importances.append(importance)
     fprs.append(fpr)
     tprs.append(tpr)
+    dev_aucs.append(dev_auc)
+    dev_fprs.append(dev_fpr)
+    dev_tprs.append(dev_tpr)
+
+    importances.append(importance)
+    dev_importances.append(dev_importance)
 
     with open(dest + "_0", 'wb') as fid:  # save the model
         pickle.dump(clf, fid)
@@ -195,70 +230,103 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
     restriction = '_'.join(restriction.split('_')[:-1])
 
     for chunk_size in chunks[1:]:
-        clf, acc, pyr_acc, in_acc = run_model(model, None, None, None, False, None, False, True, False, gamma, C,
-                                              kernel,
-                                              n_estimators, max_depth, min_samples_split, min_samples_leaf, lr,
-                                              data_path + f"/{chunk_size}_{dataset_identifier}/", seed)
+        clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc = run_model(model, None, None, None, False, None,
+                                                                                False, True, False, gamma, C,
+                                                                                kernel,
+                                                                                n_estimators, max_depth,
+                                                                                min_samples_split, min_samples_leaf, lr,
+                                                                                data_path +
+                                                                                f"/{chunk_size}_{dataset_identifier}/",
+                                                                                seed, region_based)
         if model == 'rf' or model == 'gb':
-            auc, fpr, tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/")
+            auc, fpr, tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
+            dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based,
+                                                 use_dev=True)
             if model == 'rf':
                 if importance_mode == 'reg':
-                    importance = clf.feature_importances_
+                    dev_importance = importance = clf.feature_importances_
                 elif importance_mode == 'perm':
-                    x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
+                    x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
                     importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                    x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
+                    dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
                 elif importance_mode == 'shap':
-                    x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
+                    x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
                     importance = get_shap_imp(clf, x, seed)
+                    x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
+                    dev_importance = get_shap_imp(clf, x, seed)
                 else:
                     raise NotImplementedError
             else:
                 if importance_mode == 'perm':
-                    x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
+                    x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
                     importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                    x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
+                    dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
                 else:
                     raise NotImplementedError
 
         elif model == 'svm':
             if importance_mode == 'perm':
-                x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/")
+                x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
                 importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
+                dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
             else:
                 raise NotImplementedError
-            auc = 0
+            auc, fpr, tpr = 0, [0], [0]
+            dev_auc, dev_fpr, dev_tpr = 0, [0], [0]
 
         accs.append(acc)
         pyr_accs.append(pyr_acc)
         in_accs.append(in_acc)
+        dev_accs.append(dev_acc)
+        dev_pyr_accs.append(dev_pyr_acc)
+        dev_in_accs.append(dev_in_acc)
+
         aucs.append(auc)
-        importances.append(importance)
         fprs.append(fpr)
         tprs.append(tpr)
+        dev_aucs.append(dev_auc)
+        dev_fprs.append(dev_fpr)
+        dev_tprs.append(dev_tpr)
+
+        importances.append(importance)
+        dev_importances.append(dev_importance)
 
         with open(dest + f"_{chunk_size}", 'wb') as fid:  # save the model
             pickle.dump(clf, fid)
 
     df = pd.DataFrame(
         {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [str(seed)] * len(accs),
-         'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs, 'fpr': fprs, 'tpr': tprs})
+         'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs, 'fpr': fprs, 'tpr': tprs,
+         'dev_acc': dev_accs, 'dev_pyr_acc': dev_pyr_accs, 'dev_in_acc': dev_in_accs, 'dev_auc': dev_aucs,
+         'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs
+         })
 
-    features = [f"feature {f+1}" for f in range(NUM_FETS)]
+    features = [f"test feature {f + 1}" for f in range(NUM_FETS)]
     importances_row = np.nan * np.ones((len(accs), NUM_FETS))
     importances_row[:, fet_inds[:-1]] = importances
+    df[features] = pd.DataFrame(importances_row, index=df.index)
+
+    features = [f"dev feature {f + 1}" for f in range(NUM_FETS)]
+    importances_row = np.nan * np.ones((len(accs), NUM_FETS))
+    importances_row[:, fet_inds[:-1]] = dev_importances
     df[features] = pd.DataFrame(importances_row, index=df.index)
 
     return df
 
 
-def get_folder_results(data_path, model, seed):
-    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'auc', 'fpr', 'tpr',] + \
-              [f"feature {f+1}" for f in range(NUM_FETS)]
+def get_folder_results(data_path, model, seed, region_based=False):
+    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'dev_acc', 'dev_pyr_acc',
+               'dev_in_acc', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr'] + \
+              [f"test feature {f + 1}" for f in range(NUM_FETS)] + [f"dev feature {f + 1}" for f in range(NUM_FETS)]
     df = pd.DataFrame({col: [] for col in df_cols})
     for modality in modalities:
         print(f"        Starting modality {modality[0]}")
         with HiddenPrints():
             modality_df = get_modality_results(data_path + '/' + modality[0], seed, model, modality[1],
-                                               importance_mode=importance_mode)
+                                               importance_mode=importance_mode, region_based=region_based)
         df = df.append(modality_df, ignore_index=True)
 
     return df
@@ -268,18 +336,18 @@ if __name__ == "__main__":
     """
     checks:
     1) weights!=balanced should be only for baselines
-    2) dev should be used only when not using region data
+    2) region_based flag is updated
     3) make sure nothing is permutated (keyword: shuffle) or randomly generated
     4) save_path for datasets is correct
     5) modalities are correct
     6) csv name doesn't overide anything
     7) datas.txt is updated 
-    8) region_based flag is updated
     """
     model = 'rf'
     iterations = 20
+    region_based = False
     results = None
-    save_path = '../data_sets'
+    save_path = '../data_sets_dev'
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
     for i in range(iterations):
@@ -296,12 +364,12 @@ if __name__ == "__main__":
                 keep = places
                 # TODO in group split it might not be good to just change the seed like this
                 with HiddenPrints():
-                    ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt',
+                    ML_util.create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt',
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                            seed=i, region_based=False)
+                                            seed=i, region_based=region_based)
             if results is None:
-                results = get_folder_results(new_path, model, i)
+                results = get_folder_results(new_path, model, i, region_based)
             else:
                 results = results.append(get_folder_results(new_path, model, i), ignore_index=True)
 
-    results.to_csv(f'results_{model}_shap.csv')
+    results.to_csv(f'results_{model}_dev.csv')

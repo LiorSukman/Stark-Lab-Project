@@ -52,7 +52,7 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
 
 
 def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gamma, min_c, max_c, num_c, kernel, n,
-                train=None, dev=None, test=None):
+                train=None, dev=None, test=None, region_based=False):
     """
     grid search function for SVM
     see help for explanation about the parameters
@@ -63,7 +63,7 @@ def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gam
 
     train_squeezed = ML_util.squeeze_clusters(train)
     dev_squeezed = ML_util.squeeze_clusters(dev)
-    if len(dev_squeezed) > 0:
+    if (not region_based) and len(dev_squeezed) > 0:
         train_data = np.concatenate((train_squeezed, dev_squeezed))
     else:
         train_data = train_squeezed
@@ -104,7 +104,9 @@ def grid_search(dataset_path, verbos, saving_path, min_gamma, max_gamma, num_gam
     print()
     print('Starting evaluation on test set...')
     clust_count, acc, pyr_acc, in_acc = evaluate_predictions(calssifier, test, scaler, verbos)
-    return calssifier, clust_count, acc, pyr_acc, in_acc, C, gamma
+    dev_clust_count, dev_acc, dev_pyr_acc, dev_in_acc = evaluate_predictions(calssifier, dev, scaler, verbos)
+
+    return calssifier, clust_count, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, C, gamma
 
 
 if __name__ == "__main__":
