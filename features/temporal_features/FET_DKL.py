@@ -30,7 +30,7 @@ class DKL(object):
         if start_cdf is None:
             assert rhs is not None
             start_band = rhs[:, self.resolution * self.cdf_range]
-            start_cdf = (np.cumsum(start_band, axis=1).T / np.sum(start_band, axis=1)).T
+            start_cdf = start_band / np.sum(start_band, axis=1)
         uniform = np.ones(start_cdf.shape[1]) / start_cdf.shape[1]
 
         result = np.zeros((len(start_cdf), 2))
@@ -45,7 +45,7 @@ class DKL(object):
         if midband is None:
             assert rhs is not None
             midband = rhs[:, self.resolution * self.jmp_min: self.resolution * self.jmp_max]
-            mid_cdf = (np.cumsum(midband, axis=1).T / np.sum(midband, axis=1)).T
+            mid_cdf = midband / np.sum(midband, axis=1)
         uniform = np.ones(mid_cdf.shape[1]) / mid_cdf.shape[1]
 
         for i, cdf in enumerate(mid_cdf):

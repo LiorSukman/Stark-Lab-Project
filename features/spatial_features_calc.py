@@ -19,14 +19,10 @@ class DELTA_MODE(Enum):
     S_ZCROSS = 3
 
 
-def calc_pos(arr, start_pos, mode, debug=False):
+def calc_pos(arr, start_pos, mode):
     assert mode in [DELTA_MODE.F_ZCROSS, DELTA_MODE.S_ZCROSS]
     pos = start_pos
-    if debug:
-        print(arr.shape)
     while (pos >= 0) if mode == DELTA_MODE.F_ZCROSS else (pos < len(arr)):
-        if debug:
-            print(pos)
         if arr[pos] == 0:
             if mode == DELTA_MODE.F_ZCROSS:
                 pos -= 1
@@ -45,10 +41,6 @@ def match_spike(channel, cons, med):
         sig_m = np.convolve(np.where(channel <= med, -1, 1), [-1, 1], 'same')
         sig_m[0] = sig_m[-1] = 1
         pos = calc_pos(sig_m, pos, cons)
-        if pos == 256:
-            print(sig_m)
-            print(channel.shape)
-            pos = calc_pos(sig_m, channel.argmin(), cons, True)
         spike[pos] = channel.min()
     else:
         raise KeyError("cons paremeter is not valid")

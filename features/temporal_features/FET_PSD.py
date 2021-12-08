@@ -29,7 +29,7 @@ class PSD(object):
         for i, rh in enumerate(rhs):
             rh = rh - rh.mean()
             f, pxx = signal.periodogram(rh, fs)
-            inds = f <= 100
+            inds = (f <= 100) * (f > 0)
             f, pxx = f[inds], pxx[inds]
             centroid = np.sum(f * pxx) / np.sum(pxx)  # TODO maybe it should be the || of pxx
 

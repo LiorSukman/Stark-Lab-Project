@@ -2,7 +2,7 @@ import numpy as np
 from clusters import Spike
 import time
 from constants import VERBOS
-from features.spatial_features_calc import wavelet_transform
+from features.spatial_features_calc import wavelet_transform, calc_amps
 import matplotlib.pyplot as plt
 
 from features.morphological_features.FET_break import BreakMeasurement
@@ -41,7 +41,7 @@ def calc_morphological_features(chunks, transform=None):
     feature_mat_for_cluster = None
 
     if transform is not None:
-        chunks = wavelet_transform(chunks, transform)  # TODO False isn't valid anymore
+        chunks = wavelet_transform(chunks, transform, calc_amps(chunks))
 
     main_chunks = get_main_chnnels(chunks)
 
