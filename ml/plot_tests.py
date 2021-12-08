@@ -2,6 +2,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+from scipy import interpolate
+from scipy.stats import sem as calc_sem
 import ml.ML_util as ML_util
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
@@ -15,25 +17,15 @@ NUM_FETS = 29
 SAVE_PATH = '../../../data for figures/'
 
 
-def change_length(lst, ref, length):
-    assert ref[0] == 0 and ref[-1] == 1
-    new_refs = np.linspace(0, 1, length)
-    ref_ind = 0
-    new_lst = []
-    i = 0
-    while i < length:
-        new_ref = new_refs[i]
-        if ref[ref_ind] == new_ref:
-            new_lst.append(lst[ref_ind])
-            i += 1
-        elif ref_ind < len(ref) and ref[ref_ind] < new_ref < ref[ref_ind + 1]:
-            alpha = (ref[ref_ind + 1] - new_ref) / (ref[ref_ind + 1] - ref[ref_ind])
-            new_val = alpha * lst[ref_ind] + (1 - alpha) * lst[ref_ind + 1]
-            new_lst.append(new_val)
-            i += 1
-        else:
-            ref_ind += 1
-    return np.array(new_lst)
+def change_length(y, x, length):
+    x_valid = [0] + list(np.argwhere(np.convolve(x, [1, -1], 'same') != 0).flatten())
+    x = x[x_valid]
+    y = y[x_valid]
+
+    xnew = np.linspace(0, 1, length)
+    f = interpolate.interp1d(x, y, kind='quadratic')
+    ynew = f(xnew)
+    return ynew
 
 
 def str2lst(str):
@@ -44,7 +36,7 @@ def str2lst(str):
         if val[-1] == '.':  # for 0. case
             val = val[:-1]
         ret.append(float(val))
-    return ret
+    return np.array(ret)
 
 
 def plot_roc_curve(df, name=None, chunk_size=[0], modalities=None):
@@ -59,27 +51,29 @@ def plot_roc_curve(df, name=None, chunk_size=[0], modalities=None):
             fprs = [str2lst(lst) for lst in df_cz.fpr]
             tprs = [str2lst(lst) for lst in df_cz.tpr]
 
-            tprs = np.array([change_length(lst, fpr, 50) for lst, fpr in zip(tprs, fprs)])
+            x_length = 100
 
+            tprs = np.array([change_length(tpr, fpr, x_length) for tpr, fpr in zip(tprs, fprs)])
 
-            mean_fprs = np.linspace(0, 1, 50)
+            mean_fprs = np.linspace(0, 1, x_length)
             mean_tprs = tprs.mean(axis=0)
-            std = tprs.std(axis=0)
+            # std = tprs.std(axis=0)
+            sem = calc_sem(tprs, axis=0)
 
             auc = df_cz.auc.mean()
 
-
             ax.plot(mean_fprs, mean_tprs, label=f"AUC={auc:2g}, CZ={cz}")
-            ax.fill_between(mean_fprs, mean_tprs - std, mean_tprs + std, alpha=0.2)
-            ax.plot(mean_fprs, mean_fprs, color='k', linestyle='--', label='chance level')
-            ax.legend()
-            ax.set_xlabel("False Positive rate")
-            ax.set_ylabel("True Positive rate")
+            ax.fill_between(mean_fprs, mean_tprs - sem, mean_tprs + sem, alpha=0.2)
 
-            if name is None:
-                plt.show()
-            else:
-                plt.savefig(SAVE_PATH + f"{name}_{m_name}_conf_mat.pdf", transparent=True)
+        ax.plot(mean_fprs, mean_fprs, color='k', linestyle='--', label='chance level')
+        ax.legend()
+        ax.set_xlabel("False Positive rate")
+        ax.set_ylabel("True Positive rate")
+
+        if name is None:
+            plt.show()
+        else:
+            plt.savefig(SAVE_PATH + f"{name}_{m_name}_roc_curve.pdf", transparent=True)
 
 
 def plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz, v_max):
@@ -400,10 +394,10 @@ if __name__ == "__main__":
     3) Have we the correct path for the confusion matrix?
     """
     model = 'rf'
-    results = pd.read_csv(f'results_{model}_dev.csv', index_col=0)
+    results = pd.read_csv(f'results_{model}_shap.csv', index_col=0)
     complete = results[results.restriction == 'complete']
-    complete = complete[complete.chunk_size == 0]
-    complete = complete[complete.modality == 'spatial']
+    # complete = complete[complete.chunk_size == 0]
+    # complete = complete[complete.modality == 'spatial']
     no_small_sample = results[results.restriction == 'no_small_sample']
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
@@ -411,9 +405,9 @@ if __name__ == "__main__":
     #plot_conf_mats(complete, 'complete',
     #               modalities=[('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)],
     #               chunk_size=[0, 1600, 800, 400, 200, 100])
-    #plot_roc_curve(complete)
+    plot_roc_curve(complete)
 
-    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar', dev=False)
+    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar', dev=False)
     exit(0)
     plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar', dev=False)
     plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')

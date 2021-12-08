@@ -14,7 +14,7 @@ from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL
 from features.temporal_features_calc import calc_temporal_histogram
 from features.spatial_features_calc import DELTA_MODE, calc_pos
 from utils.upsampling import upsample_spike
-from ml.plot_tests import plot_results, plot_fet_imp, plot_conf_mats
+from ml.plot_tests import plot_results, plot_fet_imp, plot_conf_mats, plot_roc_curve
 
 SAVE_PATH = '../../../data for figures/'
 TEMP_PATH = '../temp_state/'
@@ -153,6 +153,9 @@ def get_results(modality, chunk_size=[0], res_name='results_rf_shap'):
     clear()
 
     plot_conf_mats(complete, 'complete', name=modality, chunk_size=[0], modalities=modalities)
+    clear()
+
+    plot_roc_curve(complete, name=modality, chunk_size=[0], modalities=modalities)
     clear()
 
 
