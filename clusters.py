@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import re
+from collections.abc import Iterable
 from constants import SAMPLE_RATE, NUM_CHANNELS, TIMESTEPS
 from constants import PYR_COLOR, PV_COLOR, UT_COLOR, LIGHT_PYR, LIGHT_PV, LIGHT_UT
 
@@ -33,13 +34,18 @@ class Spike(object):
     def get_data(self):
         return self.data
 
-    def plot_spike(self, ax=None):
+    def plot_spike(self, ax=None, c=None):
+        if c is None:
+            c = 'k'
         for i in range(NUM_CHANNELS):
             # we don't use constants to allow use after upsampling
             if ax is None:
                 plt.plot(np.arange(self.data.shape[-1]), self.data[i, :])
             else:
-                ax.plot(np.arange(self.data.shape[-1]), self.data[i, :])
+                if not isinstance(ax, Iterable):
+                    ax.plot(np.arange(self.data.shape[-1]), self.data[i, :], c=c)
+                else:
+                    ax[i].plot(np.arange(self.data.shape[-1]), self.data[i, :], c=c)
         if ax is None:
             plt.show()
 

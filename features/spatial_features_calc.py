@@ -114,7 +114,7 @@ def calc_spatial_features(chunks):
 
     for feature in full_spatial_features:
         start_time = time.time()
-        for data, dtype in zip([wavelets_dep, wavelets_fzc, wavelets_szc], ['dep', ' fzc', 'szc']):
+        for data, dtype in zip([wavelets_dep, wavelets_fzc, wavelets_szc], ['dep', 'fzc', 'szc']):
             feature.set_data(dtype)
             mat_result = feature.calculate_feature(data, amps)  # calculates the features, returns a matrix
             if feature_mat_for_cluster is None:
