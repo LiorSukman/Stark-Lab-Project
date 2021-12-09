@@ -1,6 +1,6 @@
 import numpy as np
 
-from constants import TIMESTEPS, UPSAMPLE
+from constants import TIMESTEPS, UPSAMPLE, NUM_CHANNELS
 
 class SPD(object):
     """
@@ -9,8 +9,9 @@ class SPD(object):
     depolarization of the main channel.
     """
 
-    def __init__(self, ratio=0.5):
+    def __init__(self, ratio=0.5, mode='step'):
         self.ratio = ratio
+        self.mode = mode
 
         self.name = 'spatial dispersion feature'
 
@@ -26,6 +27,30 @@ class SPD(object):
         result = np.asarray(result)
 
         return result
+
+    def calc_area(self, rel_dep):
+        area = 0
+        for i in range(NUM_CHANNELS):
+            if i == 0:
+                if self.mode == 'step':
+                    continue
+                elif self.mode == 'lin':
+                    triangle = 0.5 * rel_dep[i]
+                    area += triangle
+                else:
+                    raise NotImplementedError(f"currently not supporting spd mode {self.mode}")
+            else:
+                if self.mode == 'step':
+                    rect = rel_dep[i - 1]
+                    area += rect
+                elif self.mode == 'lin':
+                    rect = rel_dep[i - 1]
+                    area += rect
+                    triangle = 0.5 * (rel_dep[i] - rel_dep[i - 1])
+                    area += triangle
+                else:
+                    raise NotImplementedError(f"currently not supporting spd mode {self.mode}")
+        return area
 
     def calc_feature_spike(self, spike):
         """
@@ -43,11 +68,13 @@ class SPD(object):
         rel_dep = dep / dep[main_chn]  # Scaling according to the main channel
         count = np.count_nonzero(rel_dep > self.ratio)
         sd = np.std(rel_dep)
-        return [count, sd]
+        area = self.calc_area(rel_dep)
+        return [count, sd, area]
 
     @property
     def headers(self):
         """
         Returns a list of titles of the different metrics
         """
-        return ['spatial_dispersion_count', 'spatial_dispersion_sd']
+        return ['spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area']
+

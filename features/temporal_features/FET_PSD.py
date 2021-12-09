@@ -9,9 +9,9 @@ class PSD(object):
     density and the centroid of its derivative
     """
 
-    def __init__(self, resolution=2, jmp_max=1000):
+    def __init__(self, resolution=2, mid_band_end=1000):
         self.resolution = resolution
-        self.jmp_max = jmp_max
+        self.mid_band_end = mid_band_end
 
         self.name = 'Power Spectral Density'
 
@@ -25,7 +25,7 @@ class PSD(object):
         Calculated measurements of the feature value as described before.
         """
         result = np.zeros((len(rhs), 2))
-        fs = self.jmp_max * self.resolution * UPSAMPLE
+        fs = self.mid_band_end * self.resolution * UPSAMPLE
         for i, rh in enumerate(rhs):
             rh = rh - rh.mean()
             f, pxx = signal.periodogram(rh, fs)
@@ -41,9 +41,9 @@ class PSD(object):
 
         return result
 
-    def set_fields(self, resolution, jmp_max, **kwargs):
+    def set_fields(self, resolution, mid_band_end, **kwargs):
         self.resolution = resolution
-        self.jmp_max = jmp_max
+        self.mid_band_end = mid_band_end
 
     @property
     def headers(self):

@@ -83,8 +83,8 @@ def calc_temporal_histogram(time_lst, bins, chunks):
     return ret
 
 
-def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW, upsample=8, cdf_range=50,
-                           jmp_min=50, jmp_max=ACH_WINDOW):
+def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW, upsample=8, start_band_range=50,
+                           mid_band_start=50, mid_band_end=ACH_WINDOW):
     feature_mat_for_cluster = None
 
     time_lst = np.array(time_lst)
@@ -105,15 +105,15 @@ def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW,
     end_time = time.time()
     if VERBOS:
         print(f"histogram creation took {end_time - start_time:.3f} seconds")
-    start_band = histograms[:, :resolution * cdf_range * upsample]
-    start_cdf = (np.cumsum(start_band, axis=1).T / np.sum(start_band, axis=1)).T
-    # TODO: do it only in jump if not required elsewhere
-    mid_band = histograms[:, resolution * jmp_min * upsample: resolution * jmp_max * upsample + 1]
+    start_band = histograms[:, :resolution * start_band_range * upsample]
+    mid_band = histograms[:, resolution * mid_band_start * upsample: resolution * mid_band_end * upsample + 1]
 
     for feature in features:
         start_time = time.time()
-        feature.set_fields(resolution=2, cdf_range=cdf_range, jmp_min=jmp_min, jmp_max=jmp_max)
-        mat_result = feature.calculate_feature(rhs=histograms, start_cdf=start_cdf, mid_band=mid_band)
+        feature.set_fields(resolution=2 * upsample, start_band_range=start_band_range, mid_band_start=mid_band_start,
+                           mid_band_end=mid_band_end)
+        mat_result = feature.calculate_feature(rhs=histograms, start_band=start_band, mid_band=mid_band)
+
         if feature_mat_for_cluster is None:
             feature_mat_for_cluster = mat_result
         else:

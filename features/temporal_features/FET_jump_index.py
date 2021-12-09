@@ -6,11 +6,11 @@ class Jump(object):
     This feature compares the middle band of the histogram to a linear change.
     """
 
-    def __init__(self, resolution=2, jmp_min=50, jmp_max=1000):
+    def __init__(self, resolution=2, mid_band_start=50, mid_band_end=1000):
         # see temporal_features_calc.py for use of those fields
         self.resolution = resolution
-        self.jmp_min = jmp_min
-        self.jmp_max = jmp_max
+        self.jmp_min = mid_band_start
+        self.jmp_max = mid_band_end
 
         self.name = 'jump index'
 
@@ -35,10 +35,10 @@ class Jump(object):
 
         return result
 
-    def set_fields(self, resolution, jmp_min, jmp_max, **kwargs):
+    def set_fields(self, resolution, mid_band_start, mid_band_end, **kwargs):
         self.resolution = resolution
-        self.jmp_min = jmp_min
-        self.jmp_max = jmp_max
+        self.jmp_min = mid_band_start
+        self.jmp_max = mid_band_end
 
     @property
     def headers(self):
