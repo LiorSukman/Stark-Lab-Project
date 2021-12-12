@@ -5,6 +5,7 @@ import numpy as np
 from scipy import interpolate
 from scipy.stats import sem as calc_sem
 import ml.ML_util as ML_util
+from utils.hideen_prints import HiddenPrints
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
 from constants import TRANS_MORPH
@@ -13,8 +14,8 @@ from constants import feature_names as fet_names
 chunks = [0, 500, 200]
 restrictions = ['complete', 'no_small_sample']
 modalities = ['spatial', 'morphological', 'temporal', 'spat_tempo']
-NUM_FETS = 29
-SAVE_PATH = '../../../data for figures/'
+NUM_FETS = 30
+SAVE_PATH = '../../../data for figures/New/'
 
 
 def change_length(y, x, length):
@@ -39,7 +40,7 @@ def str2lst(str):
     return np.array(ret)
 
 
-def plot_roc_curve(df, name=None, chunk_size=[0], modalities=None):
+def plot_roc_curve(df, name=None, chunk_size=[200], modalities=None, dev=False):
     if modalities is None:
         modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
 
@@ -71,6 +72,7 @@ def plot_roc_curve(df, name=None, chunk_size=[0], modalities=None):
         ax.set_ylabel("True Positive rate")
 
         if name is None:
+            plt.title(f"{m_name} chunk sizes: {chunk_size}")
             plt.show()
         else:
             plt.savefig(SAVE_PATH + f"{name}_{m_name}_roc_curve.pdf", transparent=True)
@@ -94,7 +96,8 @@ def plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz, v_max):
 def plot_conf_mats(df, restriction, name=None, chunk_size=[0], modalities=None):
     df_temp = df.copy()
     data_path = f'../data_sets/{restriction}_0/spatial/0_0.800.2/'
-    _, _, test, _, _, _ = ML_util.get_dataset(data_path)
+    with HiddenPrints():
+        _, _, test, _, _, _ = ML_util.get_dataset(data_path)
     test = np.squeeze(test)
     positive, negative = np.sum(test[:, -1] == 1), np.sum(test[:, -1] == 0)
     if modalities is None:
@@ -134,7 +137,7 @@ def get_title(restriction):
     seeds = np.arange(20)
     tot, tst, pyr, intn = [], [], [], []
     for seed in seeds:
-        data_path = f"../data_sets_region/{restriction}_{seed}/spatial/0_0.800.2/"
+        data_path = f"../data_sets/{restriction}_{seed}/spatial/0_0.800.2/"
         train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
         tot.append(len(train) + len(dev) + len(test))
         tst.append(len(test))
@@ -172,7 +175,8 @@ def get_labels(lst):
 
 def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=None):
     # TODO make sure order is determined only by rows of used chunk_size
-    title = get_title(restriction)
+    if name is None:
+        title = get_title(restriction)
     if modalities is None:
         modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
 
@@ -180,11 +184,17 @@ def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=N
         chunk_size = get_labels([ind[2] for ind in df.index])
 
     fets_org = [f"test feature {f + 1}" for f in range(NUM_FETS)]
+    rem = [f"dev feature {f + 1}" for f in range(NUM_FETS) if f"dev feature {f + 1}" in df.columns]
+    df = df.drop(columns=rem)
+    sems = sems.drop(columns=rem)
+
     map = {f: name for (f, name) in zip(fets_org, fet_names)}
     df = df.rename(map, axis='columns')
     df = df.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc'])
+    df = df.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc'])
     sems = sems.rename(map, axis='columns')
     sems = sems.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc'])
+    sems = sems.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc'])
     for m_name, m_places in modalities:
         df_m = df.xs(m_name, level="modality").dropna(axis=1)
         sems_m = sems.xs(m_name, level="modality").dropna(axis=1)
@@ -197,7 +207,7 @@ def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=N
 
         x = np.arange(len(names_m))  # the label locations
 
-        width = 0.5 / (len(modalities) + 1)  # the width of the bars
+        width = 1 / (len(chunk_size) + 1)  # the width of the bars
 
         fig, ax = plt.subplots(figsize=(6, 12))
 
@@ -318,7 +328,7 @@ def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel('Scores (percentage)')
 
-    ax.legend()
+    #ax.legend()
 
     fig.tight_layout()
 
@@ -393,11 +403,13 @@ if __name__ == "__main__":
     2) Are we passing all the modalities we wish to plot?
     3) Have we the correct path for the confusion matrix?
     """
+    import warnings
+    # warnings.simplefilter("error")
     model = 'rf'
-    results = pd.read_csv(f'results_{model}_shap.csv', index_col=0)
+    results = pd.read_csv(f'results_{model}_dev.csv', index_col=0)
     complete = results[results.restriction == 'complete']
     # complete = complete[complete.chunk_size == 0]
-    # complete = complete[complete.modality == 'spatial']
+    complete = complete.dropna(how='all', axis=1)
     no_small_sample = results[results.restriction == 'no_small_sample']
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
@@ -405,10 +417,11 @@ if __name__ == "__main__":
     #plot_conf_mats(complete, 'complete',
     #               modalities=[('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)],
     #               chunk_size=[0, 1600, 800, 400, 200, 100])
-    plot_roc_curve(complete)
+    # plot_roc_curve(complete)
 
     #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar', dev=False)
-    exit(0)
-    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar', dev=False)
-    plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
+    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar', dev=False)
+    #plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
+    plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar')
     plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar')
+

@@ -17,7 +17,7 @@ from features.spatial_features_calc import DELTA_MODE, calc_pos
 from utils.upsampling import upsample_spike
 from ml.plot_tests import plot_results, plot_fet_imp, plot_conf_mats, plot_roc_curve
 
-SAVE_PATH = '../../../data for figures/'
+SAVE_PATH = '../../../data for figures/New/'  # make sure to change in plot_tests as well
 TEMP_PATH = '../temp_state/'
 DATA_PATH = '../clustersData_no_light/0'
 pyr_name = name = 'es25nov11_13_3_3'  # pyr
@@ -123,20 +123,24 @@ def density_plots(df, d_features, modality):
         if c not in d_features:
             continue
         # bw_adjust = (df[c].max() - df[c].min()) / 50
-        #ax = sns.displot(data=df, x=c, hue="label", common_norm=False, kind="kde", fill=True,
-        #            palette=palette)
+        _ = sns.displot(data=df, x=c, hue="label", common_norm=False, kind="kde", fill=True,
+                    palette=palette)
+        plt.savefig(SAVE_PATH + f"{modality}_density_{c}.pdf", transparent=True)
+        clear()
         ax = sns.ecdfplot(data=df, x=c, hue="label", palette=palette)
         ax.set_ylim(ymin=0, ymax=1.1)
-        plt.savefig(SAVE_PATH + f"{modality}_density_{c}.pdf", transparent=True)
+        plt.savefig(SAVE_PATH + f"{modality}_cdf_{c}.pdf", transparent=True)
         clear()
 
 
-def get_results(modality, chunk_size=[0], res_name='results_rf_shap'):
+def get_results(modality, chunk_size=[0], res_name='results_rf_dev'):
     results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
     complete = complete[complete.modality == modality]
 
     complete = complete[complete.chunk_size.isin(chunk_size)]
+    complete = complete[complete.modality == modality]
+    complete = complete.dropna(how='all', axis=1)
 
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
 
@@ -149,14 +153,13 @@ def get_results(modality, chunk_size=[0], res_name='results_rf_shap'):
     clear()
     d = {'spatial': SPATIAL, 'morphological': MORPHOLOGICAL, 'temporal': TEMPORAL}
     modalities = [(modality, d[modality])]
+
     plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete', chunk_size=chunk_size, name=modality,
                  modalities=modalities)
     clear()
 
     plot_conf_mats(complete, 'complete', name=modality, chunk_size=[0], modalities=modalities)
     clear()
-    clear()
-
     plot_roc_curve(complete, name=modality, chunk_size=[0], modalities=modalities)
     clear()
 
@@ -188,46 +191,56 @@ def spd(clu, name):
     clear()
 
 
-def da(clu, name):
-    color_main = PYR_COLOR if name == 'pyr' else PV_COLOR
-    color_second = LIGHT_PYR if name == 'pyr' else LIGHT_PV
+def fzc_time_lag(clu, name):
     chunks = clu.calc_mean_waveform()
     if UPSAMPLE != 1:
         chunks = Spike(upsample_spike(chunks.data, UPSAMPLE, 20_000))
 
     chunks = chunks.get_data()
-    main_chn = get_main(chunks)
-    # fig, ax = plt.subplots()
-    median = np.median(chunks)
 
-    direction = chunks >= median
-    counter = np.sum(direction, axis=0)
+    main_c = get_main(chunks)
+    amps = chunks.max(axis=1) - chunks.min(axis=1)
 
-    # Iterating over the channels and calculating a direction agreeableness value
-    for ind in range(counter.shape[0]):
-        temp = counter[ind]
-        counter[ind] = temp if temp <= NUM_CHANNELS // 2 else NUM_CHANNELS - temp
+    chunks = chunks / (-chunks.min())
+    delta = np.zeros(chunks.shape)
+    inds = []
+    med = np.median(chunks)
+    for i in range(len(chunks)):
+        sig_m = np.convolve(np.where(chunks[i] <= med, -1, 1), [-1, 1], 'same')
+        sig_m[0] = sig_m[-1] = 1
+        ind = calc_pos(sig_m, chunks[i].argmin(), DELTA_MODE.F_ZCROSS)
+        inds.append(ind)
+    delta[np.arange(NUM_CHANNELS), inds] = chunks.min(axis=1)
+    shift = chunks.shape[-1] // 2 - delta[main_c].argmin()
+    delta = np.roll(delta, shift, axis=1)
 
-    cmap = sns.color_palette("gray", as_cmap=True)
-    ax = sns.heatmap(np.array([counter]).repeat(10, axis=0), cmap=cmap, cbar=False)
+    dep_inds = delta.argmin(axis=1)
+    print(f"{name} FZC time lag value is {((dep_inds-128)**2)[amps >= 0.25 * amps.max()].sum()}")
+
+    fig, ax = plt.subplots()
+    it = delta[(amps >= 0.25 * amps.max()) * (amps != amps.max())]
+    heights = np.linspace(0, 1, len(it) + 2)[1:-1]
+    for i, c in enumerate(it):
+        rel_x = c.argmin()-128
+        if rel_x != 0:
+            ax.axvline(x=rel_x, color='k', linestyle='--')
+            ax.annotate(text='', xy=(rel_x, heights[i]), xytext=(0, heights[i]), arrowprops=dict(arrowstyle='<->'))
+            ax.annotate(text=f'{abs(rel_x)}', xy=(rel_x / 2, heights[i] + 0.02))
     ax.axis('off')
-    plt.savefig(SAVE_PATH + f"{name}_da_bg.pdf", transparent=True)
+    ax.axvline(x=0, color='k')
+    ax.get_yaxis().set_visible(False)
 
-    min = chunks.min()
-    max = chunks.max()
-    chunks = (-chunks / (max - min)) * 6 + 4
-    median = np.median(chunks)
-    for i in range(NUM_CHANNELS):
-        mean_channel = chunks[i]
-        c = color_main if i == main_chn else color_second
-        ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=c)
-    ax.hlines(median, 0, TIMESTEPS * UPSAMPLE - 1, colors='k', linestyles='dashed')
-    print(f"{name} direction agrreablensess is {np.sum(counter ** 2)}")
-    plt.savefig(SAVE_PATH + f"{name}_da.pdf", transparent=True)
+    plt.savefig(SAVE_PATH + f"{name}_fzc_time_lag.pdf", transparent=True)
     clear()
 
 
 def ach(bin_range, name, clu):
+    try:
+        hist = np.load(f'./ach_{name}_{bin_range}.npy')
+        return hist
+    except FileNotFoundError:
+        pass
+
     c = PV_COLOR if name == 'pv' else PYR_COLOR
     N = 2 * bin_range + 2
     offset = 1 / 2
@@ -243,6 +256,8 @@ def ach(bin_range, name, clu):
     ax.bar(bin_inds, hist_up, color=c)
     plt.savefig(SAVE_PATH + f"{name}_ACH_{bin_range}.pdf", transparent=True)
     clear()
+
+    np.save(f'./ach_{name}_{bin_range}.npy', hist)
 
     return hist
 
@@ -270,19 +285,25 @@ def dkl_mid(hist, name):
     color_main = PYR_COLOR if name == 'pyr' else PV_COLOR
     color_second = LIGHT_PYR if name == 'pyr' else LIGHT_PV
     resolution = 2
-    hist = np.where(hist >= 0, hist, 0)
+    zero_bin_ind = len(hist) // 2
+    hist = (hist[:zero_bin_ind + 1:][::-1] + hist[zero_bin_ind:]) / 2
     hist_up = signal.resample_poly(hist, UPSAMPLE ** 2, UPSAMPLE, padtype='line')
-    mid = hist_up[50 * resolution * UPSAMPLE]
+    hist_up = np.where(hist_up >= 0, hist_up, 0)
+    mid = hist_up[50 * resolution * UPSAMPLE:]
     probs = mid / np.sum(mid)
-    unif = np.ones(probs.shape)
-    dkl = stats.dkl(probs, unif)
-    print(f"mid_dkl value is {dkl}")
-    dkl_func = dkl * np.log2(dkl / unif)
+    unif = np.ones(probs.shape) / len(probs)
+    dkl = stats.entropy(probs, unif)
+    print(f"{name} mid_dkl value is {dkl}")
+    inds = probs == 0
+    probs[inds] = 1
+    dkl_func = probs * np.log(probs / unif)
+    dkl_func[inds] = 0
     fig, ax = plt.subplots()
-    ax.plot(dkl_func, c=color_main)
-    plt.show()
+    x = np.linspace(50, 1000, len(dkl_func))
+    ax.plot(x, dkl_func, c=color_main)
+    ax.fill_between(x, dkl_func, alpha=0.2, color=color_second)
+    plt.savefig(SAVE_PATH + f"{name}_dkl_mid.pdf", transparent=True)
     clear()
-
 
 
 def plot_delta(clu, name):
@@ -326,19 +347,20 @@ def plot_delta(clu, name):
     clear()
 
 
-def get_part_results(modality, chunk_size=0, res_name='results_rf'):
+def get_delta_results(modality, chunk_size=[0], res_name='results_rf_delta'):
     results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
     complete = complete[complete.modality == modality]
+    complete = complete.dropna(how='all', axis=1)
 
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
 
     plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, chunk_size=chunk_size,
-                 name=modality)
+                 name='delta_morph')
     clear()
 
     plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, chunk_size=chunk_size,
-                 name=modality)
+                 name='delta_morph')
     clear()
 
 
@@ -365,6 +387,10 @@ def chunk_fig(clu, name, cz):
 
 
 if __name__ == '__main__':
+    import warnings
+
+    warnings.simplefilter("error")
+
     # Load wanted units
     pyr_cluster = load_cluster(TEMP_PATH, pyr_name)
     pv_cluster = load_cluster(TEMP_PATH, pv_name)
@@ -444,7 +470,6 @@ if __name__ == '__main__':
 
     dkl_mid(hist_pv_long, 'pv')
     dkl_mid(hist_pyr_long, 'pyr')
-    exit()
 
     get_results('temporal', chunk_size=[0])
 
@@ -452,23 +477,25 @@ if __name__ == '__main__':
     plot_delta(pyr_cluster, 'pyr')
     plot_delta(pv_cluster, 'pv')
 
+    get_delta_results('morphological')
+
     # Spatial features - figure 5
 
     spd(pyr_cluster, 'pyr')
     spd(pv_cluster, 'pv')
 
-    features = ['spatial_dispersion_count', 'spatial_dispersion_sd', 'geometrical_shift', 'geometrical_shift_sd',
-                'graph_avg_speed', 'graph_slowest_path', 'graph_fastest_path', 'dep_red', 'dep_sd', ' fzc_red',
-                ' fzc_sd', 'szc_red', 'szc_sd', 'label']
+    features = ['spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area', 'geometrical_shift',
+                'geometrical_shift_sd', 'graph_avg_speed', 'graph_slowest_path', 'graph_fastest_path', 'dep_red',
+                'dep_sd', ' fzc_red', ' fzc_sd', 'szc_red', 'szc_sd', 'label']
     df = load_df(features)
 
     corr_mat(df, 'spatial')
-    d_features = ['spatial_dispersion_count', 'da']
+    d_features = ['spatial_dispersion_count', 'spatial_dispersion_area', ' fzc_red']
 
     density_plots(df, d_features, 'spatial')
 
-    da(pyr_cluster, 'pyr')
-    da(pv_cluster, 'pv')
+    fzc_time_lag(pyr_cluster, 'pyr')
+    fzc_time_lag(pv_cluster, 'pv')
 
     get_results('spatial', chunk_size=[0])
 

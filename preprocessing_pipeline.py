@@ -355,13 +355,13 @@ if __name__ == "__main__":
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
                         default=[0, 100, 200, 400, 800, 1600])
-    parser.add_argument('--save_path', type=str, default='clustersData_no_light_trans_morph/',
+    parser.add_argument('--save_path', type=str, default='clustersData_no_light_new/',
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')
     parser.add_argument('--calc_features', type=bool, default=True,
                         help='whether to do feature extraction')
-    parser.add_argument('--calc_morph_trans', type=bool, default=True,
+    parser.add_argument('--calc_morph_trans', type=bool, default=False,
                         help='do morphological feature extraction based on transformed spikes')
     parser.add_argument('--display', type=bool, default=False,
                         help='display a set of random clusters')

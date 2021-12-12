@@ -21,10 +21,10 @@ from constants import INF
 
 chunks = [0, 100, 200, 400, 800, 1600]
 restrictions = ['complete', 'no_small_sample']
-dataset_identifier = '0.800.2'
+dataset_identifier = '0.800.2'  # 0.800.2'
 importance_mode = 'shap'  # reg, perm or shap (for rf only)
 # try_load = '../saved_models' # TODO implement
-NUM_FETS = 29
+NUM_FETS = 30
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -107,7 +107,6 @@ def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
 
     scaler = StandardScaler()
     scaler.fit(train_features)
-    _ = scaler.transform(train_features)
 
     preds = []
     bin_preds = []
@@ -256,8 +255,9 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                                                                                 seed, region_based)
         if model == 'rf' or model == 'gb':
             auc, fpr, tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
-            dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based,
+            dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based,
                                                  use_dev=True)
+            print(f"\nchunk size: {chunk_size} - AUC: {auc}, dev AUC: {dev_auc}\n")
             if model == 'rf':
                 if importance_mode == 'reg':
                     dev_importance = importance = clf.feature_importances_
@@ -365,7 +365,7 @@ if __name__ == "__main__":
     checks:
     1) weights!=balanced should be only for baselines
     2) region_based flag is updated
-    3) make sure nothing is permutated (keyword: shuffle) or randomly generated
+    3) perm_labels flag is updated (only effective when creating a *new* dataset)
     4) save_path for datasets is correct
     5) modalities are correct
     6) csv name doesn't overide anything
@@ -373,12 +373,13 @@ if __name__ == "__main__":
     """
     model = 'rf'
     iterations = 20
-    region_based = False
-    perm_labels = True
+    region_based = True
+    perm_labels = False
     results = None
-    save_path = '../data_sets_perm_labels'
+    save_path = '../data_sets_region'
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+    # modalities = [('morphological', [i for i in range(27)] + [-1])]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -401,4 +402,4 @@ if __name__ == "__main__":
             else:
                 results = results.append(get_folder_results(new_path, model, i), ignore_index=True)
 
-    results.to_csv(f'results_{model}_chance_level.csv')
+    results.to_csv(f'results_{model}_region.csv')

@@ -127,7 +127,7 @@ def get_spatial_features_names():
     for feature in dep_spatial_features:
         names += feature.headers
     for feature in full_spatial_features:
-        for dtype in ['dep', ' fzc', 'szc']:
+        for dtype in ['dep', 'fzc', 'szc']:
             feature.set_data(dtype)
             names += feature.headers
     return names

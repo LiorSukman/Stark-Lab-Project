@@ -3,6 +3,7 @@ from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.decomposition import PCA, FastICA
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_curve, auc, f1_score, precision_recall_curve
 import numpy as np
 import pickle
 import time
@@ -16,6 +17,27 @@ from constants import INF
 N = 10
 
 models = ['svm', 'rf', 'gb']  # the supported models
+
+def calc_auc(clf, test_set, scaler):
+
+    preds = []
+    targets = []
+
+    for cluster in test_set:
+        features, labels = ML_util.split_features(cluster)
+        features = np.nan_to_num(features)
+        features = np.clip(features, -INF, INF)
+        features = scaler.transform(features)
+        label = labels[0]  # as they are the same for all the cluster
+        prob = clf.predict_proba(features).mean(axis=0)
+        pred = prob[1]
+        preds.append(pred)
+        targets.append(label)
+
+    fpr, tpr, thresholds = roc_curve(targets, preds, drop_intermediate=False)  # calculate fpr and tpr values for different thresholds
+    auc_val = auc(fpr, tpr)
+    print(f"AUC value is: {auc_val}")
+    return auc_val
 
 
 def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False):
@@ -65,6 +87,8 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
         print('Test set consists of %d pyramidal cells and %d interneurons' % (total_pyr, total_in))
         print('%.4f%% of pyramidal cells classified correctly' % pyr_percent)
         print('%.4f%% of interneurons classified correctly' % in_percent)
+    print(f"total_chunks is {total_chunks}, total is {total}")
+
     return 100 * correct_chunks / total_chunks, 100 * correct_clusters / total, pyr_percent, in_percent
 
 
@@ -83,7 +107,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     elif model == 'rf':
         print('Chosen model is Random Forest')
 
-    train, dev, test, _, _, test_names = ML_util.get_dataset(dataset_path)
+    train, dev, test, _, dev_names, test_names = ML_util.get_dataset(dataset_path)
 
     # test_path = dataset_path.replace('200', '500').replace('500', '0')
     # _, _, test, _, _, test_names = ML_util.get_dataset(test_path)
@@ -95,7 +119,6 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     train_features, train_labels = ML_util.split_features(train_squeezed)
     train_features = np.nan_to_num(train_features)
     train_features = np.clip(train_features, -INF, INF)
-    # np.random.shuffle(train_labels)
     # train_features = np.random.normal(size=train_features.shape)
 
     if loading_path is None:
@@ -175,8 +198,13 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
                 ica = pickle.load(fid)
 
     print('Evaluating predictions...')
+    print('Test Evaluation:')
     chunk_per, clust_per, pyr_per, in_per = evaluate_predictions(clf, test, test_names, pca, ica, scaler, verbos=True)
-    dev_chunk_per, dev_clust_per, dev_pyr_per, dev_in_per = evaluate_predictions(clf, dev, test_names, pca, ica, scaler, verbos=True)
+    print('\nDev Evaluation:')
+    dev_chunk_per, dev_clust_per, dev_pyr_per, dev_in_per = evaluate_predictions(clf, dev, dev_names, pca, ica, scaler, verbos=True)
+
+    #calc_auc(clf, test, scaler)
+    #calc_auc(clf, dev, scaler)
 
     if visualize:
         print('Working on visualization...')
@@ -230,7 +258,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_depth', type=int, help='max_depth value for RF and GB', default=10)
     parser.add_argument('--min_samples_split', type=int, help='min_samples_split value for RF', default=4)
     parser.add_argument('--min_samples_leaf', type=int, help='min_samples_leaf value for RF', default=2)
-    parser.add_argument('--learnig_rate', type=int, help='learning rate value for GB', default=2)
+    parser.add_argument('--learning_rate', type=int, help='learning rate value for GB', default=2)
 
     args = parser.parse_args()
 
@@ -257,6 +285,9 @@ if __name__ == "__main__":
     if not os.path.isdir(saving_path):
         os.mkdir(saving_path)
 
-    run(model, saving_path, loading_path, pca_n_components, use_pca,
+    """run(model, saving_path, loading_path, pca_n_components, use_pca,
         ica_n_components, use_ica, use_scale, visualize, gamma, C, kernel,
-        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path)
+        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path, 0)"""
+
+    run('rf', None, None, 2, False, 2, False, True, False, 0.1, 1, 'rbf', 100, 10, 2, 8, 2,
+        '../data_sets_new/complete_0/temporal/200_0.60.20.2/', 0, region_based=True)

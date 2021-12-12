@@ -29,6 +29,7 @@ class SPD(object):
         return result
 
     def calc_area(self, rel_dep):
+        rel_dep = np.sort(rel_dep)
         area = 0
         for i in range(NUM_CHANNELS):
             if i == 0:

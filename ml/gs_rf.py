@@ -69,7 +69,6 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     else:
         train_data = train_squeezed
     features, labels = ML_util.split_features(train_data)
-    # np.random.shuffle(labels)
     features = np.nan_to_num(features)
     features = np.clip(features, -INF, INF)
     # features = np.random.normal(size=features.shape)

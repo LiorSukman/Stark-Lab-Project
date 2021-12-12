@@ -22,10 +22,10 @@ WIDTH_SPAT = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, -1]
 T2P_SPAT = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, -1]
 STARK_SPAT = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 18, -1]
 
-SPATIAL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, -1]
-MORPHOLOGICAL = [13, 14, 15, 16, 17, 18, 19, 20, -1]
-TEMPORAL = [22, 23, 24, 25, 26, 27, 28, -1]
-SPAT_TEMPO = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 22, 23, 24, 25, 26, 27, 28, -1]
+SPATIAL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, -1]
+MORPHOLOGICAL = [14, 15, 16, 17, 18, 19, 20, 21, -1]
+TEMPORAL = [23, 24, 25, 26, 27, 28, 29, -1]
+SPAT_TEMPO = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 23, 24, 25, 26, 27, 28, 29, -1]
 TRANS_MORPH = [0, 2, 3, 5, 6, 7, -1]
 
 PYR_COLOR = (0.416, 0.106, 0.604)
@@ -87,9 +87,9 @@ SESSION_TO_ANIMAL = {
 }
 
 # TODO update it after running
-feature_names = ['spatial_dispersion_count', 'spatial_dispersion_sd', 'geometrical_avg_shift', 'geometrical_shift_sd',
-                 'graph_avg_speed', 'graph_slowest_path', 'graph_fastest_path', 'dep_red', 'dep_sd', 'fzc_red',
-                 'fzc_sd', 'szc_red', 'szc_sd', 'break_measure', 'fwhm', 'get_acc', 'max_speed', 'peak2peak',
-                 'trough2peak', 'rise_coef', 'smile_cry',	't_time', 'd_kl_start', 'd_kl_mid', 'jump', 'psd_center',
-                 'der_psd_center', 'rise_time', 'unif_dist']
+feature_names = ['spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area',
+                 'geometrical_avg_shift', 'geometrical_shift_sd', 'graph_avg_speed', 'graph_slowest_path',
+                 'graph_fastest_path', 'dep_red', 'dep_sd', 'fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'break_measure',
+                 'fwhm', 'get_acc', 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry', 't_time',
+                 'd_kl_start', 'd_kl_mid', 'jump', 'psd_center', 'der_psd_center', 'rise_time', 'unif_dist']
 
