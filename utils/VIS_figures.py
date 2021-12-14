@@ -15,7 +15,8 @@ from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL
 from features.temporal_features_calc import calc_temporal_histogram
 from features.spatial_features_calc import DELTA_MODE, calc_pos
 from utils.upsampling import upsample_spike
-from ml.plot_tests import plot_results, plot_fet_imp, plot_conf_mats, plot_roc_curve
+from ml.plot_tests import plot_results, plot_fet_imp, plot_conf_mats, plot_roc_curve, plot_test_vs_dev
+# Note that plot_conf_mats requires path for the correct dataset
 
 SAVE_PATH = '../../../data for figures/New/'  # make sure to change in plot_tests as well
 TEMP_PATH = '../temp_state/'
@@ -88,7 +89,7 @@ def max_speed(clu, color, sec_color, name):
     clear()
 
 
-def load_df(features):
+def load_df(features, trans_labels=True):
     df = None
     files = os.listdir(DATA_PATH)
     for file in sorted(files):
@@ -99,7 +100,8 @@ def load_df(features):
             df = df.append(temp)
 
     df = df.loc[df.label >= 0]
-    df.label = df.label.map({1: 'PYR', 0: 'IN'})
+    if trans_labels:
+        df.label = df.label.map({1: 'PYR', 0: 'IN'})
     df = df[features]
 
     return df
@@ -124,7 +126,7 @@ def density_plots(df, d_features, modality):
             continue
         # bw_adjust = (df[c].max() - df[c].min()) / 50
         _ = sns.displot(data=df, x=c, hue="label", common_norm=False, kind="kde", fill=True,
-                    palette=palette)
+                        palette=palette)
         plt.savefig(SAVE_PATH + f"{modality}_density_{c}.pdf", transparent=True)
         clear()
         ax = sns.ecdfplot(data=df, x=c, hue="label", palette=palette)
@@ -215,13 +217,13 @@ def fzc_time_lag(clu, name):
     delta = np.roll(delta, shift, axis=1)
 
     dep_inds = delta.argmin(axis=1)
-    print(f"{name} FZC time lag value is {((dep_inds-128)**2)[amps >= 0.25 * amps.max()].sum()}")
+    print(f"{name} FZC time lag value is {((dep_inds - 128) ** 2)[amps >= 0.25 * amps.max()].sum()}")
 
     fig, ax = plt.subplots()
     it = delta[(amps >= 0.25 * amps.max()) * (amps != amps.max())]
     heights = np.linspace(0, 1, len(it) + 2)[1:-1]
     for i, c in enumerate(it):
-        rel_x = c.argmin()-128
+        rel_x = c.argmin() - 128
         if rel_x != 0:
             ax.axvline(x=rel_x, color='k', linestyle='--')
             ax.annotate(text='', xy=(rel_x, heights[i]), xytext=(0, heights[i]), arrowprops=dict(arrowstyle='<->'))
@@ -280,6 +282,7 @@ def unif_dist(hist, name):
     print(f"{name} unif_dist is {np.sum(dists)}")
     plt.savefig(SAVE_PATH + f"{name}_unif_dist.pdf", transparent=True)
     clear()
+
 
 def dkl_mid(hist, name):
     color_main = PYR_COLOR if name == 'pyr' else PV_COLOR
@@ -386,10 +389,69 @@ def chunk_fig(clu, name, cz):
         clear()
 
 
+def compare_densities(df, feature_names):
+    # palette = {"CA1_PYR": PYR_COLOR, "CA1_PV": PV_COLOR, "NEO_PYR": LIGHT_PYR, "NEO_PV": LIGHT_PV}
+    palette = {"PYR": PYR_COLOR, "IN": PV_COLOR}
+
+    df = df[df.region <= 1]
+    df.region = df.region * 2
+    df['label X region'] = df.label + df.region
+
+    df.label = df.label.map({1: 'PYR', 0: 'IN'})
+    df['label X region'] = df['label X region'].map({0: 'NEO_PV', 1: 'NEO_PYR', 2: 'CA1_PV', 3: 'CA1_PYR'})
+
+    for c in df.columns:
+        if c not in feature_names:
+            continue
+        fig, ax = plt.subplots(2, sharex=True, sharey=True)
+        _ = sns.kdeplot(data=df, x=c, hue="label X region", common_norm=False, fill=True, ax=ax[0])
+        _ = sns.kdeplot(data=df, x=c, hue="label", common_norm=False, fill=True, palette=palette, ax=ax[1])
+        plt.savefig(SAVE_PATH + f"ncx_vs_ca1_density_{c}.pdf", transparent=True)
+        clear()
+
+
+def get_comp_results(chunk_size=[0, 100], res_name='results_rf_region'):
+    results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
+    complete = results[results.restriction == 'complete']
+
+    drop = [col for col in complete.columns.values if col not in ['restriction', 'modality', 'chunk_size', 'seed',
+                                                                  'acc', 'pyr_acc', 'in_acc', 'dev_acc',
+                                                                  'dev_pyr_acc', 'dev_in_acc', 'auc', 'fpr', 'tpr',
+                                                                  'dev_auc', 'dev_fpr', 'dev_tpr']]
+
+    complete = complete.drop(columns=drop)
+
+    complete = complete[complete.chunk_size.isin(chunk_size)]
+
+    grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
+
+    # accuracy and AUC
+    plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, name='ncx_vs_ca1_acc',
+                     chunk_size=chunk_size)
+    clear()
+    plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, name='ncx_vs_ca1_auc',
+                     chunk_size=chunk_size)
+    clear()
+
+    # confusion matrices
+    plot_conf_mats(complete, 'complete', name='NCX', chunk_size=[0, 100],
+                   data_path='../data_sets_region/complete_0/spatial/0_0.800.2/', use_dev=False)
+    clear()
+    plot_conf_mats(complete, 'complete', name='CA1', chunk_size=[0, 100],
+                   data_path='../data_sets_region/complete_0/spatial/0_0.800.2/', use_dev=True)
+    clear()
+
+    # ROC curves
+    plot_roc_curve(complete, name='NCX', chunk_size=[0, 100], use_dev=False)
+    clear()
+    plot_roc_curve(complete, name='CA1', chunk_size=[0, 100], use_dev=True)
+    clear()
+
+
 if __name__ == '__main__':
     import warnings
 
-    warnings.simplefilter("error")
+    # warnings.simplefilter("error")
 
     # Load wanted units
     pyr_cluster = load_cluster(TEMP_PATH, pyr_name)
@@ -404,7 +466,7 @@ if __name__ == '__main__':
     clu = pyr_cluster
     color = PYR_COLOR
 
-    t2p_fwhm(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
+    """t2p_fwhm(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
     t2p_fwhm(pv_cluster, PV_COLOR, LIGHT_PV, 'pv')
 
     max_speed(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
@@ -500,4 +562,13 @@ if __name__ == '__main__':
     get_results('spatial', chunk_size=[0])
 
     # chunks - fig 6
-    chunk_fig(pyr_cluster, 'pyr', 200)
+    chunk_fig(pyr_cluster, 'pyr', 200)"""
+
+    # nCX vs CA1 - fig 7
+    """feature_names = ['fwhm', 'trough2peak', 'unif_dist', 'd_kl_mid', 'spatial_dispersion_sd', ' fzc_red']
+    features_df = feature_names + ['region', 'label']
+    df = load_df(features_df, trans_labels=False)
+
+    compare_densities(df, feature_names)"""
+
+    get_comp_results()

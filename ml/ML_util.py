@@ -136,7 +136,7 @@ def break_data(data, cluster_names, recording_names):
     return ret, names, recordings
 
 
-def was_created(paths, per_train, per_dev, per_test, region_based):
+def was_created(paths, per_train, per_dev, per_test):
     """
    The function checks if all datasets were already creted and return True iff so
    """
@@ -165,7 +165,7 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
                 paths.append(path.rstrip())
     names = [path.split('/')[-1] + '_' for path in paths]
 
-    should_load = was_created([save_path + '/' + name for name in names], per_train, per_dev, per_test, region_based)
+    should_load = was_created([save_path + '/' + name for name in names], per_train, per_dev, per_test)
 
     inds = []
     inds_initialized = False
