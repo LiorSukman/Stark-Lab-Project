@@ -54,7 +54,7 @@ def parse_test(data):
     return features, label[0]
 
 
-def is_legal(cluster, mode):
+def is_legal(cluster, mode, region):
     """
    This function determines whether or not a cluster's label is legal. It is assumed that all waveforms
    of the cluster have the same label.
@@ -63,7 +63,7 @@ def is_legal(cluster, mode):
     row = cluster[0]
     t_time = cluster[:, 8] if len(cluster) == 1 else 128
     if mode == 'complete':
-        return row[-1] >= 0# and 127 <= t_time <= 129
+        return row[-1] >= 0# and region == 1# and 127 <= t_time <= 129
     elif mode == 'no_noise':  # currently obsolete
         raise NotImplementedError
         return row[-1] >= 0 and row[-3] >= 100
@@ -105,7 +105,7 @@ def read_data(path, mode='complete', should_filter=True, keep=None, filter=None)
                     clusters.append(nd)
                 else:
                     continue
-            elif is_legal(nd, mode):
+            elif is_legal(nd, mode, region):
                 if keep:  # i.e. keep != []
                     nd = nd[:, keep]
                 clusters.append(nd)
@@ -215,6 +215,7 @@ def get_dataset(path):
     test_names = np.load(path + 'test_names.npy', allow_pickle=True)
 
     data = np.concatenate((train, dev, test))
+
     num_clusters = data.shape[0]
     num_wfs = count_waveforms(data)
     print_data_stats(train, 'train', num_clusters, num_wfs)
@@ -304,7 +305,8 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
             train_groups = recordings[train_inds]
             test = data[test_inds]
             test_names = names[test_inds]
-            if per_dev != 0:
+            if per_dev != per_train:
+                raise Warning('not implemented correctly with seed')
                 gss = GroupShuffleSplit(n_splits=1, train_size=per_train / per_dev, random_state=SEED + 1)
                 train_inds, dev_inds = next(gss.split(None, None, train_groups))
                 dev = train[dev_inds]
@@ -312,7 +314,8 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
                 train = train[train_inds]
                 train_names = train_names[train_inds]
             else:
-                dev = []
+                shape = tuple([0]+list(train.shape)[1:])
+                dev = np.empty(shape)
                 dev_names = []
 
         if perm_labels:

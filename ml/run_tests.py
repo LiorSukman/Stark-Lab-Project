@@ -23,6 +23,7 @@ chunks = [0, 100, 200, 400, 800, 1600]
 restrictions = ['complete', 'no_small_sample']
 dataset_identifier = '0.800.2'  # 0.800.2'
 importance_mode = 'shap'  # reg, perm or shap (for rf only)
+
 # try_load = '../saved_models' # TODO implement
 NUM_FETS = 30
 
@@ -373,10 +374,11 @@ if __name__ == "__main__":
     """
     model = 'rf'
     iterations = 20
-    region_based = True
+    animal_based = True
+    region_based = False
     perm_labels = False
     results = None
-    save_path = '../data_sets_region'
+    save_path = '../data_sets_animal_CA1'
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
     # modalities = [('morphological', [i for i in range(27)] + [-1])]
@@ -394,12 +396,12 @@ if __name__ == "__main__":
                 keep = places
                 # TODO in group split it might not be good to just change the seed like this
                 with HiddenPrints():
-                    ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt',
+                    ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt', seed=i,
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                            seed=i, region_based=region_based, perm_labels=perm_labels)
+                                            region_based=region_based, perm_labels=perm_labels, group_split=animal_based)
             if results is None:
                 results = get_folder_results(new_path, model, i, region_based)
             else:
                 results = results.append(get_folder_results(new_path, model, i), ignore_index=True)
 
-    results.to_csv(f'results_{model}_region.csv')
+    results.to_csv(f'results_{model}_animal_CA1.csv')

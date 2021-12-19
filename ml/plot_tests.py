@@ -148,7 +148,7 @@ def get_title(restriction):
     seeds = np.arange(20)
     tot, tst, pyr, intn = [], [], [], []
     for seed in seeds:
-        data_path = f"../data_sets_dev/{restriction}_{seed}/spatial/0_0.60.20.2/"
+        data_path = f"../data_sets/{restriction}_{seed}/spatial/0_0.800.2/"
         train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
         tot.append(len(train) + len(dev) + len(test))
         tst.append(len(test))
@@ -173,7 +173,7 @@ def autolabel(rects, ax, acc):
                     xy=(rect.get_x() + rect.get_width() / 2, height),
                     xytext=(0, 11),  # 3 points vertical offset
                     textcoords="offset points",
-                    ha='center', va='bottom', size=4)
+                    ha='center', va='bottom', size=10)
 
 
 def get_labels(lst):
@@ -248,7 +248,57 @@ def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=N
             plt.savefig(SAVE_PATH + f"{name}_fet_imp.pdf", transparent=True)
 
 
-def plot_acc_vs_auc(df, name=None, chunk_size=[0], modalities=None):
+def plot_acc_vs_auc(df, sems, restriction, name=None):
+    if name is None:
+        title = get_title(restriction)
+
+    labels = get_labels([ind[1] for ind in df.index])
+
+    chunk_size = get_labels([ind[2] for ind in df.index])
+
+    x = np.roll(np.array(chunk_size), -1)
+    x[-1] = x[-2] * 2
+    for m_name in labels:
+        fig, ax1 = plt.subplots(figsize=(9, 6))
+        ax2 = ax1.twinx()
+
+        val_acc = np.roll(np.asarray(df.xs(m_name, level="modality").acc), -1)
+        sem_acc = np.roll(np.asarray(sems.xs(m_name, level="modality").acc), -1)
+        val_auc = np.roll(np.asarray(df.xs(m_name, level="modality").auc), -1)
+        sem_auc = np.roll(np.asarray(sems.xs(m_name, level="modality").auc), -1)
+
+        ax1.set_ylim(ymin=val_acc.min() * 0.95, ymax=val_acc.max()*1.1)
+        ax2.set_ylim(ymin=val_auc.min() * 0.9, ymax=val_auc.max()*1.05)
+
+        # ax.errorbar(x, val, yerr=sem, c='k', linestyle=ls, label=col)
+        line1 = ax1.errorbar(x, val_acc, yerr=sem_acc, color='k', linestyle='solid', label='accuracy', capsize=2)
+        line2 = ax2.errorbar(x, val_auc, yerr=sem_auc, color='k', linestyle='dashed', label='AUC', capsize=2)
+
+        lines = [line1[0]] + [line2[0]]
+        labs = ['accuracy', 'AUC']
+        ax1.legend(lines, labs, loc=0)
+
+        x_labels = [str(int(xt)) for xt in x]
+        x_labels[-1] = '0'
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(labels=x_labels, rotation=-25)
+
+        ax1.set_ylabel('Scores (percentage)')
+        ax2.set_ylabel('AUC value')
+
+        fig.tight_layout()
+
+        if name is None:
+            plt.suptitle(title)
+            plt.show()
+        else:
+            plt.savefig(SAVE_PATH + f"{name}_{m_name}.pdf", transparent=True)
+            plt.clf()
+            plt.cla()
+            plt.close('all')
+
+
+def plot_acc_vs_auc_bar(df, name=None, chunk_size=[0], modalities=None):
     if modalities is None:
         modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
 
@@ -304,7 +354,7 @@ def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None
     x = np.arange(len(labels))  # the label locations
     width = 1 / (2 * len(chunk_size) + 1)  # the width of the bars
 
-    colors = ['#696969', '#808080', '#A9A9A9', '#C0C0C0', '#D3D3D3', '#DCDCDC'][::6//len(chunk_size)]
+    colors = ['#696969', '#808080', '#A9A9A9', '#C0C0C0', '#D3D3D3', '#DCDCDC'][::6 // len(chunk_size)]
 
     if mode == 'bar':
         for i, cz in enumerate(chunk_size):
@@ -353,6 +403,7 @@ def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None
     else:
         plt.savefig(SAVE_PATH + f"{name}_{'acc' if acc else 'auc'}.pdf", transparent=True)
 
+
 def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mode='bar', dev=False):
     if name is None:
         title = get_title(restriction)
@@ -362,7 +413,10 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mo
     if chunk_size is None:
         chunk_size = get_labels([ind[2] for ind in df.index])
 
-    fig, ax = plt.subplots(figsize=(6, 9))
+    if mode == 'bar':
+        fig, ax = plt.subplots(figsize=(6, 9))
+    else:
+        fig, ax = plt.subplots(figsize=(9, 6))
 
     x = np.arange(len(labels))  # the label locations
     width = 1 / (len(chunk_size) + 1)  # the width of the bars
@@ -378,28 +432,36 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mo
             val = df.xs(cz, level="chunk_size")[col]
             sem = sems.xs(cz, level="chunk_size")[col]
 
-            rects = ax.bar(x - (i - len(chunk_size) // 2) * width, val, width, label=f'chunk_size = {cz}', yerr=sem,
+            rects = ax.bar(x - (i - len(chunk_size) // 2) * width, val, width, label=f'chunk size={cz}', yerr=sem,
                            edgecolor='k', color=colors[i])
             autolabel(rects, ax, acc)
         ax.set_xticks(x)
         ax.set_xticklabels(labels)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
+        ax.set_ylim(0, 110 if acc else 1.1)
     elif mode == 'plot':
-        x = chunk_size
+        x = np.roll(np.array(chunk_size), -1)
+        x[-1] = x[-2] * 2
         linestyles = ['solid', 'dashed', 'dashdot']
         for i, m_name in enumerate(labels):
-            val = np.asarray(df.xs(m_name, level="modality")[col])  # [::-1]
-            sem = np.asarray(sems.xs(m_name, level="modality")[col])  # [::-1]
+            val = np.roll(np.asarray(df.xs(m_name, level="modality")[col]), -1)
+            sem = np.roll(np.asarray(sems.xs(m_name, level="modality")[col]), -1)
 
             ax.errorbar(x, val, yerr=sem, c='k', linestyle=linestyles[i], label=m_name)
 
+        x_labels = [str(int(xt)) for xt in x]
+        x_labels[-1] = '0'
         ax.set_xticks(x)
+        ax.set_xticklabels(labels=x_labels, rotation=-25)
     else:
         raise KeyError('mode can be only bar or plot')
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
-    ax.set_ylabel('Scores (percentage)')
+    if acc:
+        ax.set_ylabel('Scores (percentage)')
+    else:
+        ax.set_ylabel('AUC value')
 
     if len(chunk_size) > 1:
         ax.legend()
@@ -421,24 +483,26 @@ if __name__ == "__main__":
     3) Have we the correct path for the confusion matrix?
     """
     import warnings
+
     # warnings.simplefilter("error")
     model = 'rf'
-    results = pd.read_csv(f'prev results/results_{model}_region.csv', index_col=0)
+    results = pd.read_csv(f'results_{model}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
     # complete = complete[complete.chunk_size == 0]
     complete = complete.dropna(how='all', axis=1)
     no_small_sample = results[results.restriction == 'no_small_sample']
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
-    #plot_acc_vs_auc(complete)
-    #plot_conf_mats(complete, 'complete',
+    # plot_acc_vs_auc_bar(complete)
+    # plot_conf_mats(complete, 'complete',
     #               modalities=[('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)],
     #               chunk_size=[0, 1600, 800, 400, 200, 100])
     # plot_roc_curve(complete)
 
-    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar', dev=False)
-    plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar', dev=False)
-    plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
-    plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar')
-    plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar')
+    plot_acc_vs_auc(grouped_complete.mean(), grouped_complete.sem(), 'complete')
 
+    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='plot', dev=False)
+    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='plot', dev=False)
+    #plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
+    #plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar')
+    #plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar')
