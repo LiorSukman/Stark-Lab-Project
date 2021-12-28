@@ -38,6 +38,7 @@ punits = {'es04feb12_1_3_2',
           'm649r1_22_2_3',
           'm649r1_22_3_2'}
 
+
 def load_cluster(load_path, name):
     files = [load_path + f for f in listdir(load_path) if isfile(join(load_path, f)) and name + '_' in f]
     assert len(files) == 2
@@ -167,6 +168,7 @@ def create_chunks(cluster, spikes_in_waveform=(200,)):
             ret_spikes.append(res)
 
     return ret_spikes, ret_inds
+
 
 def light_processing(path):
     stats = pd.DataFrame(
@@ -317,7 +319,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None, calc_morph
                     spatial_features_mat = calc_spatial_features(rel_data)
                     morphological_features_mat = calc_morphological_features(rel_data)
                     feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
-                                                            temporal_features_mat), axis=1)
+                                                              temporal_features_mat), axis=1)
                 else:
                     feature_mat_for_cluster = None
                     for inst in DELTA_MODE:
@@ -325,7 +327,8 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None, calc_morph
                         if feature_mat_for_cluster is None:
                             feature_mat_for_cluster = temp_features_mat
                         else:
-                            feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, temp_features_mat), axis=1)
+                            feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, temp_features_mat),
+                                                                     axis=1)
 
                 # Append metadata for the cluster
                 max_abss = np.ones((len(rel_data), 1)) * max_abs
@@ -355,7 +358,7 @@ if __name__ == "__main__":
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
                         default=[0, 100, 200, 400, 800, 1600])
-    parser.add_argument('--save_path', type=str, default='clustersData_no_light_new/',
+    parser.add_argument('--save_path', type=str, default='clustersData_no_light_FINAL/',
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')

@@ -28,11 +28,23 @@ NUM_CHANNELS = 8
 TIMESTEPS = 32
 UPSAMPLE = 8
 
+# the following values are required to transform the spikes from arbitrary units to V
+# this values are based on the corresponding XML file, change them accordingly if changing units
+VOL_RANGE = 8
+AMPLIFICATION = 1000
+NBITS = 16
 
 def clear():
     plt.clf()
     plt.cla()
     plt.close('all')
+
+
+def trans_units(cluster):
+    data = cluster.spikes
+    data = (data * VOL_RANGE * 1e6) / (AMPLIFICATION * (2 ** NBITS))  # 1e6 for micro V
+    cluster.spikes = data
+    cluster.np_spikes = data
 
 
 def get_main(chunks):
@@ -279,18 +291,17 @@ def fzc_time_lag(clu, name):
 
 
 def ach(bin_range, name, clu):
-    try:
-        hist = np.load(f'./ach_{name}_{bin_range}.npy')
-        return hist
-    except FileNotFoundError:
-        pass
-
-    c = PV_COLOR if name == 'pv' else PYR_COLOR
     N = 2 * bin_range + 2
     offset = 1 / 2
     bins = np.linspace(-bin_range - offset, bin_range + offset, N)
-    chunks = np.array([np.arange(len(clu.timings))])
-    hist = calc_temporal_histogram(clu.timings, bins, chunks)[0]
+    c = PV_COLOR if name == 'pv' else PYR_COLOR
+
+    try:
+        hist = np.load(f'./ach_{name}_{bin_range}.npy')
+    except FileNotFoundError:
+        chunks = np.array([np.arange(len(clu.timings))])
+        hist = calc_temporal_histogram(clu.timings, bins, chunks)[0]
+
     hist_up = signal.resample_poly(hist, UPSAMPLE ** 2, UPSAMPLE, padtype='line')
     hist_up = np.where(hist_up >= 0, hist_up, 0)
 
@@ -298,6 +309,7 @@ def ach(bin_range, name, clu):
 
     fig, ax = plt.subplots()
     ax.bar(bin_inds, hist_up, color=c)
+    ax.set_ylim(0, 60)
     plt.savefig(SAVE_PATH + f"{name}_ACH_{bin_range}.pdf", transparent=True)
     clear()
 
@@ -477,7 +489,7 @@ def compare_densities(df, feature_names):
         clear()
 
 
-def get_comp_results(chunk_size=[0, 100], res_name='results_rf_region'):
+def get_comp_results(chunk_size=[0], res_name='results_rf_region'):
     results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
 
@@ -501,17 +513,17 @@ def get_comp_results(chunk_size=[0, 100], res_name='results_rf_region'):
     clear()
 
     # confusion matrices
-    plot_conf_mats(complete, 'complete', name='NCX', chunk_size=[0, 100],
+    plot_conf_mats(complete, 'complete', name='NCX', chunk_size=chunk_size,
                    data_path='../data_sets_region/complete_0/spatial/0_0.800.2/', use_dev=False)
     clear()
-    plot_conf_mats(complete, 'complete', name='CA1', chunk_size=[0, 100],
+    plot_conf_mats(complete, 'complete', name='CA1', chunk_size=chunk_size,
                    data_path='../data_sets_region/complete_0/spatial/0_0.800.2/', use_dev=True)
     clear()
 
     # ROC curves
-    plot_roc_curve(complete, name='NCX', chunk_size=[0, 100], use_dev=False)
+    plot_roc_curve(complete, name='NCX', chunk_size=chunk_size, use_dev=False)
     clear()
-    plot_roc_curve(complete, name='CA1', chunk_size=[0, 100], use_dev=True)
+    plot_roc_curve(complete, name='CA1', chunk_size=chunk_size, use_dev=True)
     clear()
 
 
@@ -524,6 +536,9 @@ if __name__ == '__main__':
     pyr_cluster = load_cluster(TEMP_PATH, pyr_name)
     pv_cluster = load_cluster(TEMP_PATH, pv_name)
 
+    trans_units(pyr_cluster)
+    trans_units(pv_cluster)
+
     # Waveforms
     pyr_cluster.plot_cluster(save=True, path=SAVE_PATH)
     clear()
@@ -532,7 +547,7 @@ if __name__ == '__main__':
 
     # Morphological features - figure 2
 
-    """clu = pyr_cluster
+    clu = pyr_cluster
     color = PYR_COLOR
 
     t2p_fwhm(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
@@ -564,7 +579,7 @@ if __name__ == '__main__':
     pyr_train = pyr_cluster.timings[pyr_mask]
     pv_train = pv_cluster.timings[pv_mask]
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(10, 1))
     ax.axis('off')
     ax.vlines(pyr_train, 0.05, 0.45, colors=PYR_COLOR)
     ax.vlines(pv_train, 0.55, 0.95, colors=PV_COLOR)
@@ -609,7 +624,7 @@ if __name__ == '__main__':
     plot_delta(pyr_cluster, 'pyr')
     plot_delta(pv_cluster, 'pv')
 
-    get_delta_results('morphological')"""
+    get_delta_results('morphological')
 
     # Spatial features - figure 5
 
@@ -633,16 +648,16 @@ if __name__ == '__main__':
 
     # chunks - fig 6
     
-    """chunk_fig(pyr_cluster, 'pyr', 200)
+    chunk_fig(pyr_cluster, 'pyr', 200)
 
     chunk_results()
 
     # nCX vs CA1 - fig 7
     
-    feature_names = ['fwhm', 'trough2peak', 'unif_dist', 'd_kl_mid', 'spatial_dispersion_sd', ' fzc_red']
+    feature_names = ['fwhm', 'trough2peak', 'unif_dist', 'd_kl_mid', 'spatial_dispersion_sd', 'fzc_red']
     features_df = feature_names + ['region', 'label']
     df = load_df(features_df, trans_labels=False)
 
     compare_densities(df, feature_names)
 
-    get_comp_results()"""
+    get_comp_results()

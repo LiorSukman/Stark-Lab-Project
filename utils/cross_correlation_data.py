@@ -4,6 +4,9 @@ import scipy.io as io
 from preprocessing_pipeline import load_cluster
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
+SAVE_PATH = '../../../data for figures/New/'
+
+
 def calc_hist(spike_train, stims, bins):
     ret = np.zeros(len(bins) - 1)
     for stim in stims:
@@ -44,6 +47,7 @@ def calc_cc(pv_name, pyr_name, temp_path, ax, loc):
 
     return ax
 
+
 if __name__ == "__main__":
     temp_path = '../temp_state/'
     pyr_name = name = 'es25nov11_13_3_3'  # pyr
@@ -73,5 +77,6 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(figsize=(30, 8))
     ax.vlines(0, ymin=0, ymax=hist.max(), color='k', linestyle='--')
     ax.bar(np.linspace(-50, 50, N - 1), hist)
-    ax.axis('off')
-    plt.show()
+
+    plt.savefig(SAVE_PATH + f"CCH.pdf", transparent=True)
+

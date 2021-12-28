@@ -18,16 +18,58 @@ NUM_FETS = 30
 SAVE_PATH = '../../../data for figures/New/'
 
 
-def change_length(y, x, length):
-    valid = [0] + list(np.argwhere(np.convolve(x, [1, -1], 'same') != 0).flatten())
+def change_length(x, y, length):
+    valid = []
+    for i in range(len(x)):
+        if i == len(x) - 1:
+            valid.append(i)
+        elif x[i] != x[i + 1]:
+            valid.append(i)
+        else:
+            continue
+
     x = x[valid]
     y = y[valid]
-    y[-1] = 1
 
     xnew = np.linspace(0, 1, length)
     f = interpolate.interp1d(x, y, kind='linear')
-    ynew = f(xnew)
-    return ynew
+    ynew = [0] + list(f(xnew))
+    return np.array(ynew)
+
+
+def my_change_length(x, y, length):
+    xnew = np.linspace(0, 1, length)
+    ynew = []
+    loc = 0
+
+    assert x[0] == 0 and x[-1] == 1 and y[0] == 0 and y[-1] == 1
+
+    for xn in xnew:
+        while True:
+            if loc == len(x) - 1 or loc == 0:
+                ynew.append(y[loc])
+                if loc == 0:
+                    loc += 1
+                break
+            elif x[loc - 1] <= xn < x[loc]:
+                if y[loc - 1] == y[loc]:
+                    ynew.append(y[loc - 1])
+                else:
+                    m = (y[loc - 1] - y[loc]) / (x[loc - 1] - x[loc])
+                    ynew.append(y[loc - 1] + m * (xn - x[loc - 1]))
+                break
+            elif xn > x[loc]:
+                loc += 1
+            elif xn == x[loc]:
+                ynew.append(y[loc])
+                loc += 1
+                break
+            else:
+                raise AssertionError
+
+    ynew[-1] = 1
+
+    return np.array(ynew)
 
 
 def str2lst(str):
@@ -59,9 +101,9 @@ def plot_roc_curve(df, name=None, chunk_size=[200], modalities=None, use_dev=Fal
 
             x_length = 100
 
-            tprs = np.array([change_length(tpr, fpr, x_length) for tpr, fpr in zip(tprs, fprs)])
+            tprs = np.array([change_length(fpr, tpr, x_length) for tpr, fpr in zip(tprs, fprs)])
 
-            mean_fprs = np.linspace(0, 1, x_length)
+            mean_fprs = [0] + list(np.linspace(0, 1, x_length))
             mean_tprs = tprs.mean(axis=0)
             sem = calc_sem(tprs, axis=0)
 
@@ -69,7 +111,9 @@ def plot_roc_curve(df, name=None, chunk_size=[200], modalities=None, use_dev=Fal
 
             auc = df_cz[auc_col].mean()
 
-            ax.plot(mean_fprs, mean_tprs, label=f"AUC={auc:2g}, chunk size={cz}")
+            label_add = f", chunk size = {cz}" if len(chunk_size) > 1 else ""
+
+            ax.plot(mean_fprs, mean_tprs, label=f"AUC={auc:.3f}"+label_add)
             ax.fill_between(mean_fprs, mean_tprs - sem, mean_tprs + sem, alpha=0.2)
 
         ax.plot(mean_fprs, mean_fprs, color='k', linestyle='--', label='chance level')
@@ -88,13 +132,12 @@ def plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz):
     data = np.array([[tp, fn], [fp, tn]])
     data = data / data.sum(axis=1)
     pn_sign = u"\u00B1"
-    labels = [[f"{tp:2g}{pn_sign}{tp_std:3f}", f"{fn:2g}{pn_sign}{fn_std:3f}"],
-              [f"{fp:2g}{pn_sign}{fp_std:3f}", f"{tn:2g}{pn_sign}{tn_std:3f}"]]
+    labels = [[f"{tp:2g}{pn_sign}{tp_std:.2f}", f"{fn:2g}{pn_sign}{fn_std:.2f}"],
+              [f"{fp:2g}{pn_sign}{fp_std:.2f}", f"{tn:2g}{pn_sign}{tn_std:.2f}"]]
     cmap = sns.light_palette("seagreen", as_cmap=True)
     ticklabels = ['PYR', 'IN']
     _ = sns.heatmap(data, annot=labels, fmt='', vmin=0, vmax=1, cmap=cmap, ax=cz_ax, xticklabels=ticklabels,
                     yticklabels=ticklabels)
-    cz_ax.set_title(f"Chunk size={cz}")
     cz_ax.set_ylabel("True Label")
     cz_ax.set_xlabel('Predicted Label')
 
@@ -138,6 +181,8 @@ def plot_conf_mats(df, restriction, name=None, chunk_size=[0], modalities=None, 
             tp, tn, fp, fn = mean_cz.tp[0], mean_cz.tn[0], mean_cz.fp[0], mean_cz.fn[0]
             tp_std, tn_std, fp_std, fn_std = std_cz.tp[0], std_cz.tn[0], std_cz.fp[0], std_cz.fn[0]
             plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz)
+            if len(chunk_size) > 1:
+                cz_ax.set_title(f"Chunk size={cz}")
         if name is None:
             plt.show()
         else:
@@ -414,7 +459,7 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mo
         chunk_size = get_labels([ind[2] for ind in df.index])
 
     if mode == 'bar':
-        fig, ax = plt.subplots(figsize=(6, 9))
+        fig, ax = plt.subplots(figsize=(3 * len(chunk_size) * len(labels), 9))
     else:
         fig, ax = plt.subplots(figsize=(9, 6))
 
@@ -432,14 +477,20 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mo
             val = df.xs(cz, level="chunk_size")[col]
             sem = sems.xs(cz, level="chunk_size")[col]
 
-            rects = ax.bar(x - (i - len(chunk_size) // 2) * width, val, width, label=f'chunk size={cz}', yerr=sem,
+            rects = ax.bar(x - (i - len(chunk_size) / 2) * width, val, width, label=f'chunk size={cz}', yerr=sem,
                            edgecolor='k', color=colors[i])
             autolabel(rects, ax, acc)
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels)
+
+        chance_level = 0.5 if not acc else 79.8  # TODO make this generic
+        ax.axhline(y=chance_level, xmin=x[0], xmax=x[-1]+2*width*len(chunk_size), color='k', linestyle='--')
+
+        if len(labels) > 1:
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.set_ylim(0, 110 if acc else 1.1)
+
     elif mode == 'plot':
         x = np.roll(np.array(chunk_size), -1)
         x[-1] = x[-2] * 2
@@ -494,15 +545,19 @@ if __name__ == "__main__":
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
     grouped_no_small_sample = no_small_sample.groupby(by=['restriction', 'modality', 'chunk_size'])
     # plot_acc_vs_auc_bar(complete)
-    # plot_conf_mats(complete, 'complete',
-    #               modalities=[('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)],
-    #               chunk_size=[0, 1600, 800, 400, 200, 100])
-    # plot_roc_curve(complete)
+    #plot_conf_mats(complete, 'complete')
+    #plot_roc_curve(complete)
 
-    plot_acc_vs_auc(grouped_complete.mean(), grouped_complete.sem(), 'complete')
+    #plot_acc_vs_auc(grouped_complete.mean(), grouped_complete.sem(), 'complete')
 
-    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='plot', dev=False)
-    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='plot', dev=False)
+    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar', dev=False)
+    #plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar', dev=False)
     #plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete')
     #plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar')
     #plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar')
+
+    _, dev, test, _, _, _ = ML_util.get_dataset('../data_sets_region/complete_1/spatial/0_0.800.2/')
+    ca1_labels = dev[:, :,  -1].flatten()
+    ncx_labels = test[:, :,  -1].flatten()
+    print(ncx_labels.mean())
+    print(ca1_labels.mean())

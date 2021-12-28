@@ -160,7 +160,7 @@ class Cluster(object):
             mean_spike = self.calc_mean_waveform()
             mean_spike.plot_spike(ax)
         else:
-            fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True, figsize=(6, 20))
+            fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True, figsize=(3, 20))
             mean_spike = self.np_spikes.mean(axis=0)
             std_spike = self.np_spikes.std(axis=0)
             color1 = PYR_COLOR if self.label == 1 else PV_COLOR if self.label == 0 else UT_COLOR
@@ -171,7 +171,8 @@ class Cluster(object):
                 c_ax.plot(np.arange(TIMESTEPS), mean_channel, c=color1)
                 c_ax.fill_between(np.arange(TIMESTEPS), mean_channel - std_channel, mean_channel + std_channel,
                                   color=color2, alpha=0.2)
-                c_ax.axis('off')
+                if i != 0:
+                    c_ax.axis('off')
             if not save:
                 fig.suptitle(f"Cluster {self.get_unique_name()} of type {'PYR' if self.label == 1 else 'IN' if self.label == 0 else 'UT' }")
                 plt.show()

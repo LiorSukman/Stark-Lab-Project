@@ -21,6 +21,10 @@ def read_xml(path):
             for c in child:
                 print(' ', c)"""
 
+        acsys = root.find('acquisitionSystem')
+        for child in acsys:
+            print(child)
+
         spikes = root.find('spikeDetection')
         groups = spikes.find('channelGroups').findall('group')
         file_name = '.'.join(xml_path.split('\\')[-1].split('.')[:-1])
