@@ -11,7 +11,10 @@ from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
 from constants import TRANS_MORPH
 from constants import feature_names as fet_names
 
-chunks = [0, 500, 200]
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['ps.fonttype'] = 42
+
 restrictions = ['complete', 'no_small_sample']
 modalities = ['spatial', 'morphological', 'temporal', 'spat_tempo']
 NUM_FETS = 30
@@ -135,9 +138,12 @@ def plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz):
     labels = [[f"{tp:2g}{pn_sign}{tp_std:.2f}", f"{fn:2g}{pn_sign}{fn_std:.2f}"],
               [f"{fp:2g}{pn_sign}{fp_std:.2f}", f"{tn:2g}{pn_sign}{tn_std:.2f}"]]
     cmap = sns.light_palette("seagreen", as_cmap=True)
-    ticklabels = ['PYR', 'IN']
+    ticklabels = ['PYR', 'PV']
     _ = sns.heatmap(data, annot=labels, fmt='', vmin=0, vmax=1, cmap=cmap, ax=cz_ax, xticklabels=ticklabels,
                     yticklabels=ticklabels)
+    cbar = cz_ax.collections[0].colorbar
+    cbar.set_ticks([0, .25, .5, .75, 1])
+    cbar.set_ticklabels(['0%', '25%', '50%', '75%', '100%'])
     cz_ax.set_ylabel("True Label")
     cz_ax.set_xlabel('Predicted Label')
 
@@ -293,9 +299,12 @@ def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=N
             plt.savefig(SAVE_PATH + f"{name}_fet_imp.pdf", transparent=True)
 
 
-def plot_acc_vs_auc(df, sems, restriction, name=None):
+def plot_acc_vs_auc(df, sems, restriction, name=None, semsn=None):
     if name is None:
         title = get_title(restriction)
+
+    if semsn is None:
+        semsn = sems
 
     labels = get_labels([ind[1] for ind in df.index])
 
@@ -308,28 +317,41 @@ def plot_acc_vs_auc(df, sems, restriction, name=None):
         ax2 = ax1.twinx()
 
         val_acc = np.roll(np.asarray(df.xs(m_name, level="modality").acc), -1)
-        sem_acc = np.roll(np.asarray(sems.xs(m_name, level="modality").acc), -1)
-        val_auc = np.roll(np.asarray(df.xs(m_name, level="modality").auc), -1)
-        sem_auc = np.roll(np.asarray(sems.xs(m_name, level="modality").auc), -1)
+        sem_acc = np.expand_dims(np.roll(np.asarray(sems.xs(m_name, level="modality").acc), -1), axis=0)
+        semn_acc = np.expand_dims(np.roll(np.asarray(semsn.xs(m_name, level="modality").acc), -1), axis=0)
+        yerr_acc = np.concatenate((val_acc - semn_acc, sem_acc - val_acc), axis=0)
 
-        ax1.set_ylim(ymin=val_acc.min() * 0.95, ymax=val_acc.max()*1.1)
-        ax2.set_ylim(ymin=val_auc.min() * 0.9, ymax=val_auc.max()*1.05)
+        val_auc = np.roll(np.asarray(df.xs(m_name, level="modality").auc), -1)
+        sem_auc = np.expand_dims(np.roll(np.asarray(sems.xs(m_name, level="modality").auc), -1), axis=0)
+        semn_auc = np.expand_dims(np.roll(np.asarray(semsn.xs(m_name, level="modality").auc), -1), axis=0)
+
+        yerr_auc = np.concatenate((val_auc - semn_auc, sem_auc - val_auc), axis=0)
+
+        ax1.set_ylim(ymin=val_acc.min() * .95, ymax=val_acc.max() * 1.1)
+        ax2.set_ylim(ymin=val_auc.min() * .8, ymax=val_auc.max() * 1.05)
+
+        """ax1.set_ylim(ymin=82, ymax=105)
+        ax2.set_ylim(ymin=0.8, ymax=1.05)"""
 
         # ax.errorbar(x, val, yerr=sem, c='k', linestyle=ls, label=col)
-        line1 = ax1.errorbar(x, val_acc, yerr=sem_acc, color='k', linestyle='solid', label='accuracy', capsize=2)
-        line2 = ax2.errorbar(x, val_auc, yerr=sem_auc, color='k', linestyle='dashed', label='AUC', capsize=2)
+        line1 = ax1.errorbar(x, val_acc, yerr=yerr_acc, color='k', linestyle='solid', label='Accuracy', capsize=2)
+        line2 = ax2.errorbar(x, val_auc, yerr=yerr_auc, color='k', linestyle='dashed', label='AUC', capsize=2)
 
         lines = [line1[0]] + [line2[0]]
-        labs = ['accuracy', 'AUC']
+        labs = ['Accuracy', 'AUC']
         ax1.legend(lines, labs, loc=0)
 
         x_labels = [str(int(xt)) for xt in x]
-        x_labels[-1] = '0'
+        x_labels[-1] = '\u221e'
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels=x_labels, rotation=-25)
 
         ax1.set_ylabel('Scores (percentage)')
         ax2.set_ylabel('AUC value')
+        ax1.set_xlabel('Chunk Size')
+
+        ax1.spines['top'].set_visible(False)
+        ax2.spines['top'].set_visible(False)
 
         fig.tight_layout()
 
@@ -361,7 +383,7 @@ def plot_acc_vs_auc_bar(df, name=None, chunk_size=[0], modalities=None):
             ax2.set_ylim(ymin=0, ymax=ymax * scale)
 
             grouped = df_cz.groupby(by=['restriction', 'modality', 'chunk_size'])
-            mean = grouped.mean()
+            mean = grouped.median()
             sem = grouped.sem()
             accs = df_cz.acc.to_numpy()
             aucs = df_cz.auc.to_numpy()
@@ -385,11 +407,14 @@ def plot_acc_vs_auc_bar(df, name=None, chunk_size=[0], modalities=None):
             plt.savefig(SAVE_PATH + f"{name}_{m_name}_acc_vs_auc.pdf", transparent=True)
 
 
-def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None, mode='bar'):
+def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None, mode='bar', semsn=None):
     if name is None:
         title = 'dev-test comparison' + get_title(restriction)
 
     labels = get_labels([ind[1] for ind in df.index])
+
+    if semsn is None:
+        semsn = sems
 
     if chunk_size is None:
         chunk_size = get_labels([ind[2] for ind in df.index])
@@ -399,28 +424,35 @@ def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None
     x = np.arange(len(labels))  # the label locations
     width = 1 / (2 * len(chunk_size) + 1)  # the width of the bars
 
-    colors = ['#696969', '#808080', '#A9A9A9', '#C0C0C0', '#D3D3D3', '#DCDCDC'][::6 // len(chunk_size)]
+    colors = ['#696969', '#808080', '#A9A9A9', '#C0C0C0', '#D3D3D3', '#DCDCDC']#[::6 // len(chunk_size)]
 
     if mode == 'bar':
         for i, cz in enumerate(chunk_size):
             col = 'acc' if acc else 'auc'
-            val = df.xs(cz, level="chunk_size")[col]
-            sem = sems.xs(cz, level="chunk_size")[col]
+            val = np.asarray(df.xs(cz, level="chunk_size")[col])
+            sem = np.expand_dims(np.asarray(sems.xs(cz, level="chunk_size")[col]), axis=0)
+            semn = np.expand_dims(np.asarray(semsn.xs(cz, level="chunk_size")[col]), axis=0)
+            yerr = np.concatenate((val - semn, sem - val), axis=0)
 
             dev_col = 'dev_acc' if acc else 'dev_auc'
-            dev_val = df.xs(cz, level="chunk_size")[dev_col]
-            dev_sem = sems.xs(cz, level="chunk_size")[dev_col]
+            dev_val = np.asarray(df.xs(cz, level="chunk_size")[dev_col])
+            dev_sem = np.expand_dims(np.asarray(sems.xs(cz, level="chunk_size")[dev_col]), axis=0)
+            dev_semn = np.expand_dims(np.asarray(semsn.xs(cz, level="chunk_size")[dev_col]), axis=0)
+            dev_yerr = np.concatenate((dev_val - dev_semn, dev_sem - dev_val), axis=0)
 
-            rects1 = ax.bar(x - (2 * i - len(chunk_size) // 2) * width, val, width, label=f'nCX; chunk size={cz}',
-                            yerr=sem, color=colors[i])
+            rects1 = ax.bar(x - (2 * i - len(chunk_size) / 2) * width, val, width, label=f'nCX',
+                            yerr=yerr, color=colors[0])
             autolabel(rects1, ax, acc)
 
-            rects2 = ax.bar(x - (1 + 2 * i - len(chunk_size) // 2) * width, dev_val, width, hatch="\\", yerr=dev_sem,
-                            label=f'CA1; chunk size={cz}', color=colors[i])
+            rects2 = ax.bar(x - (1 + 2 * i - len(chunk_size) / 2) * width, dev_val, width, yerr=dev_yerr,
+                            label=f'CA1', color=colors[3])
             autolabel(rects2, ax, acc)
 
         ax.set_xticks(x)
         ax.set_xticklabels(labels)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
     elif mode == 'plot':
         x = chunk_size
         linestyles = ['solid', 'dashed', 'dashdot']
@@ -449,7 +481,7 @@ def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None
         plt.savefig(SAVE_PATH + f"{name}_{'acc' if acc else 'auc'}.pdf", transparent=True)
 
 
-def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mode='bar', dev=False):
+def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mode='bar', dev=False, semsn=None):
     if name is None:
         title = get_title(restriction)
 
@@ -457,6 +489,9 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mo
 
     if chunk_size is None:
         chunk_size = get_labels([ind[2] for ind in df.index])
+
+    if semsn is None:
+        semsn = sems
 
     if mode == 'bar':
         fig, ax = plt.subplots(figsize=(3 * len(chunk_size) * len(labels), 9))
@@ -474,10 +509,12 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mo
 
     if mode == 'bar':
         for i, cz in enumerate(chunk_size):
-            val = df.xs(cz, level="chunk_size")[col]
-            sem = sems.xs(cz, level="chunk_size")[col]
+            val = df.xs(cz, level="chunk_size")[col].to_numpy()
+            sem = sems.xs(cz, level="chunk_size")[col].to_numpy() - val
+            semn = val - semsn.xs(cz, level="chunk_size")[col].to_numpy()
+            yerr = np.concatenate((semn, sem), axis=0)
 
-            rects = ax.bar(x - (i - len(chunk_size) / 2) * width, val, width, label=f'chunk size={cz}', yerr=sem,
+            rects = ax.bar(x - (i - len(chunk_size) / 2) * width, val, width, label=f'chunk size={cz}', yerr=np.expand_dims(yerr, axis=1),
                            edgecolor='k', color=colors[i])
             autolabel(rects, ax, acc)
 
@@ -497,9 +534,11 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mo
         linestyles = ['solid', 'dashed', 'dashdot']
         for i, m_name in enumerate(labels):
             val = np.roll(np.asarray(df.xs(m_name, level="modality")[col]), -1)
-            sem = np.roll(np.asarray(sems.xs(m_name, level="modality")[col]), -1)
+            sem = np.roll(np.asarray(sems.xs(m_name, level="modality")[col]), -1) - val
+            semn = val - np.roll(np.asarray(semsn.xs(m_name, level="modality")[col]), -1)
+            yerr = np.concatenate((semn, sem), axis=0)
 
-            ax.errorbar(x, val, yerr=sem, c='k', linestyle=linestyles[i], label=m_name)
+            ax.errorbar(x, val, yerr=yerr, c='k', linestyle=linestyles[i], label=m_name)
 
         x_labels = [str(int(xt)) for xt in x]
         x_labels[-1] = '0'
@@ -556,8 +595,11 @@ if __name__ == "__main__":
     #plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar')
     #plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar')
 
-    _, dev, test, _, _, _ = ML_util.get_dataset('../data_sets_region/complete_1/spatial/0_0.800.2/')
+    """_, dev, test, _, _, _ = ML_util.get_dataset('../data_sets_region/complete_1/spatial/0_0.800.2/')
     ca1_labels = dev[:, :,  -1].flatten()
     ncx_labels = test[:, :,  -1].flatten()
     print(ncx_labels.mean())
-    print(ca1_labels.mean())
+    print(ca1_labels.mean())"""
+
+    plot_acc_vs_auc(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', name=None, semsn=grouped_complete.quantile(0.25))
+

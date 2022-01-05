@@ -155,7 +155,7 @@ class Cluster(object):
             return False
         return True
 
-    def plot_cluster(self, ax=None, save=False, path=None):
+    def plot_cluster(self, ax=None, save=False, path=None, name=None):
         if ax is not None:
             mean_spike = self.calc_mean_waveform()
             mean_spike.plot_spike(ax)
@@ -177,4 +177,6 @@ class Cluster(object):
                 fig.suptitle(f"Cluster {self.get_unique_name()} of type {'PYR' if self.label == 1 else 'IN' if self.label == 0 else 'UT' }")
                 plt.show()
             if save:
-                plt.savefig(f"{path}{self.get_unique_name()}.pdf", transparent=True)
+                if name is None:
+                    name = ''
+                plt.savefig(f"{path}{self.get_unique_name()}_{name}.pdf", transparent=True)

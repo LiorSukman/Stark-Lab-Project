@@ -63,10 +63,10 @@ def get_pair_lst(path, mode=STIM_MODE.ALL):
 
     return stm_pairs
 
-def calc_hist(spike_train, stims, bins):
+def calc_hist(spike_train, stims, bins, c=20):
     spike_train = spike_train * 20_000 / 1000
-    wind_size = int(20 * 3.5 * 2 + 1)
-    g_wind = create_window(wind_size, 20, 3.5)
+    wind_size = int(c * 3.5 * 2 + 1)
+    g_wind = create_window(wind_size, c, 3.5)
     ret = np.zeros((len(stims), len(bins) - 1))
     for i, stim in enumerate(stims):
         ref_time_list = spike_train - stim
@@ -77,7 +77,7 @@ def calc_hist(spike_train, stims, bins):
         conv_hist = np.convolve(mirr_hist, g_wind, mode='valid')
         ret[i] = conv_hist
 
-    ret *= (20_000 / len(stims))  # TODO this normalization is only valid for 1 sample bin
+    ret *= 1 / (c * 1_000)
 
     return ret.mean(axis=0), stats.sem(ret, axis=0)
 
@@ -149,34 +149,21 @@ if __name__ == "__main__":
         pairs_temp.append(p)
     pairs = combine_list(pairs_temp)
 
-    c = 20  # TODO allow differnet c values, currently hard coded in calc_hist
+    c = 20
 
     bins = np.linspace(-50 * 20, 100 * 20, 150 * c + 1)
 
     spike_train = cluster.timings
 
-    hist, sem = calc_hist(spike_train, [start for start, end in pairs], bins)
-
-    """wind_size = int(c * 3.5 * 2 + 1)
-    mirr_hist = mirror_edges(hist, wind_size)
-    mirr_sems = mirror_edges(sems, wind_size)
-
-    g_wind = create_window(wind_size, c, 3.5)
-    conv_hist = np.convolve(mirr_hist, g_wind, mode='valid')
-    conv_sem = np.convolve(mirr_sems, g_wind, mode='valid')"""
+    hist, sem = calc_hist(spike_train, [start for start, end in pairs], bins, c)
 
     fig, ax = plt.subplots(figsize=(30, 8))
-    #rect = patches.Rectangle((0, 0), 50, hist.max(), facecolor='b', alpha=0.2)
     ax.axvline(x=0, ymax=np.max(hist + sem), color='k', linestyle='--')
     ax.axvline(x=50, color='k', linestyle='--')
 
-
-    # Add the patch to the Axes
-    #ax.add_patch(rect)
     ax.plot(np.linspace(-50, 100, 150 * c), hist, color=PV_COLOR)
     ax.fill_between(np.linspace(-50, 100, 150 * c), hist - sem, hist + sem, color=LIGHT_PV, alpha=0.2)
     ax.set_ylabel('avg spike/second')
     ax.set_xlabel('ms from onset')
 
-    #plt.show()
     plt.savefig(SAVE_PATH + f"PSTH.pdf", transparent=True)
