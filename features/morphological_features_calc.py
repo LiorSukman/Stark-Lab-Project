@@ -25,7 +25,7 @@ def get_main_chnnels(chunks):
         chunk_amp = chunk_data.max(axis=1) - chunk_data.min(axis=1)
         main_channel = np.argmax(chunk_amp)
         plt.plot(chunk_data[main_channel])
-        data = chunk_data[main_channel].copy()
+        data = chunk_data[main_channel].copy() / abs(chunk_data[main_channel].min())  # normalize
         ret.append(Spike(data=data))  # set main channel to be the one with highest peak - trough
 
     return ret
