@@ -1,5 +1,5 @@
 .git
-**/clustersData*
+**/clusterData*
 **/.ipynb_checkpoints
 **/Data
 **/temp_state*
