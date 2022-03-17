@@ -28,8 +28,8 @@ class SmileCry(object):
     convexity of the spike in this section.
     """
 
-    def __init__(self, start=170, end=230):
-        # the start and end constants correspond to 0.26ms to 0.64ms after depolarization based on a sampling rate of
+    def __init__(self, start=170, end=250):
+        # the start and end constants correspond to 0.26ms to 0.76ms after depolarization based on a sampling rate of
         # 20kHz and an upsampling by a factor of 8 (assuming depolarization is reached at the 128th timestep).
         self.start = start  # start of the region of interest in relation to the depolarization
         self.end = end  # end of the region of interest in relation to the depolarization

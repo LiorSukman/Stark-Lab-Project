@@ -137,10 +137,14 @@ class DepolarizationGraph(object):
     which the signal travels between the two channels that comprise it.
     """
 
-    def __init__(self, thr=0.3):
+    def __init__(self, thr=0.3, data_name='dep'):
         self.thr = thr
 
         self.name = 'depolarization graph'
+        self.data_name = data_name
+
+    def set_data(self, new_data):
+        self.data_name = new_data
 
     def euclidean_dist(self, point_a, point_b):
         """
@@ -168,7 +172,7 @@ class DepolarizationGraph(object):
 
         return distances
 
-    def calculate_feature(self, spike_lst):
+    def calculate_feature(self, spike_lst, amps):
         """
         inputs:
         spike_lst: A list of Spike object that the feature will be calculated upon.
@@ -181,15 +185,15 @@ class DepolarizationGraph(object):
         dists = self.calculate_distances_matrix(coordinates)
         result = np.zeros((len(spike_lst), 3))
 
-        for index, spike in enumerate(spike_lst):
+        for index, spike_amp in enumerate(zip(spike_lst, amps)):
+            spike, amp = spike_amp
             arr = spike.data
-            dep_val = arr.min()
-            threshold = self.thr * dep_val  # Setting the threshold to be self.thr the size of max depolarization
+            threshold = self.thr * amp.max()  # Setting the threshold to be self.thr the size of max depolarization
 
             g_temp = []
             for i in range(NUM_CHANNELS):
                 max_dep_index = arr[i].argmin()
-                if arr[i, max_dep_index] <= threshold:  # <= as we are looking at negative values
+                if amp[i] >= threshold:  # <= as we are looking at negative values
                     g_temp.append((i, max_dep_index))
             g_temp.sort(key=lambda x: x[1])
             assert len(g_temp) > 0
@@ -206,11 +210,8 @@ class DepolarizationGraph(object):
             # The last nodes that reached depolarization
             end_nodes = [channel for (channel, timestep) in g_temp if timestep == g_temp[-1][1]]
             graph = Graph(start_nodes, end_nodes, graph_matrix)
-            if not graph.edges:
-                result[index, 0] = 0
-                result[index, 1] = 0
-                result[index, 2] = 0
-                return result
+            if graph.num_edges == 0:
+                continue
 
             # Calculate features from the graph
             result[index, 0] = graph.average_weight()
@@ -224,4 +225,4 @@ class DepolarizationGraph(object):
         """
         Returns a list of titles of the different metrics
         """
-        return ["graph_avg_speed", "graph_slowest_path", "graph_fastest_path"]
+        return [f"{self.data_name}_graph_avg_speed", f"{self.data_name}_graph_slowest_path", f"{self.data_name}_graph_fastest_path"]

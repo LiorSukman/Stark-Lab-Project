@@ -17,7 +17,7 @@ class Jump(object):
     def calculate_feature(self, mid_band=None, rhs=None, **kwargs):
         """
         inputs:
-        rhs: One dimensional ndarray. Right hand side of the histogram, used for calculation of the start_cdf if not provided
+        rhs: One dimensional ndarray. Right hand side of the histogram, used for calculation of the long-band if not provided
         kwargs: Can be ignored, used only for compatibility
 
         returns:
@@ -30,7 +30,7 @@ class Jump(object):
         for i, mid in enumerate(mid_band):
             jmp_line = np.linspace(mid[0], mid[-1], len(mid))
             # TODO after assuring this is ok change 5000 to number of samples and make the 50 part of the class
-            ach_jmp = 50 * np.log(np.sum((mid - jmp_line) ** 2) / 5000)
+            ach_jmp = np.sum((mid - jmp_line) ** 2)
             result[i, 0] = ach_jmp
 
         return result

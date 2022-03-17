@@ -56,8 +56,8 @@ def calc_morphological_features(chunks, transform=None):
         if VERBOS:
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
 
-    mat_result = get_trough_time(main_chunks)
-    feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
+    #mat_result = get_trough_time(main_chunks)
+    #feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
 
     return feature_mat_for_cluster
 
@@ -66,4 +66,4 @@ def get_morphological_features_names():
     names = []
     for feature in features:
         names += feature.headers
-    return names + ['t_time']
+    return names  # + ['t_time']

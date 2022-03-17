@@ -8,10 +8,9 @@ from clusters import Spike
 from features.spatial_features.FET_time_lag import TimeLagFeature
 from features.spatial_features.FET_spd import SPD
 from features.spatial_features.FET_depolarization_graph import DepolarizationGraph
-from features.spatial_features.FET_geometrical_estimation import GeometricalEstimation
 
-dep_spatial_features = [SPD(), GeometricalEstimation(), DepolarizationGraph()]
-full_spatial_features = [TimeLagFeature()]
+dep_spatial_features = [SPD()]
+full_spatial_features = [TimeLagFeature(), DepolarizationGraph()]
 
 class DELTA_MODE(Enum):
     DEP = 1

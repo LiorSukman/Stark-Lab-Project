@@ -67,8 +67,6 @@ class BreakMeasurement(object):
 
         ret = self.mul_const * np.sum(roi)
 
-        print(ret)
-
         return [ret]
 
     @property

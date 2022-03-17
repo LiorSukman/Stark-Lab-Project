@@ -9,8 +9,10 @@ from features.temporal_features.FET_jump_index import Jump
 from features.temporal_features.FET_PSD import PSD
 from features.temporal_features.FET_rise_time import RiseTime
 from features.temporal_features.FET_unif_dist import UnifDist
+from features.temporal_features.FET_firing_rate import FiringRate
 
 features = [DKL(), Jump(), PSD(), RiseTime(), UnifDist()]
+ind_features = [FiringRate()]
 
 
 def get_array_length(chunks):
@@ -85,8 +87,6 @@ def calc_temporal_histogram(time_lst, bins, chunks):
 
 def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW, upsample=8, start_band_range=50,
                            mid_band_start=50, mid_band_end=ACH_WINDOW):
-    feature_mat_for_cluster = None
-
     time_lst = np.array(time_lst)
 
     assert (resolution > 0 and resolution % 1 == 0)
@@ -108,6 +108,10 @@ def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW,
     start_band = histograms[:, :resolution * start_band_range * upsample]
     mid_band = histograms[:, resolution * mid_band_start * upsample: resolution * mid_band_end * upsample + 1]
 
+    assert len(ind_features) == 1
+    for feature in ind_features:
+        feature_mat_for_cluster = feature.calculate_feature(time_lst, chunks)
+
     for feature in features:
         start_time = time.time()
         feature.set_fields(resolution=2 * upsample, start_band_range=start_band_range, mid_band_start=mid_band_start,
@@ -128,6 +132,8 @@ def calc_temporal_features(time_lst, chunks, resolution=2, bin_range=ACH_WINDOW,
 
 def get_temporal_features_names():
     names = []
+    for feature in ind_features:
+        names += feature.headers
     for feature in features:
         names += feature.headers
     names += ['num_spikes']

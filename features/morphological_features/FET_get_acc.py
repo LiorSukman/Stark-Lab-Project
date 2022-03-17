@@ -71,7 +71,7 @@ class GetAcc(object):
         if len(roi) == 0:
             return [-INF]
 
-        ret = self.mul_const * np.log(np.sum(roi ** 2))  # TODO: reconsider multiplicative constants
+        ret = np.sum(roi ** 2)  # TODO: reconsider multiplicative constants
 
         return [ret]
 

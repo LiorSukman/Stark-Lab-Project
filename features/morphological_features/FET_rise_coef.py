@@ -34,14 +34,10 @@ class RiseCoef(object):
         """
         dep_ind = np.argmin(spike)
         dep = spike[dep_ind]
-        """if dep_ind == len(spike) - 1:  # if max depolarization is reached at the end, it indicates noise
-            plt.plot(spike)
-            plt.show()
-            raise Exception('Max depolarization reached at final timestamp')"""
         line = np.linspace(dep, spike[-1], num=len(spike) - dep_ind)
 
         trun_spike = spike[dep_ind:]
-        rise_coef = (trun_spike - line).argmax()
+        rise_coef = abs((trun_spike - line)).argmax()
 
         return [rise_coef]
 
