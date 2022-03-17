@@ -15,17 +15,17 @@ from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL
 from features.temporal_features_calc import calc_temporal_histogram
 from features.spatial_features_calc import DELTA_MODE, calc_pos
 from utils.upsampling import upsample_spike
-from ml.plot_tests import plot_results, plot_fet_imp, plot_conf_mats, plot_roc_curve, plot_test_vs_dev, plot_acc_vs_auc
+from ml.plot_tests import plot_results, plot_fet_imp, plot_conf_mats, plot_roc_curve, plot_test_vs_dev, plot_acc_vs_auc_new
 # Note that plot_conf_mats requires path for the correct dataset
 
 import matplotlib as mpl
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
 
-SAVE_PATH = '../../../data for figures/New/'  # make sure to change in plot_tests as well
+SAVE_PATH = '../../../data for figures/DUP/'  # make sure to change in plot_tests as well
 TEMP_PATH_NO_LIGHT = '../temp_state_minus_light/'
 TEMP_PATH = '../temp_state/'
-DATA_PATH = '../clustersData_no_light_FINAL/0'
+DATA_PATH = '../clustersData_no_light_FINAL_new/0'
 pyr_name = name = 'es25nov11_13_3_3'  # pyr
 pv_name = 'es25nov11_13_3_11'  # pv
 
@@ -43,6 +43,26 @@ def clear():
     plt.clf()
     plt.cla()
     plt.close('all')
+
+def pie_chart(df):
+    labels = ['PYR CA1', 'PYR nCX', 'PV CA1', 'PV nCX']
+    colors = [PYR_COLOR, LIGHT_PYR, PV_COLOR, LIGHT_PV]
+
+    df = df[df.region <= 1]
+    df.region = df.region * 2
+    df['Label X Region'] = df.label + df.region
+
+    x = df['Label X Region'].to_numpy()
+
+    sizes = [np.count_nonzero(x == 3), np.count_nonzero(x == 1), np.count_nonzero(x == 2), np.count_nonzero(x == 0)]
+    total = sum(sizes)
+
+    fig1, ax1 = plt.subplots()
+    ax1.pie(sizes, labels=labels, autopct=lambda p: '{:.0f}'.format(p * total / 100), colors=colors, startangle=90)
+    ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+    plt.savefig(SAVE_PATH + f"pie.pdf", transparent=True)
+    clear()
 
 
 def trans_units(cluster):
@@ -69,11 +89,12 @@ def t2p_fwhm(clu, color, sec_color, name):
     dep = spike[dep_ind]
     hyp_ind = spike.argmax()
     hyp = spike[hyp_ind]
-    print(
-        f"{name} t2p is {1.6 * (hyp_ind - dep_ind) / len(spike)} ms")  # 1.6 ms is the time of every spike (32 ts in 20khz)
+    t2p = 1.6 * (hyp_ind - dep_ind) / len(spike)
+    print(f"{name} t2p is {t2p} ms")  # 1.6 ms is the time of every spike (32 ts in 20khz)
 
     fwhm_inds = spike <= (dep / 2)
-    print(f"{name} fwhm is {1.6 * (fwhm_inds.sum()) / len(spike)} ms")
+    fwhm = 1.6 * (fwhm_inds.sum()) / len(spike)
+    print(f"{name} fwhm is {fwhm} ms")
 
     fig, ax = plt.subplots()
     ax.plot(spike, c=color)
@@ -84,6 +105,8 @@ def t2p_fwhm(clu, color, sec_color, name):
 
     plt.savefig(SAVE_PATH + f"{name}_t2p_fwhm.pdf", transparent=True)
     clear()
+
+    return t2p, fwhm
 
 
 def max_speed(clu, color, sec_color, name):
@@ -111,12 +134,13 @@ def break_measure(clu, color, sec_color, name):
         chunks = upsample_spike(chunks.data)
 
     spike = chunks[get_main(chunks)]
+    spike = spike / abs(spike.min())
 
     spike_der = np.convolve(np.convolve(spike, [1, -1], mode='valid'), [1, -1], mode='valid')
     dep_ind = np.argmin(spike)
     roi = spike_der[dep_ind - 48: dep_ind - 13]
 
-    ret = 20 * np.sum(roi)
+    ret = np.sum(roi)
 
     print(f"{name} break measure is {ret}")
 
@@ -127,6 +151,8 @@ def break_measure(clu, color, sec_color, name):
     ax.add_patch(rect)
     plt.savefig(SAVE_PATH + f"{name}_break_measure.pdf", transparent=True)
     clear()
+
+    return ret
 
 
 def load_df(features, trans_labels=True):
@@ -140,6 +166,7 @@ def load_df(features, trans_labels=True):
             df = df.append(temp)
 
     df = df.loc[df.label >= 0]
+    df = df[df.region <= 1]
     if trans_labels:
         df.label = df.label.map({1: 'PYR', 0: 'PV'})
     df = df[features]
@@ -147,31 +174,50 @@ def load_df(features, trans_labels=True):
     return df
 
 
-def corr_mat(df, modality):
-    correlation_matrix = df.corr()
+def corr_mat(df, modality, order):
+    correlation_matrix = df[order].corr()
     mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
     plt.yticks(rotation=30)
     cmap = sns.color_palette("vlag", as_cmap=True)
-    _ = sns.heatmap(correlation_matrix, annot=True, fmt='.2f', mask=mask, vmin=-1, vmax=1, cmap=cmap,
+    _ = sns.heatmap(correlation_matrix, annot=False, fmt='.2f', mask=mask, vmin=-1, vmax=1, cmap=cmap,
                     annot_kws={"fontsize": 5})
     plt.savefig(SAVE_PATH + f"{modality}_cor_mat.pdf", transparent=True)
     clear()
 
 
-def density_plots(df, d_features, modality):
+def density_plots(df, d_features, modality, values):
     palette = {"PYR": PYR_COLOR, "PV": PV_COLOR}
     for c in df.columns:
         if c not in d_features:
             continue
-        # bw_adjust = (df[c].max() - df[c].min()) / 50
-        _ = sns.displot(data=df, x=c, hue="label", common_norm=False, kind="kde", fill=True,
+        if c in ['fwhm', 'trough2peak']:
+            df[c] = 1.6 * df[c] / 256  # transform index to time
+        if c in ['fzc_red']:
+            df[c] = df[c] * ((1600 / 256) ** 2)  # transform index to time
+        """_ = sns.displot(data=df, x=c, hue="label", common_norm=False, kind="kde", fill=True,
                         palette=palette)
         plt.savefig(SAVE_PATH + f"{modality}_density_{c}.pdf", transparent=True)
-        clear()
+        clear()"""
+
+    for c, vals in zip(d_features, values):
+        col_pyr = df[c][df.label == 'PYR'].to_numpy()
+        col_pv = df[c][df.label == 'PV'].to_numpy()
+
+        statistic, p_val = stats.kstest(col_pyr, col_pv)
+        print(f"KS statistical test results for feature {c} are p-value={p_val} (statistic={statistic})")
+
         ax = sns.ecdfplot(data=df, x=c, hue="label", palette=palette)
+
+        ax.scatter(vals[0], (np.sum(col_pyr < vals[0]) + np.sum(col_pyr <= vals[0])) / (2 * len(col_pyr)), color=PYR_COLOR, s=20)
+        ax.scatter(vals[1], (np.sum(col_pv < vals[1]) + np.sum(col_pv <= vals[1])) / (2 * len(col_pv)), color=PV_COLOR, s=20)
+
+        ax.axhline(0.5, c='k', alpha=0.3, lw=0.5)
+
         ax.set_ylim(ymin=0, ymax=1.1)
         ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
         ax.set_yticklabels(['0', '', '0.5', '', '1'])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         plt.savefig(SAVE_PATH + f"{modality}_cdf_{c}.pdf", transparent=True)
         clear()
 
@@ -187,8 +233,8 @@ def get_results(modality, chunk_size=[0], res_name='results_rf'):
 
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
 
-    plot_results(grouped_complete.median(), grouped_complete.sem(), 'complete', acc=True, chunk_size=chunk_size,
-                 name=modality)
+    plot_results(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', acc=True, chunk_size=chunk_size,
+                 name=modality, semsn=grouped_complete.quantile(0.25))
     clear()
 
     plot_results(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', acc=False, chunk_size=chunk_size,
@@ -229,10 +275,16 @@ def spd(clu, name):
             ax.plot(np.arange(TIMESTEPS * UPSAMPLE), mean_channel, c=c)
     ax.hlines(dep * 0.5, 0, TIMESTEPS * UPSAMPLE - 1, colors='k', linestyles='dashed')
 
-    print(f"{name} spatial dispersion count is {np.sum(chunks.min(axis=1) <= chunks.min() * 0.5)}")
+    spd = np.sum(chunks.min(axis=1) <= chunks.min() * 0.5)
+    print(f"{name} spatial dispersion count is {spd}")
+    chunk_norm = chunks.min(axis=1) / chunks.min()
+    chunk_norm.sort()
+    print(f"{name} spatial dispersion sd is {np.std(chunk_norm)}, vector {chunk_norm}")
 
     plt.savefig(SAVE_PATH + f"{name}_spatial_dispersion.pdf", transparent=True)
     clear()
+
+    return spd
 
 
 def fzc_time_lag(clu, name):
@@ -263,7 +315,8 @@ def fzc_time_lag(clu, name):
 
     dep_inds = delta.argmin(axis=1)
     cent_dep_inds = cent_delta.argmin(axis=1)
-    print(f"{name} FZC time lag value is {((cent_dep_inds - 128) ** 2)[amps >= 0.25 * amps.max()].sum()}")
+    fzc_ss = (((cent_dep_inds - 128) * (1600 / 256)) ** 2)[amps >= 0.25 * amps.max()].sum()
+    print(f"{name} FZC time lag value is {fzc_ss}")
 
     fig, ax = plt.subplots()
     it = cent_delta[(amps >= 0.25 * amps.max())]
@@ -324,12 +377,14 @@ def fzc_time_lag(clu, name):
     plt.savefig(SAVE_PATH + f"{name}_fzc_time_lag_v3.pdf", transparent=True)
     clear()
 
+    return fzc_ss
+
 
 def ach(bin_range, name, clu):
-    N = 2 * bin_range + 2
+    N = 2 * bin_range + 1
     offset = 1 / 2
-    bins = np.linspace(-bin_range - offset, bin_range + offset, N)
-    c = PV_COLOR if name == 'pv' else PYR_COLOR
+    bins = np.linspace(-bin_range - offset, bin_range + offset, N + 1)
+    c = PV_COLOR if 'pv' in name else PYR_COLOR
 
     try:
         hist = np.load(f'./ach_{name}_{bin_range}.npy')
@@ -343,11 +398,11 @@ def ach(bin_range, name, clu):
 
     bin_inds = np.linspace(bins[0] + offset, bins[-1] - offset, UPSAMPLE * (N - 1))"""
 
-    bin_inds = np.linspace(bins[0] + offset, bins[-1] - offset, N - 1)
+    bin_inds = np.convolve(bins, [0.5, 0.5], mode='valid')
     hist_up = hist
 
     fig, ax = plt.subplots()
-    ax.bar(bin_inds, hist_up, color=c)
+    ax.bar(bin_inds, hist_up, color=c, width=bins[1]-bins[0])
     ax.set_ylim(0, 60)
     plt.savefig(SAVE_PATH + f"{name}_ACH_{bin_range}.pdf", transparent=True)
     clear()
@@ -374,9 +429,12 @@ def unif_dist(hist, name):
               colors='k', linestyles='dashed')
     ax.set_ylim(ymin=0, ymax=1.1)
     ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
-    print(f"{name} unif_dist is {np.sum(dists)}")
+    ret = np.sum(dists) / len(cdf)
+    print(f"{name} unif_dist is {ret}")
     plt.savefig(SAVE_PATH + f"{name}_unif_dist.pdf", transparent=True)
     clear()
+
+    return ret
 
 
 def dkl_mid(hist, name):
@@ -404,6 +462,8 @@ def dkl_mid(hist, name):
     ax.fill_between(x, dkl_func, alpha=0.2, color=color_second)
     plt.savefig(SAVE_PATH + f"{name}_dkl_mid.pdf", transparent=True)
     clear()
+
+    return dkl
 
 
 def plot_delta(clu, name):
@@ -437,7 +497,7 @@ def plot_delta(clu, name):
     shift = chunks.shape[-1] // 2 - delta[main_c].argmin()
     ret = np.roll(delta, shift, axis=1)
 
-    fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True, figsize=(3, 20))
+    fig, ax = plt.subplots(NUM_CHANNELS, 1, sharex=True, sharey=True, figsize=(6, 20))
     for i, c_ax in enumerate(ax[::-1]):
         c_ax.plot(delta[i], c=color_second)
         c_ax.plot(ret[i], c=color_main)
@@ -457,11 +517,11 @@ def get_delta_results(modality, chunk_size=[0], res_name='results_rf_delta'):
 
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
 
-    plot_results(grouped_complete.median(), grouped_complete.sem(), 'complete', acc=True, chunk_size=chunk_size,
-                 name='delta_morph')
+    plot_results(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', acc=True, chunk_size=chunk_size,
+                 name='delta_morph', semsn=grouped_complete.quantile(0.25))
     clear()
-    plot_results(grouped_complete.median(), grouped_complete.sem(), 'complete', acc=False, chunk_size=chunk_size,
-                 name='delta_morph')
+    plot_results(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', acc=False, chunk_size=chunk_size,
+                 name='delta_morph', semsn=grouped_complete.quantile(0.25))
     clear()
 
     d = {'spatial': SPATIAL, 'morphological': MORPHOLOGICAL, 'temporal': TEMPORAL}
@@ -507,7 +567,7 @@ def chunk_results(res_name='results_rf'):
     complete = complete.drop(columns=drop)
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
 
-    plot_acc_vs_auc(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', name='chunks_rf',
+    plot_acc_vs_auc_new(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', name='chunks_rf',
                     semsn=grouped_complete.quantile(0.25))
     clear()
 
@@ -528,13 +588,17 @@ def compare_densities(df, feature_names):
     for c in df.columns:
         if c not in feature_names:
             continue
+        if c in ['fwhm', 'trough2peak']:
+            df[c] = 1.6 * df[c] / 256  # transform index to time
+        if c in ['fzc_red']:
+            df[c] = df[c] * ((1600 / 256) ** 2)  # transform index to time
         fig, ax = plt.subplots(2, sharex=True, sharey=True)
         _ = sns.ecdfplot(data=df, x=c, hue="Label", ax=ax[1], palette=palette1)
         _ = sns.ecdfplot(data=df, x=c, hue="Label X Region", ax=ax[0], palette=palette2, hue_order=order)
         ax[0].set_yticks([0, 0.25, 0.5, 0.75, 1])
         ax[0].set_yticklabels(['0', '', '0.5', '', '1'])
 
-        for lines, linestyle, legend_handle in zip(ax[0].lines, ['-', '-', '--', '--'], ax[0].legend_.legendHandles):
+        for lines, linestyle, legend_handle in zip(ax[0].lines, ['--', '--', '-', '-'], ax[0].legend_.legendHandles[::-1]):
             lines.set_linestyle(linestyle)
             legend_handle.set_linestyle(linestyle)
 
@@ -551,7 +615,7 @@ def compare_densities(df, feature_names):
         clear()
 
 
-def get_comp_results(chunk_size=[0], res_name='results_rf_region'):
+def get_comp_results(chunk_size=[0], res_name='results_rf_region_corrected'):
     results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
 
@@ -567,11 +631,11 @@ def get_comp_results(chunk_size=[0], res_name='results_rf_region'):
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
 
     # accuracy and AUC
-    plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, name='ncx_vs_ca1_acc',
-                     chunk_size=chunk_size)
+    plot_test_vs_dev(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', acc=True, name='ncx_vs_ca1_acc',
+                     chunk_size=chunk_size, semsn=grouped_complete.quantile(0.25))
     clear()
-    plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, name='ncx_vs_ca1_auc',
-                     chunk_size=chunk_size)
+    plot_test_vs_dev(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', acc=False, name='ncx_vs_ca1_auc',
+                     chunk_size=chunk_size, semsn=grouped_complete.quantile(0.25))
     clear()
 
     # confusion matrices
@@ -607,8 +671,8 @@ if __name__ == '__main__':
     pv_cluster.plot_cluster(save=True, path=SAVE_PATH)
     clear()
 
-    _ = ach(50, 'pv_org', pv_cluster)
-    _ = ach(50, 'pyr_org', pyr_cluster)
+    _ = ach(30, 'pv_org', pv_cluster)
+    _ = ach(30, 'pyr_org', pyr_cluster)
 
     # Load wanted units - no light
     pyr_cluster = load_cluster(TEMP_PATH_NO_LIGHT, pyr_name)
@@ -623,26 +687,29 @@ if __name__ == '__main__':
     pv_cluster.plot_cluster(save=True, path=SAVE_PATH, name='no_light')
     clear()
 
-    """# Morphological features - figure 2
+    df = load_df(['region', 'label'], trans_labels=False)
+    pie_chart(df)
+
+    # Morphological features - figure 2
 
     clu = pyr_cluster
     color = PYR_COLOR
 
-    t2p_fwhm(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
-    t2p_fwhm(pv_cluster, PV_COLOR, LIGHT_PV, 'pv')
+    pyr_t2p, pyr_fwhm = t2p_fwhm(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
+    pv_t2p, pv_fwhm = t2p_fwhm(pv_cluster, PV_COLOR, LIGHT_PV, 'pv')
 
-    break_measure(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
-    break_measure(pv_cluster, PV_COLOR, LIGHT_PV, 'pv')
+    pyr_break = break_measure(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
+    pv_break = break_measure(pv_cluster, PV_COLOR, LIGHT_PV, 'pv')
 
     features = ['break_measure', 'fwhm', 'get_acc', 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry',
                 'label']
     df = load_df(features)
 
-    corr_mat(df, 'morph')
+    order_morph = ['trough2peak', 'peak2peak', 'fwhm', 'rise_coef', 'max_speed', 'break_measure', 'smile_cry', 'get_acc']
+    corr_mat(df, 'morph', order_morph)
 
     d_features = ['fwhm', 'trough2peak', 'break_measure']
-    df['break_measure'] = df['break_measure'] / 20
-    density_plots(df, d_features, 'morph')
+    density_plots(df, d_features, 'morph', [[pyr_fwhm, pv_fwhm], [pyr_t2p, pv_t2p], [pyr_break, pv_break]])
 
     get_results('morphological', chunk_size=[0])
 
@@ -685,16 +752,17 @@ if __name__ == '__main__':
     features = ['d_kl_start', 'd_kl_mid', 'jump', 'psd_center', 'der_psd_center', 'rise_time', 'unif_dist', 'label']
     df = load_df(features)
 
-    corr_mat(df, 'temporal')
+    order_temp = ['unif_dist', 'd_kl_start', 'rise_time', 'jump', 'd_kl_mid', 'psd_center', 'der_psd_center']
+    corr_mat(df, 'temporal', order_temp)
+
+    pv_unif_dist = unif_dist(hist_pv, 'pv')
+    pyr_unif_dist = unif_dist(hist_pyr, 'pyr')
+
+    pv_dkl_mid = dkl_mid(hist_pv_long, 'pv')
+    pyr_dkl_mid = dkl_mid(hist_pyr_long, 'pyr')
+
     d_features = ['unif_dist', 'd_kl_mid']
-
-    density_plots(df, d_features, 'temporal')
-
-    unif_dist(hist_pv, 'pv')
-    unif_dist(hist_pyr, 'pyr')
-
-    dkl_mid(hist_pv_long, 'pv')
-    dkl_mid(hist_pyr_long, 'pyr')
+    density_plots(df, d_features, 'temporal', [[pyr_unif_dist, pv_unif_dist], [pyr_dkl_mid, pv_dkl_mid]])
 
     get_results('temporal', chunk_size=[0])
 
@@ -707,21 +775,24 @@ if __name__ == '__main__':
 
     # Spatial features - figure 5
 
-    spd(pyr_cluster, 'pyr')
-    spd(pv_cluster, 'pv')
+    pyr_spd = spd(pyr_cluster, 'pyr')
+    pv_spd = spd(pv_cluster, 'pv')
+
+    pyr_fzc = fzc_time_lag(pyr_cluster, 'pyr')
+    pv_fzc = fzc_time_lag(pv_cluster, 'pv')
 
     features = ['spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area', 'geometrical_shift',
                 'geometrical_shift_sd', 'graph_avg_speed', 'graph_slowest_path', 'graph_fastest_path', 'dep_red',
                 'dep_sd', 'fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'label']
     df = load_df(features)
 
-    corr_mat(df, 'spatial')
-    d_features = ['spatial_dispersion_count', 'spatial_dispersion_area', 'fzc_red']
+    order_spat = ['fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'dep_red', 'dep_sd', 'spatial_dispersion_count',
+                  'spatial_dispersion_sd', 'spatial_dispersion_area', 'geometrical_shift', 'geometrical_shift_sd',
+                  'graph_avg_speed', 'graph_slowest_path', 'graph_fastest_path']
+    corr_mat(df, 'spatial', order_spat)
 
-    density_plots(df, d_features, 'spatial')
-
-    fzc_time_lag(pyr_cluster, 'pyr')
-    fzc_time_lag(pv_cluster, 'pv')
+    d_features = ['spatial_dispersion_count', 'fzc_red']
+    density_plots(df, d_features, 'spatial', [[pyr_spd, pv_spd], [pyr_fzc, pv_fzc]])
 
     get_results('spatial', chunk_size=[0])
 
@@ -729,11 +800,11 @@ if __name__ == '__main__':
     
     chunk_fig(pyr_cluster, 'pyr', 200)
 
-    chunk_results()"""
+    chunk_results()
 
     # nCX vs CA1 - fig 7
     
-    feature_names = ['fwhm', 'trough2peak', 'unif_dist', 'd_kl_mid', 'spatial_dispersion_sd', 'fzc_red']
+    feature_names = ['fwhm', 'trough2peak', 'unif_dist', 'd_kl_mid', 'spatial_dispersion_sd', 'spatial_dispersion_count', 'fzc_red']
     features_df = feature_names + ['region', 'label']
     df = load_df(features_df, trans_labels=False)
 

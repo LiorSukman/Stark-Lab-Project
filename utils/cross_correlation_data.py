@@ -69,14 +69,17 @@ if __name__ == "__main__":
     mdic = {"timings": timings * 20, "classes": classes}
     # io.savemat("cc_mat.mat", mdic)
 
-    N = 2 * 1 * 50 + 2
+    time = 30
+    res = 1
+
+    N = 2 * res * time + 2  # times 2 for sides
     offset = 1 / (2 * 1)
-    bins = np.linspace(-50 - offset, 50 + offset, N)
+    bins = np.linspace(-time - offset, time + offset, N)
 
     hist = calc_hist(pv_timings, pyr_timings, bins)
-    fig, ax = plt.subplots(figsize=(30, 8))
+    fig, ax = plt.subplots()
     ax.vlines(0, ymin=0, ymax=hist.max(), color='k', linestyle='--')
-    ax.bar(np.linspace(-50, 50, N - 1), hist)
+    ax.bar(np.linspace(-time, time, N - 1), hist, color='k', width=bins[1]-bins[0])
 
     plt.savefig(SAVE_PATH + f"CCH.pdf", transparent=True)
 

@@ -283,6 +283,9 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None, calc_morph
 
     for clusters in clusters_generator:
         for cluster in clusters:  # for each unit
+            if cluster.label < 0:
+                print('Skipping cluster:' + cluster.get_unique_name() + ' for not being PYR nor PV')
+                continue
             print('Processing cluster:' + cluster.get_unique_name())
             recording_name = '_'.join(cluster.get_unique_name().split('_')[:-2])
             if SESSION_TO_ANIMAL[recording_name] == 401:
@@ -320,6 +323,7 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None, calc_morph
                     morphological_features_mat = calc_morphological_features(rel_data)
                     feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
                                                               temporal_features_mat), axis=1)
+                    # feature_mat_for_cluster = spatial_features_mat
                 else:
                     feature_mat_for_cluster = None
                     for inst in DELTA_MODE:
@@ -357,8 +361,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
-                        default=[0, 100, 200, 400, 800, 1600])
-    parser.add_argument('--save_path', type=str, default='clustersData_no_light_FINAL/',
+                        default=[0, 25, 50, 100, 200, 400, 800, 1600])
+    parser.add_argument('--save_path', type=str, default='clusterData_no_light_14_03_22_Hz/',
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')
