@@ -1,8 +1,10 @@
+from py._code.assertion import AssertionError
+
 import ML_util
 import os
 import pandas as pd
 import numpy as np
-from sklearn.metrics import roc_curve, auc, f1_score, precision_recall_curve
+from sklearn.metrics import roc_curve, auc, f1_score, precision_recall_curve, matthews_corrcoef
 from sklearn.preprocessing import StandardScaler
 from sklearn.inspection import permutation_importance
 # from sklearn.utils.testing import ignore_warnings
@@ -19,13 +21,13 @@ from constants import TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0, 100, 200, 400, 800, 1600]
+chunks = [0, 25, 50, 100, 200, 400, 800, 1600]
 restrictions = ['complete', 'no_small_sample']
 dataset_identifier = '0.800.2'  # 0.800.2'
 importance_mode = 'shap'  # reg, perm or shap (for rf only)
 
 # try_load = '../saved_models' # TODO implement
-NUM_FETS = 30
+NUM_FETS = 34
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -97,8 +99,7 @@ def get_shap_imp(clf, test, seed):
 
 def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
-    # test_path = data_path.replace('200', '500').replace('500', '0')
-    # _, _, test, _, _, _ = ML_util.get_dataset(test_path)
+
     if not region_based:
         train = np.concatenate((train, dev))
     train_squeezed = ML_util.squeeze_clusters(train)
@@ -142,14 +143,53 @@ def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
         return auc_val, fpr, tpr
 
 
+def get_mcc(clf, data_path, region_based, use_dev=False):
+    train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
+    if not region_based:
+        train = np.concatenate((train, dev))
+    train_squeezed = ML_util.squeeze_clusters(train)
+    train_features, train_labels = ML_util.split_features(train_squeezed)
+    train_features = np.nan_to_num(train_features)
+    train_features = np.clip(train_features, -INF, INF)
+
+    scaler = StandardScaler()
+    scaler.fit(train_features)
+
+    bin_preds = []
+    targets = []
+
+    test_set = test if not use_dev else dev
+    if len(test_set) == 0:
+        return 0
+
+    for cluster in test_set:
+        features, labels = ML_util.split_features(cluster)
+        features = np.nan_to_num(features)
+        features = np.clip(features, -INF, INF)
+        features = scaler.transform(features)
+
+        label = labels[0]  # as they are the same for all the cluster
+        prob = clf.predict_proba(features).mean(axis=0)
+        bin_pred = prob.argmax()
+        bin_preds.append(bin_pred)
+        targets.append(label)
+
+    mcc = matthews_corrcoef(targets, bin_preds)
+    print("mcc:", mcc)
+    return mcc
+
+
 def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg', region_based=False):
     accs, pyr_accs, in_accs, aucs, fprs, tprs, importances = [], [], [], [], [], [], []
     dev_accs, dev_pyr_accs, dev_in_accs, dev_aucs, dev_fprs, dev_tprs, dev_importances = [], [], [], [], [], [], []
+    f1s, precisions, recalls, dev_f1s, dev_precisions, dev_recalls = [], [], [], [], [], []
+    mccs, dev_mccs = [], []
     C, gamma, n_estimators, max_depth, min_samples_split, min_samples_leaf, lr = [None] * 7
 
     path_split = data_path.split('/')
     dest = f"../saved_models/{model}_{path_split[3]}_{path_split[2]}"
 
+    print(f"            Starting chunk size = {chunks[0]}")
     if model == 'rf':
         clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, min_samples_split, \
         min_samples_leaf = grid_search_rf(data_path + f"/0_{dataset_identifier}/", False, n_estimators_min,
@@ -157,10 +197,14 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                                           max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min,
                                           min_samples_splits_max,
                                           min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max,
-                                          min_samples_leafs_num, n, seed,
-                                          region_based)
+                                          min_samples_leafs_num, n, seed=seed, region_based=region_based)
+
         auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
         dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
+
+        f1, precision, recall = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, calc_f1=True)
+        dev_f1, dev_precision, dev_recall = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based,
+                                                     use_dev=True, calc_f1=True)
 
         if importance_mode == 'reg':
             dev_importance = importance = clf.feature_importances_
@@ -201,12 +245,19 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
         auc, fpr, tpr = 0, [0], [0]
         dev_auc, dev_fpr, dev_tpr = 0, [0], [0]
 
+        f1, precision, recall = 0, [0], [0]
+        dev_f1, dev_precision, dev_recall = 0, [0], [0]
+
     elif model == 'gb':
         clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, lr = grid_search_gb(
             data_path + f"/0_{dataset_identifier}/", False, n_estimators_min, n_estimators_max, n_estimators_num,
-            max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max, lr_num, n, region_based)
+            max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max, lr_num, n, seed=seed, region_based=region_based)
         auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
         dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
+
+        f1, precision, recall = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, calc_f1=True)
+        dev_f1, dev_precision, dev_recall = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based,
+                                                     use_dev=True, calc_f1=True)
 
         if importance_mode == 'perm':
             x, y = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
@@ -216,11 +267,22 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                 dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
             else:
                 dev_importance = np.zeros(importance.shape)
+        elif importance_mode == 'shap':
+            x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
+            importance = get_shap_imp(clf, x, seed)
+            x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
+            if len(x) > 0:
+                dev_importance = get_shap_imp(clf, x, seed)
+            else:
+                dev_importance = np.zeros(importance.shape)
         else:
             raise NotImplementedError
 
     else:
         raise Exception(f"model {model} is not suppurted, only svm, gb or rf are supported at the moment")
+
+    mcc = get_mcc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
+    dev_mcc = get_mcc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
 
     accs.append(acc)
     pyr_accs.append(pyr_acc)
@@ -236,16 +298,27 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
     dev_fprs.append(dev_fpr)
     dev_tprs.append(dev_tpr)
 
+    f1s.append(f1)
+    precisions.append(precision)
+    recalls.append(recall)
+    dev_f1s.append(dev_f1)
+    dev_precisions.append(dev_precision)
+    dev_recalls.append(dev_recall)
+
+    mccs.append(mcc)
+    dev_mccs.append(dev_mcc)
+
     importances.append(importance)
     dev_importances.append(dev_importance)
 
-    with open(dest + "_0", 'wb') as fid:  # save the model
-        pickle.dump(clf, fid)
+    """with open(dest + "_0", 'wb') as fid:  # save the model
+        pickle.dump(clf, fid)"""
 
     restriction, modality = data_path.split('/')[-2:]
     restriction = '_'.join(restriction.split('_')[:-1])
 
     for chunk_size in chunks[1:]:
+        print(f"            Starting chunk size = {chunk_size}")
         clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc = run_model(model, None, None, None, False, None,
                                                                                 False, True, False, gamma, C,
                                                                                 kernel,
@@ -259,6 +332,11 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
             dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based,
                                                  use_dev=True)
             print(f"\nchunk size: {chunk_size} - AUC: {auc}, dev AUC: {dev_auc}\n")
+
+            f1, precision, recall = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based,
+                                             calc_f1=True)
+            dev_f1, dev_precision, dev_recall = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/",
+                                                         region_based, use_dev=True, calc_f1=True)
             if model == 'rf':
                 if importance_mode == 'reg':
                     dev_importance = importance = clf.feature_importances_
@@ -272,7 +350,9 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                         dev_importance = np.zeros(importance.shape)
                 elif importance_mode == 'shap':
                     x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
+                    print("Calculating importance...")
                     importance = get_shap_imp(clf, x, seed)
+                    print("Finished")
                     x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
                     if len(x) > 0:
                         dev_importance = get_shap_imp(clf, x, seed)
@@ -287,6 +367,14 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                     x, y = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
                     if len(x) > 0:
                         dev_importance = permutation_importance(clf, x, y, random_state=seed + 1).importances_mean
+                    else:
+                        dev_importance = np.zeros(importance.shape)
+                elif importance_mode == 'shap':
+                    x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
+                    importance = get_shap_imp(clf, x, seed)
+                    x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
+                    if len(x) > 0:
+                        dev_importance = get_shap_imp(clf, x, seed)
                     else:
                         dev_importance = np.zeros(importance.shape)
                 else:
@@ -305,6 +393,11 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
                 raise NotImplementedError
             auc, fpr, tpr = 0, [0], [0]
             dev_auc, dev_fpr, dev_tpr = 0, [0], [0]
+            f1, precision, recall = 0, [0], [0]
+            dev_f1, dev_precision, dev_recall = 0, [0], [0]
+
+        mcc = get_mcc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
+        dev_mcc = get_mcc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, use_dev=True)
 
         accs.append(acc)
         pyr_accs.append(pyr_acc)
@@ -320,17 +413,28 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
         dev_fprs.append(dev_fpr)
         dev_tprs.append(dev_tpr)
 
+        f1s.append(f1)
+        precisions.append(precision)
+        recalls.append(recall)
+        dev_f1s.append(dev_f1)
+        dev_precisions.append(dev_precision)
+        dev_recalls.append(dev_recall)
+
+        mccs.append(mcc)
+        dev_mccs.append(dev_mcc)
+
         importances.append(importance)
         dev_importances.append(dev_importance)
 
-        with open(dest + f"_{chunk_size}", 'wb') as fid:  # save the model
-            pickle.dump(clf, fid)
+        """with open(dest + f"_{chunk_size}", 'wb') as fid:  # save the model
+            pickle.dump(clf, fid)"""
 
     df = pd.DataFrame(
         {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [str(seed)] * len(accs),
          'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs, 'fpr': fprs, 'tpr': tprs,
          'dev_acc': dev_accs, 'dev_pyr_acc': dev_pyr_accs, 'dev_in_acc': dev_in_accs, 'dev_auc': dev_aucs,
-         'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs
+         'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs, 'f1': f1s, 'precision': precisions, 'recall': recalls,
+         'dev_f1': dev_f1s, 'dev_precision': dev_precisions, 'dev_recall': dev_recalls, 'mcc': mccs, 'dev_mcc': dev_mccs
          })
 
     features = [f"test feature {f + 1}" for f in range(NUM_FETS)]
@@ -348,14 +452,14 @@ def get_modality_results(data_path, seed, model, fet_inds, importance_mode='reg'
 
 def get_folder_results(data_path, model, seed, region_based=False):
     df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'dev_acc', 'dev_pyr_acc',
-               'dev_in_acc', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr'] + \
+               'dev_in_acc', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr', 'f1', 'precision', 'recall',
+               'dev_f1', 'dev_precision', 'dev_recall', 'mcc', 'dev_mcc'] + \
               [f"test feature {f + 1}" for f in range(NUM_FETS)] + [f"dev feature {f + 1}" for f in range(NUM_FETS)]
     df = pd.DataFrame({col: [] for col in df_cols})
     for modality in modalities:
         print(f"        Starting modality {modality[0]}")
-        with HiddenPrints():
-            modality_df = get_modality_results(data_path + '/' + modality[0], seed, model, modality[1],
-                                               importance_mode=importance_mode, region_based=region_based)
+        modality_df = get_modality_results(data_path + '/' + modality[0], seed, model, modality[1],
+                                           importance_mode=importance_mode, region_based=region_based)
         df = df.append(modality_df, ignore_index=True)
 
     return df
@@ -373,15 +477,16 @@ if __name__ == "__main__":
     7) datas.txt is updated 
     """
     model = 'rf'
-    iterations = 20
-    animal_based = True
+    iterations = 50
+    animal_based = False
     region_based = False
     perm_labels = False
     results = None
-    save_path = '../data_sets_animal_CA1'
+    save_path = '../data_sets_hz_160322'
+    if not os.path.isdir(save_path):
+        os.mkdir(save_path)
     restrictions = ['complete']
     modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
-    # modalities = [('morphological', [i for i in range(27)] + [-1])]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -398,10 +503,12 @@ if __name__ == "__main__":
                 with HiddenPrints():
                     ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt', seed=i,
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                            region_based=region_based, perm_labels=perm_labels, group_split=animal_based)
+                                            region_based=region_based, perm_labels=perm_labels,
+                                            group_split=animal_based)
             if results is None:
                 results = get_folder_results(new_path, model, i, region_based)
             else:
-                results = results.append(get_folder_results(new_path, model, i), ignore_index=True)
+                results = results.append(get_folder_results(new_path, model, i, region_based), ignore_index=True)
+                results.to_csv(f'results_{model}_hz_{i}.csv')
 
-    results.to_csv(f'results_{model}_animal_CA1.csv')
+    results.to_csv(f'results_{model}_hz.csv')

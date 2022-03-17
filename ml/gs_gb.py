@@ -49,7 +49,7 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
 
 def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_estimators_num,
                 max_depth_min, max_depth_max, max_depth_num, lr_min, lr_max,
-                lr_num, n, train=None, dev=None, test=None, region_based=False):
+                lr_num, n, train=None, dev=None, test=None, seed=0, region_based=False):
     """
     grid search runner function
     see help for parameter explanations
@@ -79,8 +79,8 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     parameters = {'n_estimators': n_estimatorss, 'max_depth': max_depths, 'learning_rate': lrs}
     ones = labels.sum()
     zeros = len(labels) - ones
-    model = XGBClassifier(scale_pos_weight=zeros / ones, use_label_encoder=False)
-    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=0), verbose=0)
+    model = XGBClassifier(scale_pos_weight=zeros / ones, use_label_encoder=False, eval_metric='logloss')
+    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=seed), verbose=0)
     print('Starting grid search...')
     start = time.time()
     clf.fit(features, labels)
@@ -94,7 +94,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
 
     # need to create another one as the other trains on both train and dev
     classifier = XGBClassifier(scale_pos_weight=zeros / ones, n_estimators=n_estimators, max_depth=max_depth,
-                               learning_rate=lr)
+                               learning_rate=lr, random_state=seed, eval_metric='logloss')
     classifier.fit(features, labels)
 
     print()

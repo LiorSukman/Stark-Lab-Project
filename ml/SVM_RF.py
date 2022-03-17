@@ -109,9 +109,6 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
 
     train, dev, test, _, dev_names, test_names = ML_util.get_dataset(dataset_path)
 
-    # test_path = dataset_path.replace('200', '500').replace('500', '0')
-    # _, _, test, _, _, test_names = ML_util.get_dataset(test_path)
-
     if (not region_based) and len(dev) > 0:  # for region change to if False
         train = np.concatenate((train, dev))
     # train_names = np.concatenate((train_names, dev_names))
@@ -173,7 +170,7 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
             ones = train_labels.sum()
             zeros = len(train_labels) - ones
             clf = XGBClassifier(scale_pos_weight=zeros / ones, use_label_encoder=False, n_estimators=n_estimators,
-                                max_depth=max_depth, learning_rate=lr, random_state=seed)
+                                max_depth=max_depth, learning_rate=lr, random_state=seed, eval_metric='logloss')
             print('Fitting Gradient Boosting model...')
         start = time.time()
         clf.fit(train_features, train_labels)

@@ -38,7 +38,7 @@ def split_features(data):
     """
    The function simply separates the features and the labels of the clusters
    """
-    return data[:, :-1], data[:, -1]
+    return data[:, :-1], data[:, -1].astype('int32')
 
 
 def unite_fets_labels(features, labels):
@@ -63,7 +63,7 @@ def is_legal(cluster, mode, region):
     row = cluster[0]
     t_time = cluster[:, 8] if len(cluster) == 1 else 128
     if mode == 'complete':
-        return row[-1] >= 0# and region == 1# and 127 <= t_time <= 129
+        return row[-1] >= 0  # and region == 1# and 127 <= t_time <= 129
     elif mode == 'no_noise':  # currently obsolete
         raise NotImplementedError
         return row[-1] >= 0 and row[-3] >= 100
@@ -118,7 +118,7 @@ def read_data(path, mode='complete', should_filter=True, keep=None, filter=None)
             clusters.append(nd)
         names.append(name)
         regions.append(region)
-        recordings.append(SESSION_TO_ANIMAL['_'.join(name.split('_')[0:-2])])
+        recordings.append(SESSION_TO_ANIMAL['_'.join(name.split('_')[0: -2])])
     return np.asarray(clusters), np.array(names), np.array(recordings), np.array(regions), filter_set
 
 
@@ -201,12 +201,13 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
                    group_split=group_split, seed=seed, region_based=region_based, regions=regions, perm_labels=perm_labels)
 
 
-def get_dataset(path):
+def get_dataset(path, verbose=False):
     """
    This function simply loads a dataset from the path and returns it. It is assumed that create_datasets() was already
    executed
    """
-    print('Loading data set from %s...' % path)
+    if verbose:
+        print('Loading data set from %s...' % path)
     train = np.load(path + 'train.npy', allow_pickle=True)
     dev = np.load(path + 'dev.npy', allow_pickle=True)
     test = np.load(path + 'test.npy', allow_pickle=True)
@@ -218,9 +219,10 @@ def get_dataset(path):
 
     num_clusters = data.shape[0]
     num_wfs = count_waveforms(data)
-    print_data_stats(train, 'train', num_clusters, num_wfs)
-    print_data_stats(dev, 'dev', num_clusters, num_wfs)
-    print_data_stats(test, 'test', num_clusters, num_wfs)
+    if verbose:
+        print_data_stats(train, 'train', num_clusters, num_wfs)
+        print_data_stats(dev, 'dev', num_clusters, num_wfs)
+        print_data_stats(test, 'test', num_clusters, num_wfs)
 
     return train, dev, test, train_names, dev_names, test_names
 
