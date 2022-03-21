@@ -18,7 +18,7 @@ mpl.rcParams['ps.fonttype'] = 42
 
 restrictions = ['complete', 'no_small_sample']
 modalities = ['spatial', 'morphological', 'temporal', 'spat_tempo']
-NUM_FETS = 33
+NUM_FETS = 34
 SAVE_PATH = '../../../data for figures/DUP/'
 
 
@@ -253,8 +253,8 @@ def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=N
 
     map = {f: name for (f, name) in zip(fets_org, fet_names)}
     df = df.rename(map, axis='columns')
-    df = df.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1'])
-    df = df.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1'])
+    df = df.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
+    df = df.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
     sems = sems.rename(map, axis='columns')
     sems = sems.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc'])
     sems = sems.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc'])
@@ -638,7 +638,7 @@ if __name__ == "__main__":
     import warnings
 
     # warnings.simplefilter("error")
-    model = 'rf'
+    model = 'rf_hz'
     results = pd.read_csv(f'results_{model}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
     # complete = complete[complete.chunk_size == 0]
@@ -654,7 +654,7 @@ if __name__ == "__main__":
 
     # plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar', dev=False)
     # plot_results(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar', dev=False)
-    #plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete', chunk_size=[0])
+    plot_fet_imp(grouped_complete.mean(), grouped_complete.sem(), 'complete', chunk_size=[0], modalities=[('temporal', TEMPORAL)])
     #plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=True, mode='bar', chunk_size=[0])
     #plot_test_vs_dev(grouped_complete.mean(), grouped_complete.sem(), 'complete', acc=False, mode='bar', chunk_size=[0])
 

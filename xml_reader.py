@@ -37,7 +37,3 @@ def read_xml(path):
             ret[f"{file_name}_{i + 1}"] = num_channels
 
     return ret
-
-
-if __name__ == '__main__':
-    print(len(read_xml(PATH)))

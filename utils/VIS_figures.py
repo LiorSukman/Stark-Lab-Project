@@ -228,7 +228,6 @@ def get_results(modality, chunk_size=[0], res_name='results_rf'):
     complete = complete[complete.modality == modality]
 
     complete = complete[complete.chunk_size.isin(chunk_size)]
-    complete = complete[complete.modality == modality]
     complete = complete.dropna(how='all', axis=1)
 
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])

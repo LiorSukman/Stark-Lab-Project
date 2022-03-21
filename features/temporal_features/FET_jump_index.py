@@ -26,6 +26,13 @@ class Jump(object):
         if mid_band is None:
             assert rhs is not None
             mid_band = rhs[:, self.resolution * self.jmp_min: self.resolution * self.jmp_max + 1]
+
+        mid_cdf = (np.cumsum(mid_band, axis=1).T / np.sum(mid_band, axis=1)).T
+        uniform_cdf = np.linspace(0, 1, mid_cdf.shape[1])
+
+        result = abs((mid_cdf - uniform_cdf)).sum(axis=1) / mid_cdf.shape[1]
+
+        """
         result = np.zeros((len(mid_band), 1))
         for i, mid in enumerate(mid_band):
             jmp_line = np.linspace(mid[0], mid[-1], len(mid))
@@ -33,7 +40,9 @@ class Jump(object):
             ach_jmp = np.sum((mid - jmp_line) ** 2)
             result[i, 0] = ach_jmp
 
-        return result
+        return result"""
+
+        return np.expand_dims(result, axis=1)
 
     def set_fields(self, resolution, mid_band_start, mid_band_end, **kwargs):
         self.resolution = resolution
