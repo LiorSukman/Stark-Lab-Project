@@ -137,7 +137,7 @@ class DepolarizationGraph(object):
     which the signal travels between the two channels that comprise it.
     """
 
-    def __init__(self, thr=0.3, data_name='dep'):
+    def __init__(self, thr=0.25, data_name='dep'):
         self.thr = thr
 
         self.name = 'depolarization graph'
@@ -193,7 +193,7 @@ class DepolarizationGraph(object):
             g_temp = []
             for i in range(NUM_CHANNELS):
                 max_dep_index = arr[i].argmin()
-                if amp[i] >= threshold:  # <= as we are looking at negative values
+                if amp[i] >= threshold:
                     g_temp.append((i, max_dep_index))
             g_temp.sort(key=lambda x: x[1])
             assert len(g_temp) > 0

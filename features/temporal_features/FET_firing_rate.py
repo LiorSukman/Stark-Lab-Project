@@ -25,7 +25,6 @@ class FiringRate(object):
 
         return np.expand_dims(chunk_rates, axis=1)
 
-
     @property
     def headers(self):
         """
