@@ -7,8 +7,7 @@ from scipy.stats import sem as calc_sem
 import ml.ML_util as ML_util
 from utils.hideen_prints import HiddenPrints
 
-from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, SPAT_TEMPO
-from constants import TRANS_MORPH
+from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL
 from constants import feature_names as fet_names
 
 import matplotlib as mpl
@@ -17,9 +16,9 @@ mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
 
 restrictions = ['complete', 'no_small_sample']
-modalities = ['spatial', 'morphological', 'temporal', 'spat_tempo']
+modalities = ['spatial', 'morphological', 'temporal']
 NUM_FETS = 34
-SAVE_PATH = '../../../data for figures/DUP/'
+SAVE_PATH = '../../../data for figures/020422/'
 
 
 def change_length(x, y, length):
@@ -108,17 +107,18 @@ def plot_roc_curve(df, name=None, chunk_size=[200], modalities=None, use_dev=Fal
             tprs = np.array([change_length(fpr, tpr, x_length) for tpr, fpr in zip(tprs, fprs)])
 
             mean_fprs = [0] + list(np.linspace(0, 1, x_length))
-            mean_tprs = tprs.mean(axis=0)
-            sem = calc_sem(tprs, axis=0)
+            med_tprs = np.median(tprs, axis=0)
+            iqr25 = np.quantile(tprs, 0.25, axis=0)
+            iqr75 = np.quantile(tprs, 0.75, axis=0)
 
             auc_col = 'auc' if not use_dev else 'dev_auc'
 
-            auc = df_cz[auc_col].mean()
+            auc = np.median(df_cz[auc_col])
 
             label_add = f", chunk size = {cz}" if len(chunk_size) > 1 else ""
 
-            ax.plot(mean_fprs, mean_tprs, label=f"AUC={auc:.3f}" + label_add)
-            ax.fill_between(mean_fprs, mean_tprs - sem, mean_tprs + sem, alpha=0.2)
+            ax.plot(mean_fprs, med_tprs, label=f"AUC={auc:.3f}" + label_add)
+            ax.fill_between(mean_fprs, iqr25, iqr75, alpha=0.2)
 
         ax.plot(mean_fprs, mean_fprs, color='k', linestyle='--', label='chance level')
         ax.legend()
@@ -132,12 +132,12 @@ def plot_roc_curve(df, name=None, chunk_size=[200], modalities=None, use_dev=Fal
             plt.savefig(SAVE_PATH + f"{name}_{m_name}_roc_curve.pdf", transparent=True)
 
 
-def plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz):
+def plot_cf(tp, tn, fp, fn, tp_q25, tn_q25, fp_q25, fn_q25, tp_q75, tn_q75, fp_q75, fn_q75, cz_ax, cz):
     data = np.array([[tp, fn], [fp, tn]])
     data = data / np.expand_dims(data.sum(axis=1), axis=1)
-    pn_sign = u"\u00B1"
-    labels = [[f"{tp:2g}{pn_sign}{tp_std:.2f}", f"{fn:2g}{pn_sign}{fn_std:.2f}"],
-              [f"{fp:2g}{pn_sign}{fp_std:.2f}", f"{tn:2g}{pn_sign}{tn_std:.2f}"]]
+
+    labels = [[f"{tp:2g} [{tp_q25:.2f} {tp_q75:.2f}]", f"{fn:2g} [{fn_q25:.2f} {fn_q75:.2f}]"],
+              [f"{fp:2g} [{fp_q25:.2f} {fp_q75:.2f}]", f"{tn:2g} [{tn_q25:.2f} {tn_q75:.2f}]"]]
     cmap = sns.light_palette("seagreen", as_cmap=True)
     ticklabels = ['PYR', 'PV']
     _ = sns.heatmap(data, annot=labels, fmt='', vmin=0, vmax=1, cmap=cmap, ax=cz_ax, xticklabels=ticklabels,
@@ -152,7 +152,7 @@ def plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz):
 def plot_conf_mats(df, restriction, name=None, chunk_size=[0], modalities=None, use_dev=False, data_path=None):
     df_temp = df.copy()
     if data_path is None:
-        data_path = f'../data_sets/{restriction}_0/spatial/0_0.800.2/'
+        data_path = f'../data_sets_290322/{restriction}_0/spatial/0_0.800.2/'
     with HiddenPrints():
         _, dev, test, _, _, _ = ML_util.get_dataset(data_path)
     test = np.squeeze(dev) if use_dev else np.squeeze(test)
@@ -173,21 +173,25 @@ def plot_conf_mats(df, restriction, name=None, chunk_size=[0], modalities=None, 
     df_temp['fn'] = positive * (1 - tpp)
 
     grouped = df_temp.groupby(by=['restriction', 'modality', 'chunk_size'])
-    mean = grouped.mean()
-    std = grouped.std()
+    med = grouped.median()
+    q25 = grouped.quantile(0.25)
+    q75 = grouped.quantile(0.75)
 
     for m_name, _ in modalities:
-        mean_m = mean.xs(m_name, level="modality")
-        std_m = std.xs(m_name, level="modality")
+        med_m = med.xs(m_name, level="modality")
+        q25_m = q25.xs(m_name, level="modality")
+        q75_m = q75.xs(m_name, level="modality")
         fig, ax = plt.subplots(len(chunk_size), sharex=True, sharey=True)
         if len(chunk_size) == 1:
             ax = [ax]
         for cz, cz_ax in zip(chunk_size, ax):
-            mean_cz = mean_m.xs(cz, level="chunk_size")
-            std_cz = std_m.xs(cz, level="chunk_size")
-            tp, tn, fp, fn = mean_cz.tp[0], mean_cz.tn[0], mean_cz.fp[0], mean_cz.fn[0]
-            tp_std, tn_std, fp_std, fn_std = std_cz.tp[0], std_cz.tn[0], std_cz.fp[0], std_cz.fn[0]
-            plot_cf(tp, tn, fp, fn, tp_std, tn_std, fp_std, fn_std, cz_ax, cz)
+            med_cz = med_m.xs(cz, level="chunk_size")
+            q25_cz = q25.xs(cz, level="chunk_size")
+            q75_cz = q75.xs(cz, level="chunk_size")
+            tp, tn, fp, fn = med_cz.tp[0], med_cz.tn[0], med_cz.fp[0], med_cz.fn[0]
+            tp_q25, tn_q25, fp_q25, fn_q25 = q25_cz.tp[0], q25_cz.tn[0], q25_cz.fp[0], q25_cz.fn[0]
+            tp_q75, tn_q75, fp_q75, fn_q75 = q75_cz.tp[0], q75_cz.tn[0], q75_cz.fp[0], q75_cz.fn[0]
+            plot_cf(tp, tn, fp, fn, tp_q25, tn_q25, fp_q25, fn_q25, tp_q75, tn_q75, fp_q75, fn_q75, cz_ax, cz)
             if len(chunk_size) > 1:
                 cz_ax.set_title(f"Chunk size={cz}")
         if name is None:
@@ -236,7 +240,7 @@ def get_labels(lst):
     return ret
 
 
-def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=None):
+def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modalities=None, semsn=None):
     # TODO make sure order is determined only by rows of used chunk_size
     if name is None:
         title = ""# get_title(restriction)
@@ -250,17 +254,34 @@ def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=N
     rem = [f"dev feature {f + 1}" for f in range(NUM_FETS) if f"dev feature {f + 1}" in df.columns]
     df = df.drop(columns=rem)
     sems = sems.drop(columns=rem)
+    base = base.drop(columns=rem)
+    if semsn is not None:
+        semsn = semsn.drop(columns=rem)
 
     map = {f: name for (f, name) in zip(fets_org, fet_names)}
     df = df.rename(map, axis='columns')
     df = df.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
     df = df.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
     sems = sems.rename(map, axis='columns')
-    sems = sems.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc'])
-    sems = sems.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc'])
+    sems = sems.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
+    sems = sems.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
+    base = base.rename(map, axis='columns')
+    base = base.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
+    base = base.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
+
+    if semsn is not None:
+        semsn = semsn.rename(map, axis='columns')
+        semsn = semsn.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
+        semsn = semsn.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
+
     for m_name, m_places in modalities:
         df_m = df.xs(m_name, level="modality").dropna(axis=1)
         sems_m = sems.xs(m_name, level="modality").dropna(axis=1)
+        base_m = base.xs(m_name, level="modality").dropna(axis=1)
+        semsn_m = None
+        if semsn is not None:
+            semsn_m = semsn.xs(m_name, level="modality").dropna(axis=1)
+
         names_m = np.asarray(fet_names)[m_places[:-1]]
 
         df_order = np.asarray(df_m)
@@ -272,16 +293,24 @@ def plot_fet_imp(df, sems, restriction, name=None, chunk_size=None, modalities=N
 
         width = 1 / (len(chunk_size) + 1)  # the width of the bars
 
-        fig, ax = plt.subplots(figsize=(6, 12))
+        fig, ax = plt.subplots(figsize=(6, 8))
 
         colors = ['#FFFFFF', '#E0E0E0', '#C0C0C0', '#A0A0A0', '#808080', '#696969'][::6 // (len(chunk_size) * 2)][::-1]
 
         for i, cz in enumerate(chunk_size):
             df_cz = np.asarray(df_m.xs(cz, level="chunk_size"))[:, order].flatten()
             sems_cz = np.asarray(sems_m.xs(cz, level="chunk_size"))[:, order].flatten()
+            base_cz = np.asarray(base_m.xs(cz, level="chunk_size"))[:, order].flatten()
+            if semsn_m is not None:
+                semsn_cz = 2 * df_cz - np.asarray(semsn_m.xs(cz, level="chunk_size"))[:, order].flatten()
+                sems_cz = np.concatenate((np.expand_dims(semsn_cz, axis=0), np.expand_dims(sems_cz, axis=0))) - df_cz
+            else:
+                sems_cz = np.concatenate((np.expand_dims(sems_cz, axis=0), np.expand_dims(sems_cz, axis=0)))
 
             ax.bar(x - (i - len(chunk_size) // 2) * width, df_cz, width, label=f'chunk_size = {cz}', yerr=sems_cz,
                    color=colors[i])
+            ax.hlines(base_cz, x - (i - len(chunk_size) // 2) * width - (width / 2),
+                      x - (i - len(chunk_size) // 2) * width + (width / 2), linestyles='dashed', color='k')
         # Add some text for labels, title and custom x-axis tick labels, etc.
         ax.set_ylabel('Importance')
         # ax.set_title(title)

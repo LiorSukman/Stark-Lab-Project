@@ -1,3 +1,5 @@
+import warnings
+
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
@@ -72,6 +74,9 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     features = np.nan_to_num(features)
     features = np.clip(features, -INF, INF)
     # features = np.random.normal(size=features.shape)
+
+    """warnings.warn('shuffeling labels')
+    np.random.shuffle(labels)"""
 
     scaler = StandardScaler()
     scaler.fit(features)

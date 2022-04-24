@@ -11,15 +11,16 @@ import shap
 from gs_rf import grid_search as grid_search_rf
 from SVM_RF import run as run_model
 
-from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL
+from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0, 25, 50, 100, 200, 400, 800, 1600]
+chunks = [0] #[0, 25, 800]  # [0, 25, 50, 100, 200, 400, 800, 1600]
 restrictions = ['complete']
-dataset_identifier = '0.650.150.2'  # '0.800.2'
+dataset_identifier = '0.800.2'
 
-NUM_FETS = 34
+warnings.warn('change number of features')
+NUM_FETS = 24
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -297,17 +298,23 @@ if __name__ == "__main__":
     6) csv name doesn't overide anything
     7) datas.txt is updated 
     """
+    train, dev, test, _, _, _ = ML_util.get_dataset('../data_sets_290322/complete_0/spatial/0_0.800.2/', verbose=True)
+    exit(0)
+
     model = 'rf'
-    modifier = 'with_dev'
-    iterations = 25
+    modifier = '030422_trans_wf'
+    iterations = 50
     animal_based = False
-    region_based = True
+    region_based = False
     perm_labels = False
-    results, preds, dev_preds = None, None, None
-    save_path = '../data_sets_dev_170322'
+    results = None #pd.read_csv(f'results_{model}_{modifier}.csv', index_col=0)
+    preds = None #np.load(f'preds_{model}_{modifier}.npy')
+    dev_preds = None #np.load(f'preds_dev_{model}_{modifier}.npy')
+    save_path = f'../data_sets_{modifier}'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
-    modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+    warnings.warn('change modalities')
+    modalities = [('trans_wf', TRANS_MORPH)]#[('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -321,11 +328,10 @@ if __name__ == "__main__":
                     os.mkdir(new_new_path)
                 keep = places
                 # TODO in group split it might not be good to just change the seed like this
-                warnings.warn('region_based is deactivated in create_dataset')
                 with HiddenPrints():
-                    ML_util.create_datasets(per_train=0.65, per_dev=0.15, per_test=0.2, datasets='datas.txt', seed=i,
+                    ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt', seed=i,
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                            region_based=False, perm_labels=perm_labels,
+                                            region_based=region_based, perm_labels=perm_labels,
                                             group_split=animal_based)
 
             result, pred, dev_pred = get_folder_results(new_path, i, region_based)
