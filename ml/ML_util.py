@@ -243,7 +243,10 @@ def take_partial_data(data, start, end):
 
 
 def take_region_data(data, names, region, regions):
-    inds = np.argwhere(regions == float(region)).flatten()
+    if region:
+        inds = np.argwhere(regions >= 1).flatten()
+    else:
+        inds = np.argwhere(regions == 0).flatten()
     return data[inds], names[inds]
 
 
@@ -286,9 +289,9 @@ def split_data(data, names, recordings, per_train=0.6, per_dev=0.2, per_test=0.2
         per_dev += per_train
 
         if region_based:
-            train, train_names = take_region_data(data, names, 1, regions)
+            train, train_names = take_region_data(data, names, True, regions)
             train, train_names, dev, dev_names = split_region_data(train, train_names, seed, per_test)
-            test, test_names = take_region_data(data, names, 0, regions)
+            test, test_names = take_region_data(data, names, False, regions)
         elif not group_split:
             train = take_partial_data(data, 0, per_train)
             train_names = take_partial_data(names, 0, per_train)
