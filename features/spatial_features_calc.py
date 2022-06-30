@@ -4,14 +4,11 @@ from enum import Enum
 from constants import VERBOS
 from clusters import Spike
 
-
 from features.spatial_features.FET_time_lag import TimeLagFeature
 from features.spatial_features.FET_spd import SPD
 from features.spatial_features.FET_depolarization_graph import DepolarizationGraph
-from features.spatial_features.spatial_FWHM import SPAT_FWHM
 
 dep_spatial_features = [SPD()]
-fwhm_spatial = [SPAT_FWHM()]
 full_spatial_features = [TimeLagFeature(), DepolarizationGraph()]
 
 class DELTA_MODE(Enum):
@@ -127,15 +124,6 @@ def calc_spatial_features(chunks):
         if VERBOS:
             print(f"feature {feature.name} contains {mat_result.shape} values")
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
-
-    """
-    for feature in fwhm_spatial:
-        mat_result = feature.calculate_feature(chunks, amps)  # calculates the features, returns a matrix
-        if feature_mat_for_cluster is None:
-            feature_mat_for_cluster = mat_result
-        else:
-            feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
-    """
 
     for feature in full_spatial_features:
         start_time = time.time()
