@@ -8,8 +8,10 @@ from clusters import Spike
 from features.spatial_features.FET_time_lag import TimeLagFeature
 from features.spatial_features.FET_spd import SPD
 from features.spatial_features.FET_depolarization_graph import DepolarizationGraph
+from features.spatial_features.spatial_FWHM import SPAT_FWHM
 
 dep_spatial_features = [SPD()]
+fwhm_spatial = [SPAT_FWHM()]
 full_spatial_features = [TimeLagFeature(), DepolarizationGraph()]
 
 class DELTA_MODE(Enum):
@@ -50,8 +52,10 @@ def match_chunk(chunk, cons, amp):
     ret = np.zeros(chunk.data.shape)
     main_c = amp.argmax()
     roll_val = 0
-    med = np.median(chunk.data)
+    med = np.median(chunk.data) # first version global
     for i, channel in enumerate(chunk.data):
+        #med = np.median(chunk.data[i]) second version local
+        #med = chunk.data[i].min() * 0.5 third version local fractional
         ret[i], pos = match_spike(channel, cons, med)
         if i == main_c:
             roll_val = chunk.data.shape[-1] // 2 - pos
@@ -61,10 +65,31 @@ def match_chunk(chunk, cons, amp):
     
     return chunk
 
-def wavelet_transform(chunks, cons, amps):
+
+def match_chunk_cont(chunk, cons, amp, q):
+    ret = np.zeros(chunk.data.shape)
+    main_c = amp.argmax()
+    roll_val = 0
+    for i, channel in enumerate(chunk.data):
+        #quantile = np.quantile(chunk.data[i], q)
+        quantile = chunk.data[i].min() * q
+        ret[i], pos = match_spike(channel, cons, quantile)
+        if i == main_c:
+            roll_val = chunk.data.shape[-1] // 2 - pos
+
+    ret = np.roll(ret, roll_val, axis=1)
+    chunk = Spike(data=ret / abs(ret.min()))
+
+    return chunk
+
+def wavelet_transform(chunks, cons, amps, q=None):
     ret = []
-    for chunk, amp in zip(chunks, amps):
-        ret.append(match_chunk(chunk, cons, amp))
+    if q is None:
+        for chunk, amp in zip(chunks, amps):
+            ret.append(match_chunk(chunk, cons, amp))
+    else:
+        for chunk, amp in zip(chunks, amps):
+            ret.append(match_chunk_cont(chunk, cons, amp, q))
 
     return ret
 
@@ -103,11 +128,20 @@ def calc_spatial_features(chunks):
             print(f"feature {feature.name} contains {mat_result.shape} values")
             print(f"feature {feature.name} processing took {end_time - start_time:.3f} seconds")
 
+    """
+    for feature in fwhm_spatial:
+        mat_result = feature.calculate_feature(chunks, amps)  # calculates the features, returns a matrix
+        if feature_mat_for_cluster is None:
+            feature_mat_for_cluster = mat_result
+        else:
+            feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
+    """
+
     for feature in full_spatial_features:
         start_time = time.time()
         for data, dtype in zip([wavelets_dep, wavelets_fzc, wavelets_szc], ['dep', 'fzc', 'szc']):
             feature.set_data(dtype)
-            mat_result = feature.calculate_feature(data, amps)  # calculates the features, returns a matrix
+            mat_result = feature.calculate_feature(data, amps, chunks)  # calculates the features, returns a matrix
             if feature_mat_for_cluster is None:
                 feature_mat_for_cluster = mat_result
             else:
@@ -120,13 +154,38 @@ def calc_spatial_features(chunks):
 
     return feature_mat_for_cluster
 
+def calc_spatial_cont(chunks):
+    amps = calc_amps(chunks)
+    feature = TimeLagFeature()
+
+    wavelets_dep = wavelet_transform(chunks, DELTA_MODE.DEP, amps)
+    feature_mat_for_cluster = feature.calculate_feature(wavelets_dep, amps)
+
+    for mode in [DELTA_MODE.F_ZCROSS, DELTA_MODE.S_ZCROSS]:
+        for q in np.linspace(0.05, 0.95, 19):
+            wavelets = wavelet_transform(chunks, mode, amps, q)
+            mat_result = feature.calculate_feature(wavelets, amps)  # calculates the features, returns a matrix
+            feature_mat_for_cluster = np.concatenate((feature_mat_for_cluster, mat_result), axis=1)
+
+    return feature_mat_for_cluster
+
 
 def get_spatial_features_names():
     names = []
     for feature in dep_spatial_features:
         names += feature.headers
+    # for feature in fwhm_spatial:
+    #     names += feature.headers
     for feature in full_spatial_features:
         for dtype in ['dep', 'fzc', 'szc']:
             feature.set_data(dtype)
             names += feature.headers
     return names
+
+def get_spatial_cont_names():
+    names = ['dep_red', 'dep_sd']
+    for mode in ['FMC', 'SMC']:
+        for q in np.linspace(0.05, 0.95, 19):
+            names += [f'{mode}_{q: .2g}_red', f'{mode}_{q: .2g}_sd']
+    return names
+

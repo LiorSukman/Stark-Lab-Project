@@ -50,10 +50,11 @@ class TimeLagFeature(object):
 
         The function calculates different time lag features of the spike
 
-        returns: a list containing the following values: -dep_red: the reduction of the depolarization vector (i.e
+        returns: a list containing the following values:
+        -red: the reduction of the depolarization vector (i.e
         the vector that indicates the time difference of maximal depolarization between each channel and the main
-        channel) -dep_sd: the standard deviation of the depolarization vector -hyp_red: the reduction of the
-        hyperpolarization vector - hyp_sd: the standard deviation of the hyperpolarization vector
+        channel)
+        -sd: the standard deviation of the depolarization vector
         """
         # remove channels with lower amplitude than required
         max_amp = np.max(amp)

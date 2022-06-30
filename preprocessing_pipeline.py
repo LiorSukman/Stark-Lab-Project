@@ -1,3 +1,5 @@
+import warnings
+
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -20,6 +22,7 @@ from features.spatial_features_calc import DELTA_MODE
 
 # import the different features
 from features.spatial_features_calc import calc_spatial_features, get_spatial_features_names
+from features.spatial_features_calc import calc_spatial_cont, get_spatial_cont_names
 from features.morphological_features_calc import calc_morphological_features, get_morphological_features_names
 from features.temporal_features_calc import calc_temporal_features, get_temporal_features_names
 
@@ -247,7 +250,7 @@ def get_clu_reg(cluster, mat_file):
     raise KeyError
 
 
-def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None, calc_morph_trans=False):
+def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None, calc_morph_trans=False, spat_cont=False):
     """
     main pipeline function
     input:
@@ -271,9 +274,12 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None, calc_morph
 
     # define headers for saving later
     if not calc_morph_trans:
-        headers = get_spatial_features_names()
-        headers += get_morphological_features_names()
-        headers += get_temporal_features_names()
+        if not spat_cont:
+            headers = get_spatial_features_names()
+            headers += get_morphological_features_names()
+            headers += get_temporal_features_names()
+        else:
+            headers = get_spatial_cont_names()
     else:
         original_names = get_morphological_features_names()
         headers = []
@@ -318,12 +324,14 @@ def run(path, chunk_sizes, csv_folder, mat_file, load_path, xml=None, calc_morph
                 rel_data = [Spike(data=upsample_spike(spike.data, UPSAMPLE))
                             for spike in rel_data]
                 if not calc_morph_trans:
-                    temporal_features_mat = calc_temporal_features(cluster.timings, inds)
-                    spatial_features_mat = calc_spatial_features(rel_data)
-                    morphological_features_mat = calc_morphological_features(rel_data)
-                    feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
-                                                              temporal_features_mat), axis=1)
-                    # feature_mat_for_cluster = spatial_features_mat
+                    if not spat_cont:
+                        temporal_features_mat = calc_temporal_features(cluster.timings, inds)
+                        spatial_features_mat = calc_spatial_features(rel_data)
+                        morphological_features_mat = calc_morphological_features(rel_data)
+                        feature_mat_for_cluster = np.concatenate((spatial_features_mat, morphological_features_mat,
+                                                                  temporal_features_mat), axis=1)
+                    else:
+                        feature_mat_for_cluster = calc_spatial_cont(rel_data)
                 else:
                     feature_mat_for_cluster = None
                     for inst in DELTA_MODE:
@@ -362,7 +370,7 @@ if __name__ == "__main__":
     parser.add_argument('--dirs_file', type=str, help='path to data directories file', default='dirs.txt')
     parser.add_argument('--chunk_sizes', type=int, help='chunk sizes to create data for, can be a list',
                         default=[0, 25, 50, 100, 200, 400, 800, 1600])
-    parser.add_argument('--save_path', type=str, default='clusterData_no_light_14_03_22_Hz/',
+    parser.add_argument('--save_path', type=str, default='clusterData_spatial_scaled_190622_2/',
                         help='path to save csv files to, make sure the directory exists')
     parser.add_argument('--load_path', type=str, default=TEMP_PATH,
                         help='path to load clusters from, make sure directory exists')
@@ -370,6 +378,8 @@ if __name__ == "__main__":
                         help='whether to do feature extraction')
     parser.add_argument('--calc_morph_trans', type=bool, default=False,
                         help='do morphological feature extraction based on transformed spikes')
+    parser.add_argument('--calc_spat_cont', type=bool, default=False,
+                        help='Check spatial contineum')
     parser.add_argument('--display', type=bool, default=False,
                         help='display a set of random clusters')
     parser.add_argument('--consider_light', type=bool, default=False,
@@ -389,6 +399,8 @@ if __name__ == "__main__":
 
     dirs_file = args.dirs_file
     arg_chunk_sizes = args.chunk_sizes
+    warnings.warn('changing chunk sizes manually')
+    arg_chunk_sizes = [1, 5, 10]
     save_path = args.save_path
     arg_load_path = args.load_path
     spv_mat = args.spv_mat
@@ -397,6 +409,7 @@ if __name__ == "__main__":
     plot_cluster = args.plot_cluster
     xml = args.xml
     calc_morph_trans = args.calc_morph_trans
+    calc_spat_cont = args.calc_spat_cont
 
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
@@ -410,7 +423,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.calc_features:
-        run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path, xml, calc_morph_trans)
+        run(dirs_file, tuple(arg_chunk_sizes), save_path, spv_mat, arg_load_path, xml, calc_morph_trans, calc_spat_cont)
     elif args.light_processing:
         light_processing(arg_load_path)
     else:

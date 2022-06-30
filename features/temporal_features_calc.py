@@ -72,13 +72,6 @@ def calc_temporal_histogram(time_lst, bins, chunks):
         hist = ordered_array_histogram(ref_time_list, bins, i)
         ret[chunks_inv[i]] += hist
         counter[chunks_inv[i]] += 1
-    if DEBUG:
-        raise NotImplementedError
-        print(f"ret sum {ret.sum()}")
-        # TODO adapt for chunks somehow
-        plt.bar(np.arange(len(ret)), ret)
-        plt.title(f"num spikes is {len(time_lst)}")
-        plt.show()
 
     ret = ret / (counter * ((bins[1] - bins[0])/1000))
 
