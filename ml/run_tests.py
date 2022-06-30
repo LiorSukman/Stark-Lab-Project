@@ -1,7 +1,6 @@
 import ML_util
 
 import os
-import warnings
 import pandas as pd
 import numpy as np
 from sklearn.metrics import roc_curve, auc, f1_score, precision_recall_curve, matthews_corrcoef
@@ -15,7 +14,7 @@ from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0, 25] #, 50, 100, 200, 400, 800, 1600]
+chunks = [0, 25]  # , 50, 100, 200, 400, 800, 1600]
 restrictions = ['complete']
 dataset_identifier = '0.800.2'
 
@@ -122,7 +121,7 @@ def get_preds(clf, data_path, region_based=False):
     return preds, dev_preds
 
 
-def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
+def calc_auc(clf, data_path, region_based=False, use_dev=False):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
 
     test_set = test if not use_dev else dev
@@ -134,64 +133,33 @@ def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
     preds = get_predictions(clf, train, dev, test, region_based, use_dev)
     assert preds is not None
 
-    if calc_f1:
-        precision, recall, thresholds = precision_recall_curve(targets, preds)
-        bin_preds = thr_preds(preds, 0.5)
-        f1 = f1_score(targets, bin_preds)
-
-        return f1, precision, recall
-    else:
-        # calculate fpr and tpr values for different thresholds
-        fpr, tpr, thresholds = roc_curve(targets, preds, drop_intermediate=False)
-        auc_val = auc(fpr, tpr)
-        return auc_val, fpr, tpr
-
-
-def get_mcc(clf, data_path, region_based, use_dev=False):
-    train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
-
-    test_set = test if not use_dev else dev
-    if len(test_set) == 0:
-        return 0
-
-    targets = [row[0][-1] for row in test_set]
-
-    preds = get_predictions(clf, train, dev, test, region_based, use_dev)
-    assert preds is not None
-
-    bin_preds = thr_preds(preds, 0.5)
-
-    mcc = matthews_corrcoef(targets, bin_preds)
-
-    return mcc
+    # calculate fpr and tpr values for different thresholds
+    fpr, tpr, thresholds = roc_curve(targets, preds, drop_intermediate=False)
+    auc_val = auc(fpr, tpr)
+    return auc_val, fpr, tpr
 
 
 def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_labels=False):
-    lists = ['accs', 'pyr_accs', 'in_accs', 'aucs', 'fprs', 'tprs', 'importances', 'dev_accs', 'dev_pyr_accs',
-             'dev_in_accs', 'dev_aucs', 'dev_fprs', 'dev_tprs', 'dev_importances', 'f1s', 'precisions', 'recalls',
-             'dev_f1s', 'dev_precisions', 'dev_recalls', 'mccs', 'dev_mccs', 'preds', 'dev_preds']
+    lists = ['aucs', 'fprs', 'tprs', 'importances', 'dev_aucs', 'dev_fprs', 'dev_tprs', 'dev_importances',
+             'preds', 'dev_preds']
 
-    accs, pyr_accs, in_accs, aucs, fprs, tprs, importances, dev_accs, dev_pyr_accs = [], [], [], [], [], [], [], [], []
-    dev_in_accs, dev_aucs, dev_fprs, dev_tprs, dev_importances, f1s, precisions, recalls = [], [], [], [], [], [], [], []
-    dev_f1s, dev_precisions, dev_recalls, mccs, dev_mccs, preds, dev_preds = [], [], [], [], [], [], []
+    aucs, fprs, tprs, importances = [], [], [], []
+    dev_aucs, dev_fprs, dev_tprs, dev_importances = [], [], [], []
+    preds, dev_preds = [], []
 
     print(f"            Starting chunk size = {chunks[0]}")
 
-    clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, min_samples_split, \
-    min_samples_leaf = grid_search_rf(data_path + f"/0_{dataset_identifier}/", False, n_estimators_min,
-                                      n_estimators_max, n_estimators_num, max_depth_min, max_depth_max, max_depth_num,
-                                      min_samples_splits_min, min_samples_splits_max, min_samples_splits_num,
-                                      min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed=seed,
-                                      region_based=region_based, shuffle_labels=shuffle_labels)
+    clf, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
+        data_path + f"/0_{dataset_identifier}/", n_estimators_min,
+        n_estimators_max, n_estimators_num, max_depth_min, max_depth_max, max_depth_num,
+        min_samples_splits_min, min_samples_splits_max, min_samples_splits_num,
+        min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed=seed,
+        region_based=region_based, shuffle_labels=shuffle_labels)
 
     pred, dev_pred = get_preds(clf, data_path + f"/0_{dataset_identifier}/", region_based)
 
     auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
     dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
-
-    f1, precision, recall = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, calc_f1=True)
-    dev_f1, dev_precision, dev_recall = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based,
-                                                 use_dev=True, calc_f1=True)
 
     x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
     importance = get_shap_imp(clf, x, seed)
@@ -200,9 +168,6 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
         dev_importance = get_shap_imp(clf, x, seed)
     else:
         dev_importance = np.zeros(importance.shape)
-
-    mcc = get_mcc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
-    dev_mcc = get_mcc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
 
     for var in lists:
         assignment = f"{var}.append({var[:-1]})"
@@ -213,11 +178,9 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
     for chunk_size in chunks[1:]:
         print(f"            Starting chunk size = {chunk_size}")
-        clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc = run_model(n_estimators, max_depth,
-                                                                                min_samples_split, min_samples_leaf,
-                                                                                data_path +
-                                                                                f"/{chunk_size}_{dataset_identifier}/",
-                                                                                seed, region_based, shuffle_labels)
+        clf = run_model(n_estimators, max_depth, min_samples_split, min_samples_leaf,
+                        data_path + f"/{chunk_size}_{dataset_identifier}/",
+                        seed, region_based, shuffle_labels)
 
         auc, fpr, tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
         dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based,
@@ -227,11 +190,6 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
         pred, dev_pred = get_preds(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
 
-        f1, precision, recall = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based,
-                                         calc_f1=True)
-        dev_f1, dev_precision, dev_recall = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/",
-                                                     region_based, use_dev=True, calc_f1=True)
-
         x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
         importance = get_shap_imp(clf, x, seed)
         x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
@@ -240,28 +198,21 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
         else:
             dev_importance = np.zeros(importance.shape)
 
-        mcc = get_mcc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
-        dev_mcc = get_mcc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, use_dev=True)
-
         for var in lists:
             assignment = f"{var}.append({var[:-1]})"
             exec(assignment)
 
     df = pd.DataFrame(
-        {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [str(seed)] * len(accs),
-         'acc': accs, 'pyr_acc': pyr_accs, 'in_acc': in_accs, 'auc': aucs, 'fpr': fprs, 'tpr': tprs,
-         'dev_acc': dev_accs, 'dev_pyr_acc': dev_pyr_accs, 'dev_in_acc': dev_in_accs, 'dev_auc': dev_aucs,
-         'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs, 'f1': f1s, 'precision': precisions, 'recall': recalls,
-         'dev_f1': dev_f1s, 'dev_precision': dev_precisions, 'dev_recall': dev_recalls, 'mcc': mccs, 'dev_mcc': dev_mccs
-         })
+        {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [str(seed)] * len(aucs),
+         'auc': aucs, 'fpr': fprs, 'tpr': tprs, 'dev_auc': dev_aucs, 'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs})
 
     features = [f"test feature {f + 1}" for f in range(NUM_FETS)]
-    importances_row = np.nan * np.ones((len(accs), NUM_FETS))
+    importances_row = np.nan * np.ones((len(aucs), NUM_FETS))
     importances_row[:, fet_inds[:-1]] = importances
     df[features] = pd.DataFrame(importances_row, index=df.index)
 
     features = [f"dev feature {f + 1}" for f in range(NUM_FETS)]
-    importances_row = np.nan * np.ones((len(accs), NUM_FETS))
+    importances_row = np.nan * np.ones((len(aucs), NUM_FETS))
     importances_row[:, fet_inds[:-1]] = dev_importances
     df[features] = pd.DataFrame(importances_row, index=df.index)
 
@@ -269,9 +220,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
 
 def get_folder_results(data_path, seed, region_based=False, shuffle_labels=False):
-    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'dev_acc', 'dev_pyr_acc',
-               'dev_in_acc', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr', 'f1', 'precision', 'recall',
-               'dev_f1', 'dev_precision', 'dev_recall', 'mcc', 'dev_mcc'] + \
+    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr'] +\
               [f"test feature {f + 1}" for f in range(NUM_FETS)] + [f"dev feature {f + 1}" for f in range(NUM_FETS)]
     preds, dev_preds = None, None
     df = pd.DataFrame({col: [] for col in df_cols})
@@ -297,14 +246,14 @@ if __name__ == "__main__":
 
     model = 'rf'
     modifier = '290322_test'
-    iterations = 10
+    iterations = 6
     animal_based = False
     region_based = False
     perm_labels = False  # This is done in creation of dataset
     shuffle_labels = False  # This is done in loading
-    results = None  # pd.read_csv(f'results_{model}_{modifier}_40.csv', index_col=0)
-    preds = None  # np.load(f'preds_{model}_{modifier}_40.npy')
-    dev_preds = None  # np.load(f'preds_dev_{model}_{modifier}_40.npy')
+    results = None
+    preds = None
+    dev_preds = None
     save_path = f'../Datasets/data_sets_{modifier}'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)

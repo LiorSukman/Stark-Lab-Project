@@ -11,45 +11,7 @@ import ML_util
 
 N = 10
 
-
-def evaluate_predictions(model, clusters, scaler, verbos=False):
-    total = len(clusters)
-    if total == 0:
-        return 0, 0, 0, 0
-    total_pyr = total_in = correct_pyr = correct_in = correct_chunks = correct_clusters = total_chunks = 0
-    for cluster in clusters:
-        features, labels = ML_util.split_features(cluster)
-        features = np.nan_to_num(features)
-        features = np.clip(features, -INF, INF)
-        features = scaler.transform(features)
-        label = labels[0]  # as they are the same for all the cluster
-        total_pyr += 1 if label == 1 else 0
-        total_in += 1 if label == 0 else 0
-        preds = model.predict_proba(features)
-        preds_argmax = preds.argmax(axis=1)  # support probabilistic prediction
-        preds_mean = preds.mean(axis=0)
-        prediction = preds_mean.argmax()
-        total_chunks += preds.shape[0]
-        correct_chunks += preds[preds_argmax == label].shape[0]
-        correct_clusters += 1 if prediction == label else 0
-        correct_pyr += 1 if prediction == label and label == 1 else 0
-        correct_in += 1 if prediction == label and label == 0 else 0
-
-    pyr_percent = float('nan') if total_pyr == 0 else 100 * correct_pyr / total_pyr
-    in_percent = float('nan') if total_in == 0 else 100 * correct_in / total_in
-
-    if verbos:
-        print('Number of correct classified clusters is %d, which is %.4f%s' % (
-            correct_clusters, 100 * correct_clusters / total, '%'))
-        print('Number of correct classified chunks is %d, which is %.4f%s' % (
-            correct_chunks, 100 * correct_chunks / total_chunks, '%'))
-        print('Test set consists of %d pyramidal cells and %d interneurons' % (total_pyr, total_in))
-        print('%.4f%s of pyrmidal cells classified correctly' % (pyr_percent, '%'))
-        print('%.4f%s of interneurons classified correctly' % (in_percent, '%'))
-    return correct_clusters, 100 * correct_clusters / total, pyr_percent, in_percent
-
-
-def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_estimators_num,
+def grid_search(dataset_path, n_estimators_min, n_estimators_max, n_estimators_num,
                 max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
                 min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n,
                 train=None, dev=None, test=None, seed=0, region_based=False, shuffle_labels=False):
@@ -69,7 +31,6 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
     features, labels = ML_util.split_features(train_data)
     features = np.nan_to_num(features)
     features = np.clip(features, -INF, INF)
-    # features = np.random.normal(size=features.shape)
 
     if shuffle_labels:
         np.random.shuffle(labels)
@@ -108,14 +69,7 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
                                         random_state=seed, class_weight='balanced')
     classifier.fit(features, labels)
 
-    print()
-    print('Starting evaluation on test set...')
-
-    clust_count, acc, pyr_acc, in_acc = evaluate_predictions(classifier, test, scaler, verbos)
-    dev_clust_count, dev_acc, dev_pyr_acc, dev_in_acc = evaluate_predictions(classifier, dev, scaler, verbos)
-
-    return classifier, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, \
-           min_samples_split, min_samples_leaf
+    return classifier, n_estimators, max_depth, min_samples_split, min_samples_leaf
 
 
 if __name__ == "__main__":
