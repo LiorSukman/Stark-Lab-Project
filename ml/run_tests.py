@@ -9,18 +9,17 @@ from sklearn.preprocessing import StandardScaler
 import shap
 
 from gs_rf import grid_search as grid_search_rf
-from SVM_RF import run as run_model
+from RF import run as run_model
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0] #[0, 25, 800]  # [0, 25, 50, 100, 200, 400, 800, 1600]
+chunks = [0, 25, 50, 100, 200, 400, 800, 1600]
 restrictions = ['complete']
 dataset_identifier = '0.800.2'
 
-warnings.warn('change number of features')
-NUM_FETS = 24
+NUM_FETS = 27
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -36,6 +35,7 @@ min_samples_leafs_max = 5
 min_samples_leafs_num = 6
 
 n = 5
+
 
 def get_test_set(data_path, region_based=False, get_dev=False):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
@@ -65,6 +65,7 @@ def get_test_set(data_path, region_based=False, get_dev=False):
 
     return x, y
 
+
 def get_shap_imp(clf, test, seed):
     df = pd.DataFrame(test)
     df_shap = df.sample(min(1000, len(test)), random_state=int(seed) + 1)
@@ -73,8 +74,10 @@ def get_shap_imp(clf, test, seed):
     pyr_shap_values = shap_values[..., 1]
     return np.mean(np.abs(pyr_shap_values.values), axis=0)
 
+
 def thr_preds(probs, thr):
     return (probs >= thr).astype('int8')
+
 
 def get_predictions(clf, train, dev, test, region_based, use_dev):
     if not region_based:
@@ -106,6 +109,7 @@ def get_predictions(clf, train, dev, test, region_based, use_dev):
 
     return np.asarray(preds)
 
+
 def get_preds(clf, data_path, region_based=False):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
 
@@ -116,6 +120,7 @@ def get_preds(clf, data_path, region_based=False):
         dev_preds = []
 
     return preds, dev_preds
+
 
 def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
     train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
@@ -136,8 +141,8 @@ def calc_auc(clf, data_path, region_based=False, use_dev=False, calc_f1=False):
 
         return f1, precision, recall
     else:
-        fpr, tpr, thresholds = roc_curve(targets, preds,
-                                         drop_intermediate=False)  # calculate fpr and tpr values for different thresholds
+        # calculate fpr and tpr values for different thresholds
+        fpr, tpr, thresholds = roc_curve(targets, preds, drop_intermediate=False)
         auc_val = auc(fpr, tpr)
         return auc_val, fpr, tpr
 
@@ -161,14 +166,10 @@ def get_mcc(clf, data_path, region_based, use_dev=False):
     return mcc
 
 
-def get_modality_results(data_path, seed, fet_inds, region_based=False):
+def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_labels=False):
     lists = ['accs', 'pyr_accs', 'in_accs', 'aucs', 'fprs', 'tprs', 'importances', 'dev_accs', 'dev_pyr_accs',
              'dev_in_accs', 'dev_aucs', 'dev_fprs', 'dev_tprs', 'dev_importances', 'f1s', 'precisions', 'recalls',
              'dev_f1s', 'dev_precisions', 'dev_recalls', 'mccs', 'dev_mccs', 'preds', 'dev_preds']
-
-    """for var in lists:
-        assignment = f"{var}=[]"
-        exec(assignment)"""
 
     accs, pyr_accs, in_accs, aucs, fprs, tprs, importances, dev_accs, dev_pyr_accs = [], [], [], [], [], [], [], [], []
     dev_in_accs, dev_aucs, dev_fprs, dev_tprs, dev_importances, f1s, precisions, recalls = [], [], [], [], [], [], [], []
@@ -178,11 +179,10 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False):
 
     clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, min_samples_split, \
     min_samples_leaf = grid_search_rf(data_path + f"/0_{dataset_identifier}/", False, n_estimators_min,
-                                      n_estimators_max, n_estimators_num,
-                                      max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min,
-                                      min_samples_splits_max,
-                                      min_samples_splits_num, min_samples_leafs_min, min_samples_leafs_max,
-                                      min_samples_leafs_num, n, seed=seed, region_based=region_based)
+                                      n_estimators_max, n_estimators_num, max_depth_min, max_depth_max, max_depth_num,
+                                      min_samples_splits_min, min_samples_splits_max, min_samples_splits_num,
+                                      min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed=seed,
+                                      region_based=region_based, shuffle_labels=shuffle_labels)
 
     pred, dev_pred = get_preds(clf, data_path + f"/0_{dataset_identifier}/", region_based)
 
@@ -213,13 +213,12 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False):
 
     for chunk_size in chunks[1:]:
         print(f"            Starting chunk size = {chunk_size}")
-        clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc = run_model(model, None, None, None, False, None,
-                                                                                False, True, False, None, None, None,
+        clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc = run_model(None, False, None, False, True, False,
                                                                                 n_estimators, max_depth,
                                                                                 min_samples_split, min_samples_leaf,
-                                                                                None, data_path +
+                                                                                data_path +
                                                                                 f"/{chunk_size}_{dataset_identifier}/",
-                                                                                seed, region_based)
+                                                                                seed, region_based, shuffle_labels)
 
         auc, fpr, tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
         dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based,
@@ -270,7 +269,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False):
     return df, np.stack(tuple(preds)), np.stack(tuple(dev_preds))
 
 
-def get_folder_results(data_path, seed, region_based=False):
+def get_folder_results(data_path, seed, region_based=False, shuffle_labels=False):
     df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'acc', 'pyr_acc', 'in_acc', 'dev_acc', 'dev_pyr_acc',
                'dev_in_acc', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr', 'f1', 'precision', 'recall',
                'dev_f1', 'dev_precision', 'dev_recall', 'mcc', 'dev_mcc'] + \
@@ -279,7 +278,8 @@ def get_folder_results(data_path, seed, region_based=False):
     df = pd.DataFrame({col: [] for col in df_cols})
     for modality in modalities:
         print(f"        Starting modality {modality[0]}")
-        modality_df, pred, dev_pred = get_modality_results(data_path + '/' + modality[0], seed, modality[1], region_based=region_based)
+        modality_df, pred, dev_pred = get_modality_results(data_path + '/' + modality[0], seed, modality[1],
+                                                           region_based=region_based, shuffle_labels=shuffle_labels)
         df = df.append(modality_df, ignore_index=True)
         preds = pred if preds is None else np.vstack((preds, pred))
         dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
@@ -293,28 +293,26 @@ if __name__ == "__main__":
     1) weights!=balanced should be only for baselines
     2) region_based flag is updated
     3) perm_labels flag is updated (only effective when creating a *new* dataset)
-    4) save_path for datasets is correct
-    5) modalities are correct
-    6) csv name doesn't overide anything
-    7) datas.txt is updated 
+    4) datas.txt is updated 
     """
-    train, dev, test, _, _, _ = ML_util.get_dataset('../data_sets_290322/complete_0/spatial/0_0.800.2/', verbose=True)
-    exit(0)
 
     model = 'rf'
-    modifier = '030422_trans_wf'
+    modifier = '050622_trans'
     iterations = 50
     animal_based = False
     region_based = False
-    perm_labels = False
-    results = None #pd.read_csv(f'results_{model}_{modifier}.csv', index_col=0)
-    preds = None #np.load(f'preds_{model}_{modifier}.npy')
-    dev_preds = None #np.load(f'preds_dev_{model}_{modifier}.npy')
-    save_path = f'../data_sets_{modifier}'
+    perm_labels = False  # This is done in creation of dataset
+    shuffle_labels = False  # This is done in loading
+    results = None  # pd.read_csv(f'results_{model}_{modifier}_40.csv', index_col=0)
+    preds = None  # np.load(f'preds_{model}_{modifier}_40.npy')
+    dev_preds = None  # np.load(f'preds_dev_{model}_{modifier}_40.npy')
+    save_path = f'../Datasets/data_sets_{modifier}'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
-    warnings.warn('change modalities')
-    modalities = [('trans_wf', TRANS_MORPH)]#[('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+    if 'trans' in modifier:
+        modalities = [('trans_wf', TRANS_MORPH)]
+    else:
+        modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
     for i in range(iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -327,14 +325,12 @@ if __name__ == "__main__":
                 if not os.path.isdir(new_new_path):
                     os.mkdir(new_new_path)
                 keep = places
-                # TODO in group split it might not be good to just change the seed like this
                 with HiddenPrints():
                     ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt', seed=i,
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                            region_based=region_based, perm_labels=perm_labels,
-                                            group_split=animal_based)
+                                            region_based=region_based, perm_labels=perm_labels)
 
-            result, pred, dev_pred = get_folder_results(new_path, i, region_based)
+            result, pred, dev_pred = get_folder_results(new_path, i, region_based, shuffle_labels=shuffle_labels)
             if results is None:
                 results = result
             else:

@@ -1,22 +1,18 @@
-from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
 from sklearn.decomposition import PCA, FastICA
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import roc_curve, auc, f1_score, precision_recall_curve
+from sklearn.metrics import roc_curve, auc
 import numpy as np
 import pickle
 import time
 import argparse
 import os
+import warnings
 
 import ML_util
-from VIS_model import visualize_model
 from constants import INF
 
 N = 10
-
-models = ['svm', 'rf', 'gb']  # the supported models
 
 def calc_auc(clf, test_set, scaler):
 
@@ -49,7 +45,6 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
         features, labels = ML_util.split_features(cluster)
         features = np.nan_to_num(features)
         features = np.clip(features, -INF, INF)
-        # features = np.random.normal(size=features.shape)
         if scaler is not None:
             features = scaler.transform(features)
         if pca is not None:
@@ -92,31 +87,24 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
     return 100 * correct_chunks / total_chunks, 100 * correct_clusters / total, pyr_percent, in_percent
 
 
-def run(model, saving_path, loading_path, pca_n_components, use_pca,
-        ica_n_components, use_ica, use_scale, visualize, gamma, C, kernel,
-        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path, seed, region_based=False):
+def run(saving_path, loading_path, pca_n_components, use_pca, ica_n_components, use_ica, use_scale, n_estimators,
+        max_depth, min_samples_split, min_samples_leaf, dataset_path, seed, region_based=False, shuffle_labels=False):
     """
     runner function for the SVM and RF models.
     explanations about the parameters is in the help
    """
 
-    if model not in models:
-        raise Exception('Model must be in: ' + str(models))
-    elif model == 'svm':
-        print('Chosen model is SVM')
-    elif model == 'rf':
-        print('Chosen model is Random Forest')
-
     train, dev, test, _, dev_names, test_names = ML_util.get_dataset(dataset_path)
 
     if (not region_based) and len(dev) > 0:  # for region change to if False
         train = np.concatenate((train, dev))
-    # train_names = np.concatenate((train_names, dev_names))
     train_squeezed = ML_util.squeeze_clusters(train)
     train_features, train_labels = ML_util.split_features(train_squeezed)
     train_features = np.nan_to_num(train_features)
     train_features = np.clip(train_features, -INF, INF)
-    # train_features = np.random.normal(size=train_features.shape)
+
+    if shuffle_labels:
+        np.random.shuffle(train_labels)
 
     if loading_path is None:
 
@@ -157,21 +145,10 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
             print('Transforming training data with iCA...')
             train_features = ica.transform(train_features)
 
-        if model == 'svm':
-            clf = svm.SVC(kernel=kernel, gamma=gamma, C=C, class_weight='balanced', probability=False,
-                          random_state=seed)
-            print('Fitting SVM model...')
-        elif model == 'rf':
-            clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                                         min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
-                                         random_state=seed, class_weight='balanced')
-            print('Fitting Random Forest model...')
-        elif model == 'gb':
-            ones = train_labels.sum()
-            zeros = len(train_labels) - ones
-            clf = XGBClassifier(scale_pos_weight=zeros / ones, use_label_encoder=False, n_estimators=n_estimators,
-                                max_depth=max_depth, learning_rate=lr, random_state=seed, eval_metric='logloss')
-            print('Fitting Gradient Boosting model...')
+        clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
+                                     min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
+                                     random_state=seed, class_weight='balanced')
+        print('Fitting Random Forest model...')
         start = time.time()
         clf.fit(train_features, train_labels)
         end = time.time()
@@ -180,12 +157,12 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
         if saving_path is not None:
             restriction, modality, cs = dataset_path.split('/')[-4:-1]
             cs = cs.split('_')[0]
-            saving_full_path = f"{saving_path}/{restriction}_{modality}_{cs}_{model}_model"
+            saving_full_path = f"{saving_path}/{restriction}_{modality}_{cs}_rf_model"
             with open(saving_full_path, 'wb') as fid:  # save the model
                 pickle.dump(clf, fid)
     else:  # we need to load the model
         print('Loading model...')
-        with open(loading_path + model + '_model', 'rb') as fid:
+        with open(loading_path + 'rf' + '_model', 'rb') as fid:
             clf = pickle.load(fid)
         if use_pca:
             with open(loading_path + 'pca', 'rb') as fid:
@@ -203,36 +180,12 @@ def run(model, saving_path, loading_path, pca_n_components, use_pca,
     #calc_auc(clf, test, scaler)
     #calc_auc(clf, dev, scaler)
 
-    if visualize:
-        print('Working on visualization...')
-        train_squeezed = ML_util.squeeze_clusters(train)
-        np.random.shuffle(train_squeezed)
-        train_features, train_labels = ML_util.split_features(train_squeezed)
-
-        if use_scale or use_pca or use_ica:
-            train_features = scaler.transform(train_features)
-        if use_pca:
-            train_features = pca.transform(train_features)
-        if use_ica:
-            train_features = ica.transform(train_features)
-
-        if train_features.shape[1] < 2:
-            raise Exception('Cannot visualize data with less than two dimensions')
-
-        # this is very costly as we need to predict a grid according to the min and max of the data
-        # higher h values woul dresult in a quicker but less accurate graph
-        # smaller set might reduce the variability, making the grid smaller
-        # it is also possible to specify feature1 and feature2 to pick to wanted dimensions to be showed
-        # (default is first two)
-        visualize_model(train_features[:20, :], train_labels[:20], clf, h=0.5)
-
     return clf, clust_per, pyr_per, in_per, dev_clust_per, dev_pyr_per, dev_in_per
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="SVM/RF trainer\n")
+    parser = argparse.ArgumentParser(description="RF trainer\n")
 
-    parser.add_argument('--model', type=str, help='Model to train, now supporting gb, svm and rf', default='rf')
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
                         default='../data_sets/complete_0/spat_tempo/0_0.60.20.2/')
     parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
@@ -240,51 +193,35 @@ if __name__ == "__main__":
                         default='../saved_models')
     parser.add_argument('--loading_path', type=str,
                         help='path to load models from, assumed to be created and contain the models', default=None)
-    parser.add_argument('--gamma', type=float, help='gamma value for SVM model', default=0.1)
-    parser.add_argument('--C', type=float, help='C value for SVM model', default=1)
-    parser.add_argument('--kernel', type=str,
-                        help='kernel for SVM (notice that different kernels than rbf might require more parameters)',
-                        default='rbf')
     parser.add_argument('--use_scale', type=bool, help='apply scaling on the data', default=True)
     parser.add_argument('--use_pca', type=bool, help='apply PCA on the data', default=False)
     parser.add_argument('--pca_n_components', type=int, help='number of PCA components', default=2)
     parser.add_argument('--use_ica', type=bool, help='apply ICA on the data', default=False)
     parser.add_argument('--ica_n_components', type=int, help='number of ICA components', default=2)
-    parser.add_argument('--visualize', type=bool, help='visualize the model', default=False)
     parser.add_argument('--n_estimators', type=int, help='n_estimators value for RF and GB', default=10)
     parser.add_argument('--max_depth', type=int, help='max_depth value for RF and GB', default=10)
     parser.add_argument('--min_samples_split', type=int, help='min_samples_split value for RF', default=4)
     parser.add_argument('--min_samples_leaf', type=int, help='min_samples_leaf value for RF', default=2)
-    parser.add_argument('--learning_rate', type=int, help='learning rate value for GB', default=2)
 
     args = parser.parse_args()
 
-    model = args.model
     dataset_path = args.dataset_path
     verbos = args.verbos
     saving_path = args.saving_path
     loading_path = args.loading_path
-    gamma = args.gamma
-    C = args.C
-    kernel = args.kernel
+
     use_scale = args.use_scale
     use_pca = args.use_pca
     pca_n_components = args.pca_n_components
     use_ica = args.use_ica
     ica_n_components = args.ica_n_components
-    visualize = args.visualize
     n_estimators = args.n_estimators
     max_depth = args.max_depth
     min_samples_split = args.min_samples_split
     min_samples_leaf = args.min_samples_leaf
-    lr = args.learning_rate
 
     if not os.path.isdir(saving_path):
         os.mkdir(saving_path)
 
-    """run(model, saving_path, loading_path, pca_n_components, use_pca,
-        ica_n_components, use_ica, use_scale, visualize, gamma, C, kernel,
-        n_estimators, max_depth, min_samples_split, min_samples_leaf, lr, dataset_path, 0)"""
-
-    run('rf', None, None, 2, False, 2, False, True, False, 0.1, 1, 'rbf', 100, 10, 2, 8, 2,
-        '../data_sets_new/complete_0/temporal/200_0.60.20.2/', 0, region_based=True)
+    run(saving_path, loading_path, pca_n_components, use_pca, ica_n_components, use_ica, use_scale, n_estimators,
+        max_depth, min_samples_split, min_samples_leaf, dataset_path, 0)
