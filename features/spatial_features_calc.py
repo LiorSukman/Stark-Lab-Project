@@ -129,7 +129,7 @@ def calc_spatial_features(chunks):
         start_time = time.time()
         for data, dtype in zip([wavelets_dep, wavelets_fzc, wavelets_szc], ['dep', 'fzc', 'szc']):
             feature.set_data(dtype)
-            mat_result = feature.calculate_feature(data, amps, chunks)  # calculates the features, returns a matrix
+            mat_result = feature.calculate_feature(data, amps)  # calculates the features, returns a matrix
             if feature_mat_for_cluster is None:
                 feature_mat_for_cluster = mat_result
             else:
@@ -162,8 +162,6 @@ def get_spatial_features_names():
     names = []
     for feature in dep_spatial_features:
         names += feature.headers
-    # for feature in fwhm_spatial:
-    #     names += feature.headers
     for feature in full_spatial_features:
         for dtype in ['dep', 'fzc', 'szc']:
             feature.set_data(dtype)

@@ -1,5 +1,3 @@
-import warnings
-
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
@@ -7,7 +5,6 @@ from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import time
 import argparse
-import pickle
 from constants import INF
 
 import ML_util
@@ -24,7 +21,6 @@ def evaluate_predictions(model, clusters, scaler, verbos=False):
         features, labels = ML_util.split_features(cluster)
         features = np.nan_to_num(features)
         features = np.clip(features, -INF, INF)
-        # features = np.random.normal(size=features.shape)
         features = scaler.transform(features)
         label = labels[0]  # as they are the same for all the cluster
         total_pyr += 1 if label == 1 else 0
@@ -117,10 +113,6 @@ def grid_search(dataset_path, verbos, n_estimators_min, n_estimators_max, n_esti
 
     clust_count, acc, pyr_acc, in_acc = evaluate_predictions(classifier, test, scaler, verbos)
     dev_clust_count, dev_acc, dev_pyr_acc, dev_in_acc = evaluate_predictions(classifier, dev, scaler, verbos)
-
-
-    """with open('rf_trained_model', 'wb') as fid:  # save the model
-        pickle.dump(clf, fid)"""
 
     return classifier, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc, n_estimators, max_depth, \
            min_samples_split, min_samples_leaf
