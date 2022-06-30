@@ -15,11 +15,11 @@ from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0, 25, 50, 100, 200, 400, 800, 1600]
+chunks = [0, 25] #, 50, 100, 200, 400, 800, 1600]
 restrictions = ['complete']
 dataset_identifier = '0.800.2'
 
-NUM_FETS = 27
+NUM_FETS = 34
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -213,8 +213,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
     for chunk_size in chunks[1:]:
         print(f"            Starting chunk size = {chunk_size}")
-        clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc = run_model(None, False, None, False, True, False,
-                                                                                n_estimators, max_depth,
+        clf, acc, pyr_acc, in_acc, dev_acc, dev_pyr_acc, dev_in_acc = run_model(n_estimators, max_depth,
                                                                                 min_samples_split, min_samples_leaf,
                                                                                 data_path +
                                                                                 f"/{chunk_size}_{dataset_identifier}/",
@@ -297,8 +296,8 @@ if __name__ == "__main__":
     """
 
     model = 'rf'
-    modifier = '050622_trans'
-    iterations = 50
+    modifier = '290322_test'
+    iterations = 10
     animal_based = False
     region_based = False
     perm_labels = False  # This is done in creation of dataset

@@ -36,7 +36,7 @@ def calc_auc(clf, test_set, scaler):
     return auc_val
 
 
-def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False):
+def evaluate_predictions(model, clusters, names, scaler, verbos=False):
     total = len(clusters)
     if total == 0:
         return 0, 0, 0, 0
@@ -45,12 +45,7 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
         features, labels = ML_util.split_features(cluster)
         features = np.nan_to_num(features)
         features = np.clip(features, -INF, INF)
-        if scaler is not None:
-            features = scaler.transform(features)
-        if pca is not None:
-            features = pca.transform(features)
-        if ica is not None:
-            features = ica.transform(features)
+        features = scaler.transform(features)
         label = labels[0]  # as they are the same for all the cluster
         total_pyr += 1 if label == 1 else 0
         total_in += 1 if label == 0 else 0
@@ -87,8 +82,8 @@ def evaluate_predictions(model, clusters, names, pca, ica, scaler, verbos=False)
     return 100 * correct_chunks / total_chunks, 100 * correct_clusters / total, pyr_percent, in_percent
 
 
-def run(saving_path, loading_path, pca_n_components, use_pca, ica_n_components, use_ica, use_scale, n_estimators,
-        max_depth, min_samples_split, min_samples_leaf, dataset_path, seed, region_based=False, shuffle_labels=False):
+def run(n_estimators, max_depth, min_samples_split, min_samples_leaf,
+        dataset_path, seed, region_based=False, shuffle_labels=False):
     """
     runner function for the SVM and RF models.
     explanations about the parameters is in the help
@@ -106,76 +101,24 @@ def run(saving_path, loading_path, pca_n_components, use_pca, ica_n_components, 
     if shuffle_labels:
         np.random.shuffle(train_labels)
 
-    if loading_path is None:
-
-        pca = None
-        ica = None
-        scaler = None
-
-        if use_scale or use_pca or use_ica:
-            print('Scaling data...')
-            scaler = StandardScaler()
-            scaler.fit(train_features)
-            train_features = scaler.transform(train_features)
-
-        if use_pca:  # if we need to use reduce dimension, we will fit PCA and transform the data
-            if pca_n_components is None:
-                raise Exception('If use_pca is True but no loading path is given, pca_n_components must be specified')
-            if pca_n_components > train[0].shape[1]:
-                raise Exception('Number of required components is larger than the number of features')
-            pca = PCA(n_components=pca_n_components, whiten=True)
-            print('Fitting PCA...')
-            pca.fit(train_features)
-            print('explained variance by PCA components is: ' + str(pca.explained_variance_ratio_))
-            with open(saving_path + 'pca', 'wb') as fid:  # save PCA model
-                pickle.dump(pca, fid)
-            print('Transforming training data with PCA...')
-            train_features = pca.transform(train_features)
-
-        if use_ica:  # if we need to use reduce dimension, we will fit ICA and transform the data
-            if ica_n_components is None:
-                raise Exception('If use_ica is True but no loading path is given, ica_n_components must be specified')
-            if ica_n_components > train[0].shape[1]:
-                raise Exception('Number of required components is larger than the number of features')
-            ica = FastICA(n_components=ica_n_components, whiten=True)
-            print('Fitting ICA...')
-            ica.fit(train_features)
-            with open(saving_path + 'ica', 'wb') as fid:  # save ICA model
-                pickle.dump(ica, fid)
-            print('Transforming training data with iCA...')
-            train_features = ica.transform(train_features)
-
-        clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                                     min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
-                                     random_state=seed, class_weight='balanced')
-        print('Fitting Random Forest model...')
-        start = time.time()
-        clf.fit(train_features, train_labels)
-        end = time.time()
-        print('Fitting took %.2f seconds' % (end - start))
-
-        if saving_path is not None:
-            restriction, modality, cs = dataset_path.split('/')[-4:-1]
-            cs = cs.split('_')[0]
-            saving_full_path = f"{saving_path}/{restriction}_{modality}_{cs}_rf_model"
-            with open(saving_full_path, 'wb') as fid:  # save the model
-                pickle.dump(clf, fid)
-    else:  # we need to load the model
-        print('Loading model...')
-        with open(loading_path + 'rf' + '_model', 'rb') as fid:
-            clf = pickle.load(fid)
-        if use_pca:
-            with open(loading_path + 'pca', 'rb') as fid:
-                pca = pickle.load(fid)
-        if use_pca:
-            with open(loading_path + 'ica', 'rb') as fid:
-                ica = pickle.load(fid)
+    print('Scaling data...')
+    scaler = StandardScaler()
+    scaler.fit(train_features)
+    train_features = scaler.transform(train_features)
+    clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
+                                 min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
+                                 random_state=seed, class_weight='balanced')
+    print('Fitting Random Forest model...')
+    start = time.time()
+    clf.fit(train_features, train_labels)
+    end = time.time()
+    print('Fitting took %.2f seconds' % (end - start))
 
     print('Evaluating predictions...')
     print('Test Evaluation:')
-    chunk_per, clust_per, pyr_per, in_per = evaluate_predictions(clf, test, test_names, pca, ica, scaler, verbos=True)
+    chunk_per, clust_per, pyr_per, in_per = evaluate_predictions(clf, test, test_names, scaler, verbos=True)
     print('\nDev Evaluation:')
-    dev_chunk_per, dev_clust_per, dev_pyr_per, dev_in_per = evaluate_predictions(clf, dev, dev_names, pca, ica, scaler, verbos=True)
+    dev_chunk_per, dev_clust_per, dev_pyr_per, dev_in_per = evaluate_predictions(clf, dev, dev_names, scaler, verbos=True)
 
     #calc_auc(clf, test, scaler)
     #calc_auc(clf, dev, scaler)
@@ -188,40 +131,21 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset_path', type=str, help='path to the dataset, assume it was created',
                         default='../data_sets/complete_0/spat_tempo/0_0.60.20.2/')
-    parser.add_argument('--verbos', type=bool, help='verbosity level (bool)', default=True)
-    parser.add_argument('--saving_path', type=str, help='path to save models, assumed to be created',
-                        default='../saved_models')
-    parser.add_argument('--loading_path', type=str,
-                        help='path to load models from, assumed to be created and contain the models', default=None)
-    parser.add_argument('--use_scale', type=bool, help='apply scaling on the data', default=True)
-    parser.add_argument('--use_pca', type=bool, help='apply PCA on the data', default=False)
-    parser.add_argument('--pca_n_components', type=int, help='number of PCA components', default=2)
-    parser.add_argument('--use_ica', type=bool, help='apply ICA on the data', default=False)
-    parser.add_argument('--ica_n_components', type=int, help='number of ICA components', default=2)
     parser.add_argument('--n_estimators', type=int, help='n_estimators value for RF and GB', default=10)
     parser.add_argument('--max_depth', type=int, help='max_depth value for RF and GB', default=10)
     parser.add_argument('--min_samples_split', type=int, help='min_samples_split value for RF', default=4)
     parser.add_argument('--min_samples_leaf', type=int, help='min_samples_leaf value for RF', default=2)
+    parser.add_argument('--seed', type=int, help='seed', default=0)
 
     args = parser.parse_args()
 
     dataset_path = args.dataset_path
-    verbos = args.verbos
-    saving_path = args.saving_path
-    loading_path = args.loading_path
 
-    use_scale = args.use_scale
-    use_pca = args.use_pca
-    pca_n_components = args.pca_n_components
-    use_ica = args.use_ica
-    ica_n_components = args.ica_n_components
     n_estimators = args.n_estimators
     max_depth = args.max_depth
     min_samples_split = args.min_samples_split
     min_samples_leaf = args.min_samples_leaf
 
-    if not os.path.isdir(saving_path):
-        os.mkdir(saving_path)
+    seed = args.seed
 
-    run(saving_path, loading_path, pca_n_components, use_pca, ica_n_components, use_ica, use_scale, n_estimators,
-        max_depth, min_samples_split, min_samples_leaf, dataset_path, 0)
+    run(n_estimators, max_depth, min_samples_split, min_samples_leaf, dataset_path, seed)
