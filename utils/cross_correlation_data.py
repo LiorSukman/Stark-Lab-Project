@@ -27,13 +27,6 @@ def calc_cc(pv_name, pyr_name, temp_path, ax, loc):
     pyr_timings = pyr_clu.timings
     pv_timings = pv_clu.timings
 
-    timings = np.concatenate((pyr_timings, pv_timings))
-    classes = np.concatenate((np.ones(len(pyr_timings)), np.ones(len(pv_timings)) * 2))
-
-    sort_inds = np.argsort(timings)
-    timings = timings[sort_inds]
-    classes = classes[sort_inds]
-
     N = 2 * 1 * 20 + 2
     offset = 1 / (2 * 1)
     bins = np.linspace(-20 - offset, 20 + offset, N)
