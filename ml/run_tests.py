@@ -3,18 +3,17 @@ import ML_util
 import os
 import pandas as pd
 import numpy as np
-from sklearn.metrics import roc_curve, auc, f1_score, precision_recall_curve, matthews_corrcoef
+from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import StandardScaler
 import shap
 
 from gs_rf import grid_search as grid_search_rf
-from RF import run as run_model
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL, TRANS_MORPH
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0, 25]  # , 50, 100, 200, 400, 800, 1600]
+chunks = [0, 25, 50, 100, 200, 400, 800, 1600]
 restrictions = ['complete']
 dataset_identifier = '0.800.2'
 
@@ -22,16 +21,10 @@ NUM_FETS = 34
 
 n_estimators_min = 0
 n_estimators_max = 2
-n_estimators_num = 3
+n_estimators_num = 6
 max_depth_min = 1
 max_depth_max = 2
-max_depth_num = 2
-min_samples_splits_min = 1
-min_samples_splits_max = 5
-min_samples_splits_num = 5
-min_samples_leafs_min = 0
-min_samples_leafs_max = 5
-min_samples_leafs_num = 6
+max_depth_num = 4
 
 n = 5
 
@@ -141,20 +134,19 @@ def calc_auc(clf, data_path, region_based=False, use_dev=False):
 
 def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_labels=False):
     lists = ['aucs', 'fprs', 'tprs', 'importances', 'dev_aucs', 'dev_fprs', 'dev_tprs', 'dev_importances',
-             'preds', 'dev_preds']
+             'n_estimatorss', 'max_depths', 'preds', 'dev_preds']
 
     aucs, fprs, tprs, importances = [], [], [], []
     dev_aucs, dev_fprs, dev_tprs, dev_importances = [], [], [], []
+    n_estimatorss, max_depths = [], []
     preds, dev_preds = [], []
 
     print(f"            Starting chunk size = {chunks[0]}")
 
-    clf, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
-        data_path + f"/0_{dataset_identifier}/", n_estimators_min,
-        n_estimators_max, n_estimators_num, max_depth_min, max_depth_max, max_depth_num,
-        min_samples_splits_min, min_samples_splits_max, min_samples_splits_num,
-        min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed=seed,
-        region_based=region_based, shuffle_labels=shuffle_labels)
+    clf, n_estimators, max_depth = grid_search_rf(data_path + f"/0_{dataset_identifier}/", n_estimators_min,
+                                                  n_estimators_max, n_estimators_num, max_depth_min, max_depth_max,
+                                                  max_depth_num, n, seed=seed, region_based=region_based,
+                                                  shuffle_labels=shuffle_labels)
 
     pred, dev_pred = get_preds(clf, data_path + f"/0_{dataset_identifier}/", region_based)
 
@@ -178,9 +170,10 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
     for chunk_size in chunks[1:]:
         print(f"            Starting chunk size = {chunk_size}")
-        clf = run_model(n_estimators, max_depth, min_samples_split, min_samples_leaf,
-                        data_path + f"/{chunk_size}_{dataset_identifier}/",
-                        seed, region_based, shuffle_labels)
+        clf, n_estimators, max_depth = grid_search_rf(data_path + f"/{chunk_size}_{dataset_identifier}/",
+                                                      n_estimators_min, n_estimators_max, n_estimators_num,
+                                                      max_depth_min, max_depth_max, max_depth_num, n, seed=seed,
+                                                      region_based=region_based, shuffle_labels=shuffle_labels)
 
         auc, fpr, tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
         dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based,
@@ -204,7 +197,8 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
     df = pd.DataFrame(
         {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [str(seed)] * len(aucs),
-         'auc': aucs, 'fpr': fprs, 'tpr': tprs, 'dev_auc': dev_aucs, 'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs})
+         'auc': aucs, 'fpr': fprs, 'tpr': tprs, 'dev_auc': dev_aucs, 'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs,
+         'n_estimators': n_estimatorss, 'max_depth': max_depths})
 
     features = [f"test feature {f + 1}" for f in range(NUM_FETS)]
     importances_row = np.nan * np.ones((len(aucs), NUM_FETS))
@@ -220,7 +214,8 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
 
 def get_folder_results(data_path, seed, region_based=False, shuffle_labels=False):
-    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr'] +\
+    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr',
+               'n_estimators', 'max_depth'] + \
               [f"test feature {f + 1}" for f in range(NUM_FETS)] + [f"dev feature {f + 1}" for f in range(NUM_FETS)]
     preds, dev_preds = None, None
     df = pd.DataFrame({col: [] for col in df_cols})
@@ -245,8 +240,8 @@ if __name__ == "__main__":
     """
 
     model = 'rf'
-    modifier = '290322_test'
-    iterations = 6
+    modifier = '290322_gs'
+    iterations = 15
     animal_based = False
     region_based = False
     perm_labels = False  # This is done in creation of dataset
