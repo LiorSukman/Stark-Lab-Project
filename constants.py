@@ -4,6 +4,7 @@ NUM_CHANNELS = 8
 TIMESTEPS = 32
 SAMPLE_RATE = 20_000
 UPSAMPLE = 8
+RICH_FACTOR = 6
 
 # be careful and assert it is not being changed
 COORDINATES = np.array([[0, 0], [-9, 20], [8, 40], [-13, 60], [12, 80], [-17, 100], [16, 120], [-21, 140]])
@@ -15,8 +16,14 @@ SEED = 2
 INF = 9999
 
 SPATIAL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, -1]
+SPATIAL_R = np.arange(18 * RICH_FACTOR + 1)
+SPATIAL_R[-1] = -1
 MORPHOLOGICAL = [18, 19, 20, 21, 22, 23, 24, 25, -1]
+MORPHOLOGICAL_R = np.arange(8 * RICH_FACTOR + 1) + 18 * RICH_FACTOR
+MORPHOLOGICAL_R[-1] = -1
 TEMPORAL = [26, 27, 28, 29, 30, 31, 32, 33, -1]
+TEMPORAL_R = np.arange(8 * RICH_FACTOR + 1) + (18 + 8) * RICH_FACTOR
+TEMPORAL_R[-1] = -1
 
 # use the following if adding t-time
 # TRANS_MORPH = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, -1]
@@ -79,11 +86,14 @@ SESSION_TO_ANIMAL = {
     'm649r1_21': 649,
     'm649r1_22': 649
 }
-feature_names = ['spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area',
-                 'dep_red', 'dep_sd', 'fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'dep_graph_avg_speed',
-                 'dep_graph_slowest_path', 'dep_graph_fastest_path', 'fzc_graph_avg_speed',
-                 'fzc_graph_slowest_path', 'fzc_graph_fastest_path', 'szc_graph_avg_speed',
-                 'szc_graph_slowest_path', 'szc_graph_fastest_path', 'break_measure',
-                 'fwhm', 'get_acc', 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry', 'firing_rate',
-                 'd_kl_start', 'd_kl_mid', 'jump', 'psd_center', 'der_psd_center', 'rise_time', 'unif_dist']
+feature_names_org = ['spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area', 'dep_red',
+                     'dep_sd', 'fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'dep_graph_avg_speed',
+                     'dep_graph_slowest_path', 'dep_graph_fastest_path', 'fzc_graph_avg_speed',
+                     'fzc_graph_slowest_path', 'fzc_graph_fastest_path', 'szc_graph_avg_speed',
+                     'szc_graph_slowest_path', 'szc_graph_fastest_path', 'break_measure', 'fwhm', 'get_acc',
+                     'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry', 'firing_rate', 'd_kl_start',
+                     'd_kl_mid', 'jump', 'psd_center', 'der_psd_center', 'rise_time', 'unif_dist']
 
+feature_names_rich = []
+for f in feature_names_org:
+    feature_names_rich += [f'{f}', f'{f}_avg', f'{f}_std', f'{f}_q25', f'{f}_q50', f'{f}_q75']

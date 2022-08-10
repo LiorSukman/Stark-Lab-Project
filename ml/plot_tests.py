@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from scipy import interpolate
-from scipy.stats import sem as calc_sem
 from sklearn.metrics import confusion_matrix
 import ml.ML_util as ML_util
 from utils.hideen_prints import HiddenPrints
@@ -19,7 +18,7 @@ mpl.rcParams['ps.fonttype'] = 42
 restrictions = ['complete', 'no_small_sample']
 modalities = ['spatial', 'morphological', 'temporal']
 NUM_FETS = 34
-SAVE_PATH = '../../../data for figures/020422/'
+SAVE_PATH = '../../../data for figures/Thesis/'
 
 
 def change_length(x, y, length):
