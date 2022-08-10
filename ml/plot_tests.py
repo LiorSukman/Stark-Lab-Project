@@ -8,7 +8,7 @@ import ml.ML_util as ML_util
 from utils.hideen_prints import HiddenPrints
 
 from constants import SPATIAL, MORPHOLOGICAL, TEMPORAL
-from constants import feature_names as fet_names
+from constants import feature_names_org as FET_NAMES
 
 import matplotlib as mpl
 
@@ -140,6 +140,7 @@ def plot_cf(tp, tn, fp, fn, tp_q25, tn_q25, fp_q25, fn_q25, tp_q75, tn_q75, fp_q
 def plot_conf_mats(df, restriction, name=None, chunk_size=[0], modalities=None, use_dev=False, data_path=None):
     df_temp = df.copy()
     if data_path is None:
+        raise Warning('Using default dataset path in plot_conf_mats')
         data_path = f'../data_sets_290322/{restriction}_0/spatial/0_0.800.2/'
     with HiddenPrints():
         _, dev, test, _, _, _ = ML_util.get_dataset(data_path)
@@ -188,21 +189,6 @@ def plot_conf_mats(df, restriction, name=None, chunk_size=[0], modalities=None, 
             plt.savefig(SAVE_PATH + f"{name}_{m_name}_conf_mat.pdf", transparent=True)
 
 
-def get_title(restriction):
-    seeds = np.arange(20)
-    tot, tst, pyr, intn = [], [], [], []
-    for seed in seeds:
-        data_path = f"../data_sets/{restriction}_{seed}/spatial/0_0.800.2/"
-        train, dev, test, _, _, _ = ML_util.get_dataset(data_path)
-        tot.append(len(train) + len(dev) + len(test))
-        tst.append(len(test))
-        pyr.append(len([cell for cell in test if cell[0][-1] == 1]))
-        intn.append(len([cell for cell in test if cell[0][-1] == 0]))
-
-    return f"Scores by modality and chunk size; Total={np.mean(tot)}+-{np.std(tot)}, Test={np.mean(tst)}+-" \
-           f"{np.std(tst)}, PYR={np.mean(pyr)}+-{np.std(pyr)}, IN={np.mean(intn)}+-{np.std(intn)} "
-
-
 def autolabel(rects, ax, acc):
     """
     Attach a text label above each bar in *rects*, displaying its height.
@@ -228,12 +214,15 @@ def get_labels(lst):
     return ret
 
 
-def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modalities=None, semsn=None):
+def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modalities=None, semsn=None, fet_names_map=None):
     # TODO make sure order is determined only by rows of used chunk_size
     if name is None:
-        title = ""  # get_title(restriction)
+        title = ""
     if modalities is None:
         modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+
+    if fet_names_map is None:
+        fet_names_map = FET_NAMES
 
     if chunk_size is None:
         chunk_size = get_labels([ind[2] for ind in df.index])
@@ -246,21 +235,21 @@ def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modali
     if semsn is not None:
         semsn = semsn.drop(columns=rem)
 
-    map = {f: name for (f, name) in zip(fets_org, fet_names)}
+    map = {f: name for (f, name) in zip(fets_org, fet_names_map)}
     df = df.rename(map, axis='columns')
-    df = df.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
-    df = df.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
+    df = df.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'], errors='ignore')
+    df = df.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'], errors='ignore')
     sems = sems.rename(map, axis='columns')
-    sems = sems.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
-    sems = sems.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
+    sems = sems.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'], errors='ignore')
+    sems = sems.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'], errors='ignore')
     base = base.rename(map, axis='columns')
-    base = base.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
-    base = base.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
+    base = base.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'], errors='ignore')
+    base = base.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'], errors='ignore')
 
     if semsn is not None:
         semsn = semsn.rename(map, axis='columns')
-        semsn = semsn.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'])
-        semsn = semsn.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'])
+        semsn = semsn.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'], errors='ignore')
+        semsn = semsn.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'], errors='ignore')
 
     for m_name, m_places in modalities:
         df_m = df.xs(m_name, level="modality").dropna(axis=1)
@@ -270,7 +259,7 @@ def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modali
         if semsn is not None:
             semsn_m = semsn.xs(m_name, level="modality").dropna(axis=1)
 
-        names_m = np.asarray(fet_names)[m_places[:-1]]
+        names_m = np.asarray(fet_names_map)[m_places[:-1]]
 
         df_order = np.asarray(df_m)
         order = np.argsort((-1 * df_order).mean(axis=0))
@@ -319,7 +308,7 @@ def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modali
 
 def plot_auc_chunks(df, sems, restriction, name=None, semsn=None):
     if name is None:
-        title = get_title(restriction)
+        title = ''
 
     if semsn is None:
         semsn = sems
@@ -440,7 +429,7 @@ def plot_test_vs_dev_bp(df, chunk_sizes=(0, 0, 0), name=None, diff=False):
 
 def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None, mode='bar', semsn=None):
     if name is None:
-        title = 'dev-test comparison' + get_title(restriction)
+        title = 'dev-test comparison'
 
     labels = get_labels([ind[1] for ind in df.index])
 
@@ -504,7 +493,7 @@ def plot_test_vs_dev(df, sems, restriction, acc=True, name=None, chunk_size=None
 
 def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mode='bar', dev=False, semsn=None):
     if name is None:
-        title = get_title(restriction)
+        title = ''
 
     labels = get_labels([ind[1] for ind in df.index])
 
