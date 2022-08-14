@@ -1,0 +1,12 @@
+results_rf_030422_trans_wf - the original transformed wf run
+results_rf_050622_trans - adding the t_time
+results_rf_090522_region - region run
+results_rf_100522_chance_balanced - the chance level
+results_rf_240522_spatial - I am not sure but I think it was the spatial with the amplitude based (could also be local median)
+results_rf_290322 - The original run
+results_rf_290322_fix_imp - Rerunning the pervious one while saving raw importances
+results_rf_290322_gs - Doing the gs on chunks as well with limited number of trained samples (also used only 2 parameters)
+results_rf_290322_more_chunks_5 - Crushed because chunk size = 1 was too much, this is only after 5 iterations
+results_rf_290322_more_chunks_wo1 - only spatial with chunk sizes of 5 and 10
+results_rf_290322_rich - the addition of the distribution features
+results_rf_290322_rich_fix_imp - rerunning the regular rich while saving raw importances

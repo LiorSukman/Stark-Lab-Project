@@ -989,6 +989,24 @@ def costume_imp(modality, chunk_size, res_name, base_name, imp_inds, name_mappin
                  fet_names_map=name_mapping)
     clear()
 
+def chunks_comp(res_name_a='results_rf_combined', res_name_b='results_rf_290322_fix_imp'):
+    results_a = pd.read_csv(f'../ml/{res_name_a}.csv', index_col=0)
+    complete_a = results_a[results_a.restriction == 'complete']
+
+    drop = [col for col in complete_a.columns.values if col not in ['modality', 'chunk_size', 'seed', 'auc']]
+
+    complete_a = complete_a.drop(columns=drop)
+
+    results_b = pd.read_csv(f'../ml/{res_name_b}.csv', index_col=0)
+    complete_b = results_b[results_b.restriction == 'complete']
+    complete_b = complete_b.drop(columns=drop)
+
+    for mod in ['spatial', 'temporal', 'morphological']:
+        ax = plot_auc_chunks_bp(complete_a[complete_a.modality == mod], plot=False, shift=-0.3)
+
+        plot_auc_chunks_bp(complete_b [complete_b.modality == mod], name='chunks_rf_comp', ax_inp=ax, edge_color='r', shift=0.3)
+        clear()
+
 def spatial_var(path):
     arr = []
     labels = []
@@ -1023,10 +1041,13 @@ def spatial_var(path):
     arr_pv = arr[labels == 0]
 
     p = stats.mannwhitneyu(arr_pyr.flatten(), arr_pv.flatten()).pvalue
-    print(f'for PYR compared to PV in general: p-val={p}')
+    print(f'MW for PYR compared to PV in general: p-val={p}')
 
     arr_pyr_mean = arr_pyr.mean(axis=0)
     arr_pv_mean = arr_pv.mean(axis=0)
+
+    p = stats.wilcoxon(arr_pyr_mean, arr_pv_mean).pvalue
+    print(f'Wilcoxon for PYR compared to PV in general: p-val={p}')
 
     for pyr, pv, pyr_all, pv_all, col in zip(arr_pyr_mean, arr_pv_mean, arr_pyr.T, arr_pv.T, columns):
         p = stats.mannwhitneyu(pyr_all, pv_all).pvalue
@@ -1041,7 +1062,7 @@ def spatial_var(path):
     clear()
 
 def appendix_figs():
-    spatial_var(f'../cluster_data/clusterData_no_light_29_03_22/{BEST_SPATIAL_CHUNK}')
+    chunks_comp()
     raise AssertionError
 
     # Appendix A

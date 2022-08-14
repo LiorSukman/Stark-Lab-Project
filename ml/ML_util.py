@@ -99,20 +99,20 @@ def read_data(path, mode='complete', should_filter=True, keep=None, filter=None)
         if should_filter:
             if filter is not None:
                 if i in filter:
-                    if keep:  # i.e. keep != []
+                    if len(keep) > 0:  # i.e. keep != []
                         nd = nd[:, keep]
                     clusters.append(nd)
                 else:
                     continue
             elif is_legal(nd, mode, region):
-                if keep:  # i.e. keep != []
+                if len(keep) > 0:  # i.e. keep != []
                     nd = nd[:, keep]
                 clusters.append(nd)
                 filter_set.add(i)
             else:
                 continue
         else:
-            if keep:  # i.e. keep != []
+            if len(keep) > 0:  # i.e. keep != []
                 nd = nd[:, keep]
             clusters.append(nd)
         names.append(name)
