@@ -350,7 +350,7 @@ def plot_auc_chunks(df, sems, restriction, name=None, semsn=None):
             plt.close('all')
 
 
-def plot_auc_chunks_bp(df, name=None):
+def plot_auc_chunks_bp(df, name=None, plot=True, ax_inp=None, edge_color='k', shift=0):
     # chunk_sizes = df.chunk_size.unique()[1::][::-1] # remove no chunking
     chunk_sizes = np.roll(df.chunk_size.unique(), -1)[::-1]
     mods = df.modality.unique()
@@ -359,14 +359,23 @@ def plot_auc_chunks_bp(df, name=None):
         df_m = df[df.modality == m_name]
         chunk_sizes_m = df_m.chunk_size.to_numpy()
         chunk_aucs = [df_m.auc[chunk_sizes_m == cs].to_numpy() for cs in chunk_sizes]
-        fig, ax = plt.subplots(figsize=(9, 6))
+
+        if ax_inp is None:
+            fig, ax = plt.subplots(figsize=(9, 6))
+        else:
+            ax = ax_inp
 
         ax.axhline(y=np.median(df_m.auc[chunk_sizes_m == 0].to_numpy()), color='k', linestyle='--')
         # Since highlighting is a bit to much
         # ax.axhspan(ymin=np.quantile(df_m.auc[chunk_sizes_m == 0].to_numpy(), 0.25),
         #            ymax=np.quantile(df_m.auc[chunk_sizes_m == 0].to_numpy(), 0.75), color='k', alpha=0.2)
-        ax.boxplot(chunk_aucs, labels=chunk_sizes.astype(np.int32), medianprops={"color": "k"},
-                   flierprops=dict(markerfacecolor='#808080', marker='+'), notch=True, bootstrap=1_000)
+        bp = ax.boxplot(chunk_aucs, labels=chunk_sizes.astype(np.int32), positions=2 * np.arange(len(chunk_sizes)) + shift,
+                   flierprops=dict(markeredgecolor=edge_color, marker='+'), notch=True, bootstrap=1_000)
+
+        for element in ['boxes', 'whiskers', 'fliers', 'means', 'medians', 'caps']:
+            plt.setp(bp[element], color=edge_color)
+
+        ax.set_xticks(2 * np.arange(len(chunk_sizes)))
 
         ax.set_ylabel('AUC')
         ax.set_xlabel('Chunk Size')
@@ -374,6 +383,9 @@ def plot_auc_chunks_bp(df, name=None):
 
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
+
+        if not plot:
+            return ax
 
         if name is None:
             plt.show()

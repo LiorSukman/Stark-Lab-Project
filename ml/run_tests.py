@@ -15,11 +15,11 @@ from constants import SPATIAL_R, MORPHOLOGICAL_R, TEMPORAL_R
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0, 25, 50, 1600] #[0, 25, 50, 100, 200, 400, 800, 1600]
+chunks = [0, 1, 5, 10, 25, 50, 100, 200, 400, 800, 1600]
 restrictions = ['complete']
 dataset_identifier = '0.800.2'
 
-NUM_FETS = 204
+NUM_FETS = 90
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -263,18 +263,18 @@ if __name__ == "__main__":
     """
 
     model = 'rf'
-    modifier = '030822_rich_region'
+    modifier = '110822_rich_v2'
     iterations = 50
-    load_iter = 5
+    load_iter = 37
     animal_based = False
-    region_based = True
+    region_based = False
     perm_labels = False  # This is done in creation of dataset
     shuffle_labels = False  # This is done in loading
     results = None if load_iter is None else pd.read_csv(f'results_{model}_{modifier}_{load_iter}.csv', index_col=0)
     preds = None if load_iter is None else np.load(f'preds_{model}_{modifier}_{load_iter}.npy')
-    dev_preds = None if load_iter is None else np.load(f'preds_dev_{model}_{modifier}_{load_iter}.npy')
+    dev_preds = None #if load_iter is None else np.load(f'preds_dev_{model}_{modifier}_{load_iter}.npy')
     raw_imps = None if load_iter is None else np.load(f'raw_imps_{model}_{modifier}_{load_iter}.npy')
-    dev_raw_imps = None if load_iter is None else np.load(f'raw_imps_dev_{model}_{modifier}_{load_iter}.npy')
+    dev_raw_imps = None #if load_iter is None else np.load(f'raw_imps_dev_{model}_{modifier}_{load_iter}.npy')
     save_path = f'../Datasets/data_sets_{modifier}'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
@@ -282,6 +282,9 @@ if __name__ == "__main__":
         modalities = [('trans_wf', TRANS_MORPH)]
     else:
         modalities = [('spatial', SPATIAL_R), ('temporal', TEMPORAL_R), ('morphological', MORPHOLOGICAL_R)]
+        inds = np.arange(NUM_FETS + 1)
+        inds[-1] = -1
+        modalities = [('spatial', inds)]
     for i in range(0 if load_iter is None else load_iter + 1, iterations):
         print(f"Starting iteration {i}")
         for r in restrictions:
@@ -312,13 +315,13 @@ if __name__ == "__main__":
             dev_raw_imps = dev_raw_imp if dev_raw_imps is None else np.vstack((dev_raw_imps, dev_raw_imp))
 
             np.save(f'preds_{model}_{modifier}_{i}', preds)
-            np.save(f'preds_dev_{model}_{modifier}_{i}', dev_preds)
+            #np.save(f'preds_dev_{model}_{modifier}_{i}', dev_preds)
             np.save(f'raw_imps_{model}_{modifier}_{i}', raw_imps)
-            np.save(f'raw_imps_dev_{model}_{modifier}_{i}', dev_raw_imps)
+            #np.save(f'raw_imps_dev_{model}_{modifier}_{i}', dev_raw_imps)
             results.to_csv(f'results_{model}_{modifier}_{i}.csv')
 
     results.to_csv(f'results_{model}_{modifier}.csv')
     np.save(f'preds_{model}_{modifier}', preds)
-    np.save(f'preds_dev_{model}_{modifier}', dev_preds)
+    #np.save(f'preds_dev_{model}_{modifier}', dev_preds)
     np.save(f'raw_imps_{model}_{modifier}', raw_imps)
-    np.save(f'raw_imps_dev_{model}_{modifier}', dev_raw_imps)
+    #np.save(f'raw_imps_dev_{model}_{modifier}', dev_raw_imps)

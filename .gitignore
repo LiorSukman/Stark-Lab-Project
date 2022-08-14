@@ -9,5 +9,7 @@
 **/.idea
 **/temps_to_save
 ml/results*
+ml/raw*
 **/ml/predictions
+**/ml/old_runs
 *.mat
