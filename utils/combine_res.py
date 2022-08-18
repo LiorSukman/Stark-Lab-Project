@@ -23,6 +23,10 @@ DEST_MOMENTS_BASELINE = '../ml/results_rf_moments_chance_balanced.csv'
 DEST_EVENTS = '../ml/results_rf_events.csv'
 DEST_EVENTS_BASELINE = '../ml/results_rf_events_chance_balanced.csv'
 
+# small chunks
+PATH_SPAT = '../ml/results_rf_290322_more_chunks_wo1.csv'
+DEST_SPAT = '../ml/results_rf_spatial_combined.csv'
+
 NUM_FETS = 34
 NUM_MOMENTS = 5
 NUM_MODALITIES = 3
@@ -119,7 +123,7 @@ if __name__ == "__main__":
     mapper = {f'test feature new {i + 1}': f'test feature {i + 1}' for i in range(NUM_MOMENTS + 1)}
     df_c = df_c.rename(columns=mapper)
 
-    df_c.to_csv(DEST_MOMENTS_BASELINE)"""
+    df_c.to_csv(DEST_MOMENTS_BASELINE)
 
     # events
     # actual
@@ -166,4 +170,15 @@ if __name__ == "__main__":
     mapper = {f'test feature new {i + 1}': f'test feature {i + 1}' for i in range(NUM_EVENTS)}
     df_c = df_c.rename(columns=mapper)
 
-    df_c.to_csv(DEST_EVENTS_BASELINE)
+    df_c.to_csv(DEST_EVENTS_BASELINE)"""
+
+    # combine spatials
+    df_a = pd.read_csv(PATH_0, index_col=0)
+    df_b = pd.read_csv(PATH_SPAT, index_col=0)
+
+    df_a = df_a[df_a.modality == 'spatial']
+    df_b = df_b[df_b.chunk_size != 0]
+
+    df_a = df_a.append(df_b).sort_values(by=['chunk_size'])
+
+    df_a.to_csv(DEST_SPAT)

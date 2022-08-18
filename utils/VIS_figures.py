@@ -48,6 +48,10 @@ BEST_WF_CHUNK = 50
 BEST_SPATIAL_CHUNK = 25
 BEST_TEMPORAL_CHUNK = 1600
 
+BEST_OLD_WF_CHUNK = 800
+BEST_OLD_SPATIAL_CHUNK = 25
+BEST_OLD_TEMPORAL_CHUNK = 800
+
 # the following values are required to transform the spikes from arbitrary units to Voltage
 # this values are based on the corresponding XML file, change them accordingly if changing units
 VOL_RANGE = 8
@@ -989,7 +993,7 @@ def costume_imp(modality, chunk_size, res_name, base_name, imp_inds, name_mappin
                  fet_names_map=name_mapping)
     clear()
 
-def chunks_comp(res_name_a='results_rf_combined', res_name_b='results_rf_290322_fix_imp'):
+def chunks_comp(res_name_a='results_rf_combined', res_name_b='results_rf_290322_fix_imp', res_name_c='results_rf_spatial_combined'):
     results_a = pd.read_csv(f'../ml/{res_name_a}.csv', index_col=0)
     complete_a = results_a[results_a.restriction == 'complete']
 
@@ -1001,11 +1005,45 @@ def chunks_comp(res_name_a='results_rf_combined', res_name_b='results_rf_290322_
     complete_b = results_b[results_b.restriction == 'complete']
     complete_b = complete_b.drop(columns=drop)
 
-    for mod in ['spatial', 'temporal', 'morphological']:
-        ax = plot_auc_chunks_bp(complete_a[complete_a.modality == mod], plot=False, shift=-0.3)
+    for mod in ['temporal', 'morphological']:
+        ax = plot_auc_chunks_bp(complete_a[complete_a.modality == mod], plot=False, shift=-0.45)
 
-        plot_auc_chunks_bp(complete_b [complete_b.modality == mod], name='chunks_rf_comp', ax_inp=ax, edge_color='r', shift=0.3)
+        plot_auc_chunks_bp(complete_b[complete_b.modality == mod], name='chunks_rf_comp', ax_inp=ax, edge_color='r', shift=0.45)
         clear()
+
+    mod = 'spatial'
+    results_c = pd.read_csv(f'../ml/{res_name_c}.csv', index_col=0)
+    complete_c = results_c[results_c.restriction == 'complete']
+    complete_c = complete_c.drop(columns=drop)
+    ax = plot_auc_chunks_bp(complete_a[complete_a.modality == mod], plot=False, shift=-0.45)
+
+    plot_auc_chunks_bp(complete_c[complete_c.modality == mod], name='chunks_rf_comp', ax_inp=ax, edge_color='r',
+                       shift=0.45)
+    clear()
+
+def comp_chunk_roc_curves(modality, cs_a, cs_b, res_name_a='results_rf_combined', res_name_b='results_rf_290322_fix_imp'):
+    results_a = pd.read_csv(f'../ml/{res_name_a}.csv', index_col=0)
+    results_b = pd.read_csv(f'../ml/{res_name_b}.csv', index_col=0)
+
+    chunk_sizes = [0, 25, 50, 100, 200, 400, 800, 1600]
+    results_a.chunk_size = results_a.chunk_size.map({cs: f'{cs}_a' for cs in chunk_sizes})
+    results_b.chunk_size = results_b.chunk_size.map({cs: f'{cs}_b' for cs in chunk_sizes})
+
+    results = results_a.append(results_b)
+
+    chunk_size_list = ['0_a', f'{cs_a}_a', f'{cs_b}_b']
+
+    complete_roc = results[results.restriction == 'complete']
+    complete_roc = complete_roc[complete_roc.modality == modality]
+
+    complete_roc = complete_roc[complete_roc.chunk_size.isin(chunk_size_list)]
+    complete_roc = complete_roc.dropna(how='all', axis=1)
+
+    d = {'spatial': SPATIAL, 'morphological': MORPHOLOGICAL, 'temporal': TEMPORAL, 'trans_wf': TRANS_MORPH}
+    modalities = [(modality, d[modality])]
+
+    plot_roc_curve(complete_roc, name='comp', chunk_size=chunk_size_list, modalities=modalities)
+    clear()
 
 def spatial_var(path):
     arr = []
@@ -1062,13 +1100,10 @@ def spatial_var(path):
     clear()
 
 def appendix_figs():
-    chunks_comp()
-    raise AssertionError
-
     # Appendix A
     # Correlation matrices
     # Waveform
-    features = ['break_measure', 'fwhm', 'get_acc', 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry',
+    """features = ['break_measure', 'fwhm', 'get_acc', 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry',
                 'label']
     df = load_df(features)
 
@@ -1096,9 +1131,14 @@ def appendix_figs():
                   'dep_graph_slowest_path', 'dep_graph_fastest_path', 'fzc_graph_avg_speed', 'fzc_graph_slowest_path',
                   'fzc_graph_fastest_path', 'szc_graph_avg_speed', 'szc_graph_slowest_path', 'szc_graph_fastest_path',
                   'spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area']
-    corr_mat(df, 'spatial', order_spat)
+    corr_mat(df, 'spatial', order_spat)"""
 
     # Appendix B
+    chunks_comp()
+    raise AssertionError
+    comp_chunk_roc_curves('morphological', BEST_WF_CHUNK, BEST_OLD_WF_CHUNK)
+    comp_chunk_roc_curves('temporal', BEST_TEMPORAL_CHUNK, BEST_OLD_TEMPORAL_CHUNK)
+    comp_chunk_roc_curves('spatial', BEST_SPATIAL_CHUNK, BEST_OLD_SPATIAL_CHUNK)
 
     # Appendix C
     # Moments importances

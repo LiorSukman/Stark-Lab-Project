@@ -1,7 +1,11 @@
 results_rf_030422_trans_wf - the original transformed wf run
+results_rf_030822_rich - region analysis with rich features
 results_rf_050622_trans - adding the t_time
 results_rf_090522_region - region run
 results_rf_100522_chance_balanced - the chance level
+results_rf_110822_rich_v2 - only spatial with the summary statistics and NO individual chunk values, includes chunk sizes of 1, 5, and 10
+results_rf_160822_rich_v2_wf_st - only WF and spike-timing with the summary statistics and NO individual chunk values
+results_rf_280722_rich_chance_balanced_fix_imp - chance level for rich with saving of raw importances
 results_rf_240522_spatial - I am not sure but I think it was the spatial with the amplitude based (could also be local median)
 results_rf_290322 - The original run
 results_rf_290322_fix_imp - Rerunning the pervious one while saving raw importances

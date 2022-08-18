@@ -369,13 +369,13 @@ def plot_auc_chunks_bp(df, name=None, plot=True, ax_inp=None, edge_color='k', sh
         # Since highlighting is a bit to much
         # ax.axhspan(ymin=np.quantile(df_m.auc[chunk_sizes_m == 0].to_numpy(), 0.25),
         #            ymax=np.quantile(df_m.auc[chunk_sizes_m == 0].to_numpy(), 0.75), color='k', alpha=0.2)
-        bp = ax.boxplot(chunk_aucs, labels=chunk_sizes.astype(np.int32), positions=2 * np.arange(len(chunk_sizes)) + shift,
+        bp = ax.boxplot(chunk_aucs, labels=chunk_sizes.astype(np.int32), positions=2.5 * np.arange(len(chunk_sizes)) + shift,
                    flierprops=dict(markeredgecolor=edge_color, marker='+'), notch=True, bootstrap=1_000)
 
         for element in ['boxes', 'whiskers', 'fliers', 'means', 'medians', 'caps']:
             plt.setp(bp[element], color=edge_color)
 
-        ax.set_xticks(2 * np.arange(len(chunk_sizes)))
+        ax.set_xticks(2.5 * np.arange(len(chunk_sizes)))
 
         ax.set_ylabel('AUC')
         ax.set_xlabel('Chunk Size')
