@@ -33,6 +33,7 @@ def grid_search(dataset_path, n_estimators_min, n_estimators_max, n_estimators_n
     features = np.clip(features, -INF, INF)
 
     if shuffle_labels:
+        np.random.seed(seed)
         np.random.shuffle(labels)
 
     scaler = StandardScaler()
