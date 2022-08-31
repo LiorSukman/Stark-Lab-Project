@@ -3,35 +3,10 @@ import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import torch
-from torch.autograd import Variable
 from clusters import Spike
 from sklearn.model_selection import GroupShuffleSplit, StratifiedShuffleSplit
 
 from constants import SEED, SESSION_TO_ANIMAL
-
-
-def create_batches(data, batch_size, should_shuffle=True):
-    """
-   This function should recieve the data as np array of waveforms (features and label), and return a list of batches,
-   each batch is a tuple of torch's Variable of tensors:
-   1) The input features
-   2) The corresponding labels
-   If should_shuffle (optional, bool, default = True) argument is True we shuffle the data (in place) before creating
-   the batches
-   """
-    if should_shuffle:
-        np.random.shuffle(data)
-    batches = []
-    cur_batch = 0
-    number_of_batches = math.ceil(len(data) / batch_size)
-    while cur_batch < number_of_batches:
-        batch = data[cur_batch * batch_size: (cur_batch + 1) * batch_size]
-        batch = (torch.from_numpy(batch[:, :-1]), torch.from_numpy(batch[:, -1]).long())
-        batch = (Variable(batch[0], requires_grad=True).float(), Variable(batch[1]))
-        cur_batch += 1
-        batches.append(batch)
-    return batches
 
 
 def split_features(data):
@@ -43,15 +18,6 @@ def split_features(data):
 
 def unite_fets_labels(features, labels):
     return np.concatenate((features, np.expand_dims(labels, axis=1)), axis=len(features.shape) - 1)
-
-
-def parse_test(data):
-    """
-   The function receives test data of a cluster and transforms it so the NN can handle it
-   """
-    features, label = split_features(data)
-    features = Variable(torch.from_numpy(features))
-    return features, label[0]
 
 
 def is_legal(cluster, mode, region):
