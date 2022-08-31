@@ -49,7 +49,7 @@ BEST_SPATIAL_CHUNK = 25
 BEST_TEMPORAL_CHUNK = 1600
 
 BEST_OLD_WF_CHUNK = 800
-BEST_OLD_SPATIAL_CHUNK = 25
+BEST_OLD_SPATIAL_CHUNK = 5
 BEST_OLD_TEMPORAL_CHUNK = 800
 
 # the following values are required to transform the spikes from arbitrary units to Voltage
@@ -849,7 +849,7 @@ def main_figs():
     df = load_df(['region', 'label'], trans_labels=False)
     pie_chart(df)
 
-    # Morphological features - figure 2
+    # WF features - figure 2
 
     pyr_t2p, pyr_fwhm = t2p_fwhm(pyr_cluster, PYR_COLOR, LIGHT_PYR, 'pyr')
     pv_t2p, pv_fwhm = t2p_fwhm(pv_cluster, PV_COLOR, LIGHT_PV, 'pv')
@@ -920,7 +920,7 @@ def main_figs():
 
     get_results('temporal', BEST_TEMPORAL_CHUNK)
 
-    # modified waveforms - fig 4
+    # modified waveforms - fig 3
 
     wf_heatmap(df.label.to_numpy())
 
@@ -929,7 +929,7 @@ def main_figs():
 
     get_delta_results('trans_wf')
 
-    # Spatial features - figure 5 - 6
+    # Spatial features - figure 3 - 5
 
     pyr_spd = spd(pyr_cluster, 'pyr')
     pv_spd = spd(pv_cluster, 'pv')
@@ -954,10 +954,6 @@ def main_figs():
                   [[pyr_spd, pv_spd], [pyr_fzc, pv_fzc], [pyr_fzc_sd, pv_fzc_sd], [pyr_graph_avg, pv_graph_avg]])
 
     get_results('spatial', BEST_SPATIAL_CHUNK)
-
-    # chunks - fig 6
-
-    # chunk_fig(pyr_cluster, 'pyr', BEST_SPATIAL_CHUNK)
 
     chunk_results()
 
@@ -1025,8 +1021,9 @@ def comp_chunk_roc_curves(modality, cs_a, cs_b, res_name_a='results_rf_combined'
     results_a = pd.read_csv(f'../ml/{res_name_a}.csv', index_col=0)
     results_b = pd.read_csv(f'../ml/{res_name_b}.csv', index_col=0)
 
-    chunk_sizes = [0, 25, 50, 100, 200, 400, 800, 1600]
+    chunk_sizes = np.array(results_a.chunk_size.unique(), dtype=np.int32)
     results_a.chunk_size = results_a.chunk_size.map({cs: f'{cs}_a' for cs in chunk_sizes})
+    chunk_sizes = np.array(results_b.chunk_size.unique(), dtype=np.int32)
     results_b.chunk_size = results_b.chunk_size.map({cs: f'{cs}_b' for cs in chunk_sizes})
 
     results = results_a.append(results_b)
@@ -1079,31 +1076,38 @@ def spatial_var(path):
     arr_pv = arr[labels == 0]
 
     p = stats.mannwhitneyu(arr_pyr.flatten(), arr_pv.flatten()).pvalue
+    print('PYR', np.quantile(arr_pyr, q=[0.25, 0.5, 0.75]))
+    print('PV', np.quantile(arr_pv, q=[0.25, 0.5, 0.75]))
     print(f'MW for PYR compared to PV in general: p-val={p}')
 
-    arr_pyr_mean = arr_pyr.mean(axis=0)
-    arr_pv_mean = arr_pv.mean(axis=0)
+    arr_pyr_med = np.median(arr_pyr, axis=0)
+    arr_pv_med = np.median(arr_pv, axis=0)
 
-    p = stats.wilcoxon(arr_pyr_mean, arr_pv_mean).pvalue
+    p = stats.wilcoxon(arr_pyr_med, arr_pv_med).pvalue
     print(f'Wilcoxon for PYR compared to PV in general: p-val={p}')
 
-    for pyr, pv, pyr_all, pv_all, col in zip(arr_pyr_mean, arr_pv_mean, arr_pyr.T, arr_pv.T, columns):
+    fig, ax = plt.subplots(figsize=(6, 10))
+
+    for pyr, pv, pyr_all, pv_all, col in zip(arr_pyr_med, arr_pv_med, arr_pyr.T, arr_pv.T, columns):
         p = stats.mannwhitneyu(pyr_all, pv_all).pvalue
         print(f"{col}: pyr={round(pyr, 3)}, pv={round(pv, 3)}. p-val={p}")
-        plt.plot([pyr, pv], c='k', marker='o')
+        ax.plot([pyr, pv], 'k' if p < 0.05 else '0.7', marker='o')
 
-    plt.bar([0, 1], [arr_pyr.mean(), arr_pv.mean()], color='#A0A0A0')
-
-    plt.xticks(ticks=[0, 1], labels=['PYR', 'PV'])
+    yerr = [[np.median(arr_pyr) - np.quantile(arr_pyr, 0.25), np.median(arr_pv) - np.quantile(arr_pv, 0.25)],
+            [np.quantile(arr_pyr, 0.75) - np.median(arr_pyr), np.quantile(arr_pv, 0.75) - np.median(arr_pv)]]
+    ax.bar([0, 1], [np.median(arr_pyr), np.median(arr_pv)], color='#A0A0A0', tick_label=['PYR', 'PV'],
+           yerr=yerr)
 
     plt.savefig(SAVE_PATH + f"spatial_var.pdf", transparent=True)
     clear()
 
 def appendix_figs():
+    spatial_var(f'../cluster_data/clusterData_no_light_29_03_22/{BEST_SPATIAL_CHUNK}')
+    raise AssertionError
     # Appendix A
     # Correlation matrices
     # Waveform
-    """features = ['break_measure', 'fwhm', 'get_acc', 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry',
+    features = ['break_measure', 'fwhm', 'get_acc', 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry',
                 'label']
     df = load_df(features)
 
@@ -1131,14 +1135,13 @@ def appendix_figs():
                   'dep_graph_slowest_path', 'dep_graph_fastest_path', 'fzc_graph_avg_speed', 'fzc_graph_slowest_path',
                   'fzc_graph_fastest_path', 'szc_graph_avg_speed', 'szc_graph_slowest_path', 'szc_graph_fastest_path',
                   'spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area']
-    corr_mat(df, 'spatial', order_spat)"""
+    corr_mat(df, 'spatial', order_spat)
 
     # Appendix B
     chunks_comp()
-    raise AssertionError
     comp_chunk_roc_curves('morphological', BEST_WF_CHUNK, BEST_OLD_WF_CHUNK)
     comp_chunk_roc_curves('temporal', BEST_TEMPORAL_CHUNK, BEST_OLD_TEMPORAL_CHUNK)
-    comp_chunk_roc_curves('spatial', BEST_SPATIAL_CHUNK, BEST_OLD_SPATIAL_CHUNK)
+    comp_chunk_roc_curves('spatial', BEST_SPATIAL_CHUNK, BEST_OLD_SPATIAL_CHUNK, res_name_b='results_rf_spatial_combined')
 
     # Appendix C
     # Moments importances

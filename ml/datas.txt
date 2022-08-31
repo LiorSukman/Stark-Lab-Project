@@ -1,8 +1,8 @@
-../cluster_data/clusterData_no_light_29_03_22_rich_v2_wf_st/0
-../cluster_data/clusterData_no_light_29_03_22_rich_v2_wf_st/25
-../cluster_data/clusterData_no_light_29_03_22_rich_v2_wf_st/50
-../cluster_data/clusterData_no_light_29_03_22_rich_v2_wf_st/100
-../cluster_data/clusterData_no_light_29_03_22_rich_v2_wf_st/200
-../cluster_data/clusterData_no_light_29_03_22_rich_v2_wf_st/400
-../cluster_data/clusterData_no_light_29_03_22_rich_v2_wf_st/800
-../cluster_data/clusterData_no_light_29_03_22_rich_v2_wf_st/1600
+../cluster_data/clusterData_no_light_29_03_22_rich/0
+../cluster_data/clusterData_no_light_29_03_22_rich/25
+../cluster_data/clusterData_no_light_29_03_22_rich/50
+../cluster_data/clusterData_no_light_29_03_22_rich/100
+../cluster_data/clusterData_no_light_29_03_22_rich/200
+../cluster_data/clusterData_no_light_29_03_22_rich/400
+../cluster_data/clusterData_no_light_29_03_22_rich/800
+../cluster_data/clusterData_no_light_29_03_22_rich/1600

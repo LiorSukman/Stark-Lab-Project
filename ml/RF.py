@@ -27,6 +27,7 @@ def run(n_estimators, max_depth, min_samples_split, min_samples_leaf,
     train_features = np.clip(train_features, -INF, INF)
 
     if shuffle_labels:
+        np.random.seed(seed)
         np.random.shuffle(train_labels)
 
     print('Scaling data...')

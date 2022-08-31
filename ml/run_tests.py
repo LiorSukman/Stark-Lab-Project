@@ -15,11 +15,14 @@ from constants import SPATIAL_R, MORPHOLOGICAL_R, TEMPORAL_R
 from utils.hideen_prints import HiddenPrints
 from constants import INF
 
-chunks = [0, 25, 50, 100, 200, 400, 800, 1600]
+chunks = [25, 50, 100, 200, 400, 800, 1600]  # 0 is included implicitly
+chunks_map = {'spatial': [25], 'temporal': [1_600], 'morphological': [50]}  # 0 is included implicitly
 restrictions = ['complete']
 dataset_identifier = '0.800.2'
 
-NUM_FETS = 80
+NUM_FETS = 204  # Total number of features in data (all modalities)
+NUM_ITER = 50  # Number of iterations for every modality x chunk size
+SKIP_0_IMP = True  # do not calculate importance for chunk size 0
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -73,7 +76,7 @@ def get_shap_imp(clf, test, seed, skip=False):
     df = pd.DataFrame(test)
     df_shap = df.sample(min(1000, len(test)), random_state=int(seed) + 1)
     rf_explainer = shap.TreeExplainer(clf)  # define explainer
-    shap_values = rf_explainer(df_shap)  # calculate shap values
+    shap_values = rf_explainer(df_shap, check_additivity=False)  # calculate shap values; check_aditivity set to overcome a possible bug in the shap library
     pyr_shap_values = shap_values[..., 1]
     return np.mean(np.abs(pyr_shap_values.values), axis=0), pyr_shap_values.values
 
@@ -143,7 +146,7 @@ def calc_auc(clf, data_path, region_based=False, use_dev=False):
     return auc_val, fpr, tpr
 
 
-def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_labels=False):
+def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_labels=False, modality=None):
     lists = ['aucs', 'fprs', 'tprs', 'importances', 'dev_aucs', 'dev_fprs', 'dev_tprs', 'dev_importances',
              'preds', 'dev_preds', 'raw_imps', 'dev_raw_imps']
 
@@ -152,7 +155,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
     preds, dev_preds = [], []
     raw_imps, dev_raw_imps = [], []
 
-    print(f"            Starting chunk size = {chunks[0]}")
+    print(f"            Starting chunk size = 0")
 
     clf, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
         data_path + f"/0_{dataset_identifier}/", n_estimators_min,
@@ -168,7 +171,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
     x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
     raw_imp = np.ones((1000, NUM_FETS)) * np.nan
-    importance, raw_imp_temp = get_shap_imp(clf, x, seed)
+    importance, raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP)
     raw_imp[:min(1000, len(x)), fet_inds[:-1]] = raw_imp_temp
 
     x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
@@ -186,7 +189,8 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
     restriction, modality = data_path.split('/')[-2:]
     restriction = '_'.join(restriction.split('_')[:-1])
 
-    for chunk_size in chunks[1:]:
+    chunks_iter = chunks if modality is None else chunks_map[modality]
+    for chunk_size in chunks_iter:
         print(f"            Starting chunk size = {chunk_size}")
         clf = run_model(n_estimators, max_depth, min_samples_split, min_samples_leaf,
                         data_path + f"/{chunk_size}_{dataset_identifier}/",
@@ -218,7 +222,8 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
             exec(assignment)
 
     df = pd.DataFrame(
-        {'restriction': restriction, 'modality': modality, 'chunk_size': chunks, 'seed': [str(seed)] * len(aucs),
+        {'restriction': restriction, 'modality': modality, 'chunk_size': [0] + chunks_iter,
+         'seed': [str(seed)] * len(aucs),
          'auc': aucs, 'fpr': fprs, 'tpr': tprs, 'dev_auc': dev_aucs, 'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs})
 
     features = [f"test feature {f + 1}" for f in range(NUM_FETS)]
@@ -231,24 +236,39 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
     importances_row[:, fet_inds[:-1]] = dev_importances
     df[features] = pd.DataFrame(importances_row, index=df.index)
 
-    return df, np.stack(tuple(preds)), np.stack(tuple(dev_preds)), np.stack(tuple(raw_imps)), np.stack(tuple(dev_raw_imps))
+    return df, np.stack(tuple(preds)), np.stack(tuple(dev_preds)), np.stack(tuple(raw_imps)), np.stack(
+        tuple(dev_raw_imps))
 
 
 def get_folder_results(data_path, seed, region_based=False, shuffle_labels=False):
-    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr'] +\
+    df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr'] + \
               [f"test feature {f + 1}" for f in range(NUM_FETS)] + [f"dev feature {f + 1}" for f in range(NUM_FETS)]
     preds, dev_preds = None, None
     raw_imps, dev_raw_imps = None, None
     df = pd.DataFrame({col: [] for col in df_cols})
     for modality in modalities:
         print(f"        Starting modality {modality[0]}")
-        modality_df, pred, dev_pred, raw_imp, dev_raw_imp = get_modality_results(
-            data_path + '/' + modality[0], seed, modality[1], region_based=region_based, shuffle_labels=shuffle_labels)
-        df = df.append(modality_df, ignore_index=True)
-        preds = pred if preds is None else np.vstack((preds, pred))
-        dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
-        raw_imps = raw_imp if raw_imps is None else np.vstack((raw_imps, raw_imp))
-        dev_raw_imps = dev_raw_imp if dev_raw_imps is None else np.vstack((dev_raw_imps, dev_raw_imp))
+        if shuffle_labels > 0:
+            for iter in np.arange(shuffle_labels):
+                print(f"        Starting shuffle iteration {iter}")
+                new_seed = seed * shuffle_labels + iter
+                modality_df, pred, dev_pred, raw_imp, dev_raw_imp = get_modality_results(
+                    data_path + '/' + modality[0], new_seed, modality[1], region_based=region_based,
+                    shuffle_labels=True, modality=modality)
+                df = df.append(modality_df, ignore_index=True)
+                preds = pred if preds is None else np.vstack((preds, pred))
+                dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
+                raw_imps = raw_imp if raw_imps is None else np.vstack((raw_imps, raw_imp))
+                dev_raw_imps = dev_raw_imp if dev_raw_imps is None else np.vstack((dev_raw_imps, dev_raw_imp))
+        else:
+            modality_df, pred, dev_pred, raw_imp, dev_raw_imp = get_modality_results(
+                data_path + '/' + modality[0], seed, modality[1], region_based=region_based,
+                shuffle_labels=False, modality=modality)
+            df = df.append(modality_df, ignore_index=True)
+            preds = pred if preds is None else np.vstack((preds, pred))
+            dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
+            raw_imps = raw_imp if raw_imps is None else np.vstack((raw_imps, raw_imp))
+            dev_raw_imps = dev_raw_imp if dev_raw_imps is None else np.vstack((dev_raw_imps, dev_raw_imp))
 
     return df, preds, dev_preds, raw_imps, dev_raw_imps
 
@@ -263,18 +283,19 @@ if __name__ == "__main__":
     """
 
     model = 'rf'
-    modifier = '160822_rich_v2_wf_st'
-    iterations = 50
-    load_iter = None
+    modifier = '290822_long_chance'
+    load_iter = 1
     animal_based = False
     region_based = False
-    perm_labels = False  # This is done in creation of dataset
-    shuffle_labels = False  # This is done in loading
+    perm_labels = False  # This is done in creation of dataset and only once
+    shuffle_labels = 20  # This is done in loading and happens the number of times specified - 0 means no shuffling
     results = None if load_iter is None else pd.read_csv(f'results_{model}_{modifier}_{load_iter}.csv', index_col=0)
     preds = None if load_iter is None else np.load(f'preds_{model}_{modifier}_{load_iter}.npy')
-    dev_preds = None if load_iter is None else np.load(f'preds_dev_{model}_{modifier}_{load_iter}.npy')
     raw_imps = None if load_iter is None else np.load(f'raw_imps_{model}_{modifier}_{load_iter}.npy')
-    dev_raw_imps = None if load_iter is None else np.load(f'raw_imps_dev_{model}_{modifier}_{load_iter}.npy')
+    if region_based:
+        dev_preds = None if load_iter is None else np.load(f'preds_dev_{model}_{modifier}_{load_iter}.npy')
+        dev_raw_imps = None if load_iter is None else np.load(f'raw_imps_dev_{model}_{modifier}_{load_iter}.npy')
+
     save_path = f'../Datasets/data_sets_{modifier}'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
@@ -282,13 +303,7 @@ if __name__ == "__main__":
         modalities = [('trans_wf', TRANS_MORPH)]
     else:
         modalities = [('spatial', SPATIAL_R), ('temporal', TEMPORAL_R), ('morphological', MORPHOLOGICAL_R)]
-        inds = np.arange(NUM_FETS // 2 + 1)
-        inds[-1] = -1
-        inds_2 = np.copy(inds)
-        inds_2 = inds_2 + NUM_FETS // 2
-        inds_2[-1] = -1
-        modalities = [('morphological', inds), ('temporal', inds_2)]
-    for i in range(0 if load_iter is None else load_iter + 1, iterations):
+    for i in range(0 if load_iter is None else load_iter + 1, NUM_ITER):
         print(f"Starting iteration {i}")
         for r in restrictions:
             print(f"    Starting restrictions {r}")
@@ -305,28 +320,29 @@ if __name__ == "__main__":
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
                                             region_based=region_based, perm_labels=perm_labels)
 
-            result, pred, dev_pred, raw_imp, dev_raw_imp = get_folder_results(new_path, i, region_based, shuffle_labels=shuffle_labels)
+            result, pred, dev_pred, raw_imp, dev_raw_imp = get_folder_results(new_path, i, region_based,
+                                                                              shuffle_labels=shuffle_labels)
             if results is None:
                 results = result
             else:
                 results = results.append(result)
 
             preds = pred if preds is None else np.vstack((preds, pred))
-            dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
-
             raw_imps = raw_imp if raw_imps is None else np.vstack((raw_imps, raw_imp))
-            dev_raw_imps = dev_raw_imp if dev_raw_imps is None else np.vstack((dev_raw_imps, dev_raw_imp))
 
-            if not i % 5 == 0:
-                continue
             np.save(f'preds_{model}_{modifier}_{i}', preds)
-            #np.save(f'preds_dev_{model}_{modifier}_{i}', dev_preds)
             np.save(f'raw_imps_{model}_{modifier}_{i}', raw_imps)
-            #np.save(f'raw_imps_dev_{model}_{modifier}_{i}', dev_raw_imps)
+
+            if region_based:
+                dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
+                dev_raw_imps = dev_raw_imp if dev_raw_imps is None else np.vstack((dev_raw_imps, dev_raw_imp))
+                np.save(f'preds_dev_{model}_{modifier}_{i}', dev_preds)
+                np.save(f'raw_imps_dev_{model}_{modifier}_{i}', dev_raw_imps)
             results.to_csv(f'results_{model}_{modifier}_{i}.csv')
 
     results.to_csv(f'results_{model}_{modifier}.csv')
     np.save(f'preds_{model}_{modifier}', preds)
-    #np.save(f'preds_dev_{model}_{modifier}', dev_preds)
     np.save(f'raw_imps_{model}_{modifier}', raw_imps)
-    #np.save(f'raw_imps_dev_{model}_{modifier}', dev_raw_imps)
+    if region_based:
+        np.save(f'preds_dev_{model}_{modifier}', dev_preds)
+        np.save(f'raw_imps_dev_{model}_{modifier}', dev_raw_imps)

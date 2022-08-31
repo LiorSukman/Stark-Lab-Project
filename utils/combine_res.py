@@ -23,9 +23,14 @@ DEST_MOMENTS_BASELINE = '../ml/results_rf_moments_chance_balanced.csv'
 DEST_EVENTS = '../ml/results_rf_events.csv'
 DEST_EVENTS_BASELINE = '../ml/results_rf_events_chance_balanced.csv'
 
-# small chunks
+# combine spatials - small chunks
 PATH_SPAT = '../ml/results_rf_290322_more_chunks_wo1.csv'
 DEST_SPAT = '../ml/results_rf_spatial_combined.csv'
+
+# regular but for chunking V2
+PATH_SPAT_V2 = '../ml/results_rf_110822_rich_v2.csv'
+PATH_WF_ST_V2 = '../ml/results_rf_160822_rich_v2_wf_st.csv'
+DEST_V2 = '../ml/results_rf_combined_v2.csv'
 
 NUM_FETS = 34
 NUM_MOMENTS = 5
@@ -170,7 +175,7 @@ if __name__ == "__main__":
     mapper = {f'test feature new {i + 1}': f'test feature {i + 1}' for i in range(NUM_EVENTS)}
     df_c = df_c.rename(columns=mapper)
 
-    df_c.to_csv(DEST_EVENTS_BASELINE)"""
+    df_c.to_csv(DEST_EVENTS_BASELINE)
 
     # combine spatials
     df_a = pd.read_csv(PATH_0, index_col=0)
@@ -181,4 +186,28 @@ if __name__ == "__main__":
 
     df_a = df_a.append(df_b).sort_values(by=['chunk_size'])
 
-    df_a.to_csv(DEST_SPAT)
+    df_a.to_csv(DEST_SPAT)"""
+
+    # combining chunking V2
+    df_a = pd.read_csv(PATH_SPAT_V2, index_col=0)
+    df_b = pd.read_csv(PATH_WF_ST_V2, index_col=0)
+    df_b_wf = df_b[df_b.modality == 'morphological']
+    df_b_st = df_b[df_b.modality == 'temporal']
+
+    df_a = df_a[df_a.chunk_size != 0]
+    df_b_wf = df_b_wf[df_b_wf.chunk_size != 0]
+    df_b_st = df_b_st[df_b_st.chunk_size != 0]
+
+    df_0 = pd.read_csv(PATH_0, index_col=0)
+    df_0 = df_0[df_0.chunk_size == 0]
+    df_0_spat = df_0[df_0.modality == 'spatial']
+    df_0_wf = df_0[df_0.modality == 'morphological']
+    df_0_st = df_0[df_0.modality == 'temporal']
+
+    df_a = df_a.append(df_0_spat, ignore_index=True)
+    df_b_wf = df_b_wf.append(df_0_wf, ignore_index=True)
+    df_b_st = df_b_st.append(df_0_st, ignore_index=True)
+
+    df = df_a.append((df_b_wf, df_b_st), ignore_index=True)
+
+    df.to_csv(DEST_V2)
