@@ -8,6 +8,7 @@
 **/data_sets*
 **/.idea
 **/temps_to_save
+**/statistics/*Toolbox*
 ml/results*
 ml/raw*
 **/ml/predictions
