@@ -12,4 +12,6 @@ ml/results*
 ml/raw*
 **/ml/predictions
 **/ml/old_runs
+**/venv
+requirements.txt
 *.mat
