@@ -159,14 +159,14 @@ def acceleration(clu, color, sec_color, name):
     return ret
 
 
-def load_df(features, trans_labels=True):
+def load_df(features, trans_labels=True, path=DATA_PATH):
     df = None
-    files = os.listdir(DATA_PATH)
+    files = os.listdir(path)
     for file in sorted(files):
         if df is None:
-            df = pd.read_csv(DATA_PATH + '/' + file)
+            df = pd.read_csv(path + '/' + file)
         else:
-            temp = pd.read_csv(DATA_PATH + '/' + file)
+            temp = pd.read_csv(path + '/' + file)
             df = df.append(temp)
 
     df = df.loc[df.label >= 0]
@@ -218,9 +218,6 @@ def density_plots(df, d_features, modality, values):
 
         pyr_med = np.median(col_pyr)
         pv_med = np.median(col_pv)
-
-        statistic, p_val = stats.kstest(col_pyr, col_pv)
-        print(f"KS statistical test results for feature {c} are p-value={p_val} (statistic={statistic})")
 
         ax_cdf = sns.ecdfplot(data=df, x=c, hue="label", palette=palette)
 
@@ -562,10 +559,10 @@ def unif_dist(hist, name):
     cdf = np.cumsum(hist_up) / np.sum(hist_up)
 
     fig, ax = plt.subplots()
-    ax.bar(np.arange(len(cdf)), cdf, color=c)
+    ax.bar(np.arange(len(cdf)) - (UPSAMPLE // 2), cdf, color=c)
     lin = np.linspace(cdf[0], cdf[-1], len(cdf))
     dists = abs(lin - cdf)
-    ax.plot(lin, c='k')
+    ax.plot(np.arange(len(cdf)) - (UPSAMPLE // 2), lin, c='k')
     ax.vlines((np.arange(len(cdf)) - (UPSAMPLE // 2))[::UPSAMPLE], np.minimum(lin, cdf)[::UPSAMPLE], np.maximum(lin, cdf)[::UPSAMPLE],
               colors='k', linestyles='dashed')
     ax.set_ylim(ymin=0, ymax=1.1)
@@ -1172,5 +1169,5 @@ def appendix_figs():
 
 
 if __name__ == '__main__':
-    # main_figs()
-    appendix_figs()
+    main_figs()
+    #appendix_figs()
