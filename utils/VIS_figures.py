@@ -566,10 +566,11 @@ def unif_dist(hist, name):
     lin = np.linspace(cdf[0], cdf[-1], len(cdf))
     dists = abs(lin - cdf)
     ax.plot(lin, c='k')
-    ax.vlines(np.arange(len(cdf))[::UPSAMPLE], np.minimum(lin, cdf)[::UPSAMPLE], np.maximum(lin, cdf)[::UPSAMPLE],
+    ax.vlines((np.arange(len(cdf)) - (UPSAMPLE // 2))[::UPSAMPLE], np.minimum(lin, cdf)[::UPSAMPLE], np.maximum(lin, cdf)[::UPSAMPLE],
               colors='k', linestyles='dashed')
     ax.set_ylim(ymin=0, ymax=1.1)
     ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
+    ax.set_xticks([0, 40, 80, 120, 160, 200, 240, 280, 320, 360, 400])
     ret = np.sum(dists) / len(cdf)
     print(f"{name} unif_dist is {ret}")
     plt.savefig(SAVE_PATH + f"{name}_unif_dist.pdf", transparent=True)
@@ -1084,6 +1085,8 @@ def spatial_var(path):
     arr_pv_med = np.median(arr_pv, axis=0)
 
     p = stats.wilcoxon(arr_pyr_med, arr_pv_med).pvalue
+    print('PYR', np.quantile(arr_pyr_med, q=[0.25, 0.5, 0.75]))
+    print('PV', np.quantile(arr_pv_med, q=[0.25, 0.5, 0.75]))
     print(f'Wilcoxon for PYR compared to PV in general: p-val={p}')
 
     fig, ax = plt.subplots(figsize=(6, 10))
@@ -1093,9 +1096,9 @@ def spatial_var(path):
         print(f"{col}: pyr={round(pyr, 3)}, pv={round(pv, 3)}. p-val={p}")
         ax.plot([pyr, pv], 'k' if p < 0.05 else '0.7', marker='o')
 
-    yerr = [[np.median(arr_pyr) - np.quantile(arr_pyr, 0.25), np.median(arr_pv) - np.quantile(arr_pv, 0.25)],
-            [np.quantile(arr_pyr, 0.75) - np.median(arr_pyr), np.quantile(arr_pv, 0.75) - np.median(arr_pv)]]
-    ax.bar([0, 1], [np.median(arr_pyr), np.median(arr_pv)], color='#A0A0A0', tick_label=['PYR', 'PV'],
+    yerr = [[np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25), np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25)],
+            [np.quantile(arr_pv_med, 0.75) - np.median(arr_pv_med), np.quantile(arr_pv_med, 0.75) - np.median(arr_pv_med)]]
+    ax.bar([0, 1], [np.median(arr_pyr_med), np.median(arr_pv_med)], color='#A0A0A0', tick_label=['PYR', 'PV'],
            yerr=yerr)
 
     plt.savefig(SAVE_PATH + f"spatial_var.pdf", transparent=True)
