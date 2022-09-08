@@ -5,7 +5,7 @@ mis = zeros(numel(fn), numel(fn));
 pvals = zeros(numel(fn), numel(fn));
 
 for i=1:numel(fn)
-    for j=i:numel(fn)
+    for j=1:numel(fn)
         disp([i j])
         fi = reshape(fets.(fn{i}), 1, []);
         fj = reshape(fets.(fn{j}), 1, []);

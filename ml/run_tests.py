@@ -23,6 +23,7 @@ dataset_identifier = '0.800.2'
 NUM_FETS = 204  # Total number of features in data (all modalities)
 NUM_ITER = 50  # Number of iterations for every modality x chunk size
 SKIP_0_IMP = True  # do not calculate importance for chunk size 0
+SKIP_TEST_IMP = True  # do not calculate importance for the test set
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -171,13 +172,13 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
     x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
     raw_imp = np.ones((1000, NUM_FETS)) * np.nan
-    importance, raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP)
+    importance, raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP or SKIP_TEST_IMP)
     raw_imp[:min(1000, len(x)), fet_inds[:-1]] = raw_imp_temp
 
     x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
     dev_raw_imp = np.ones((1000, NUM_FETS)) * np.nan
     if len(x) > 0:
-        dev_importance, dev_raw_imp_temp = get_shap_imp(clf, x, seed)
+        dev_importance, dev_raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP)
         dev_raw_imp[:min(1000, len(x)), fet_inds[:-1]] = dev_raw_imp_temp
     else:
         dev_importance = np.ones(importance.shape) * np.nan
@@ -206,7 +207,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
 
         x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
         raw_imp = np.ones((1000, NUM_FETS)) * np.nan
-        importance, raw_imp_temp = get_shap_imp(clf, x, seed)
+        importance, raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_TEST_IMP)
         raw_imp[:min(1000, len(x)), fet_inds[:-1]] = raw_imp_temp
 
         x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
@@ -240,7 +241,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
         tuple(dev_raw_imps))
 
 
-def get_folder_results(data_path, seed, region_based=False, shuffle_labels=False):
+def get_folder_results(data_path, seed, region_based=False, shuffle_labels=0):
     df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr'] + \
               [f"test feature {f + 1}" for f in range(NUM_FETS)] + [f"dev feature {f + 1}" for f in range(NUM_FETS)]
     preds, dev_preds = None, None
@@ -283,12 +284,12 @@ if __name__ == "__main__":
     """
 
     model = 'rf'
-    modifier = '290822_long_chance'
-    load_iter = 1
+    modifier = '080922_rich_region_imp'
+    load_iter = None
     animal_based = False
-    region_based = False
+    region_based = True
     perm_labels = False  # This is done in creation of dataset and only once
-    shuffle_labels = 20  # This is done in loading and happens the number of times specified - 0 means no shuffling
+    shuffle_labels = 0  # This is done in loading and happens the number of times specified - 0 means no shuffling
     results = None if load_iter is None else pd.read_csv(f'results_{model}_{modifier}_{load_iter}.csv', index_col=0)
     preds = None if load_iter is None else np.load(f'preds_{model}_{modifier}_{load_iter}.npy')
     raw_imps = None if load_iter is None else np.load(f'raw_imps_{model}_{modifier}_{load_iter}.npy')
