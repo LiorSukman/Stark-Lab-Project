@@ -32,6 +32,11 @@ PATH_SPAT_V2 = '../ml/results_rf_110822_rich_v2.csv'
 PATH_WF_ST_V2 = '../ml/results_rf_160822_rich_v2_wf_st.csv'
 DEST_V2 = '../ml/results_rf_combined_v2.csv'
 
+# region
+PATH_REGION = '../ml/results_rf_080922_rich_region_imp.csv'
+PATH_RAW_CA1 = '../ml/raw_imps_dev_rf_080922_rich_region_imp.npy'
+DEST_REGION = '../ml/results_rf_region_ca1.csv'
+
 NUM_FETS = 34
 NUM_MOMENTS = 5
 NUM_MODALITIES = 3
@@ -186,7 +191,7 @@ if __name__ == "__main__":
 
     df_a = df_a.append(df_b).sort_values(by=['chunk_size'])
 
-    df_a.to_csv(DEST_SPAT)"""
+    df_a.to_csv(DEST_SPAT)
 
     # combining chunking V2
     df_a = pd.read_csv(PATH_SPAT_V2, index_col=0)
@@ -210,4 +215,23 @@ if __name__ == "__main__":
 
     df = df_a.append((df_b_wf, df_b_st), ignore_index=True)
 
-    df.to_csv(DEST_V2)
+    df.to_csv(DEST_V2)"""
+
+    # region
+    imps = np.load(PATH_RAW_CA1)
+    df_c = pd.read_csv(PATH_REGION, index_col=0)
+
+    for i in range(NUM_FETS):
+        inds = [i * (NUM_MOMENTS + 1) + j for j in range(NUM_MOMENTS + 1)]
+        new_imp = get_family_imp(inds, imps)
+        df_c[f'test feature new {i + 1}'] = new_imp
+
+    drop = [f'test feature {i + 1}' for i in range(NUM_FETS * (NUM_MOMENTS + 1))] + [f'dev feature {i + 1}' for i in
+                                                                                     range(
+                                                                                         NUM_FETS * (NUM_MOMENTS + 1))]
+    df_c = df_c.drop(columns=drop)
+    mapper = {f'test feature new {i + 1}': f'test feature {i + 1}' for i in range(NUM_FETS)}
+    df_c = df_c.rename(columns=mapper)
+
+    df_c.to_csv(DEST_REGION)
+

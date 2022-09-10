@@ -53,9 +53,9 @@ def str2lst(str):
 
 def plot_roc_curve(df, name=None, chunk_size=[200], modalities=None, use_dev=False):
     if modalities is None:
-        modalities = [('spatial', SPATIAL), ('temporal', TEMPORAL), ('morphological', MORPHOLOGICAL)]
+        modalities = ['spatial', 'temporal', 'morphological']
 
-    for m_name, _ in modalities:
+    for m_name in modalities:
         df_m = df[df.modality == m_name]
         fig, ax = plt.subplots()
         for cz in chunk_size:
@@ -214,7 +214,8 @@ def get_labels(lst):
     return ret
 
 
-def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modalities=None, semsn=None, fet_names_map=None):
+def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modalities=None, semsn=None,
+                 fet_names_map=None):
     # TODO make sure order is determined only by rows of used chunk_size
     if name is None:
         title = ""
@@ -231,7 +232,7 @@ def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modali
     rem = [f"dev feature {f + 1}" for f in range(NUM_FETS) if f"dev feature {f + 1}" in df.columns]
     df = df.drop(columns=rem)
     sems = sems.drop(columns=rem)
-    base = base.drop(columns=rem)
+    base = None if base is None else base.drop(columns=rem)
     if semsn is not None:
         semsn = semsn.drop(columns=rem)
 
@@ -242,19 +243,22 @@ def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modali
     sems = sems.rename(map, axis='columns')
     sems = sems.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'], errors='ignore')
     sems = sems.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'], errors='ignore')
-    base = base.rename(map, axis='columns')
-    base = base.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'], errors='ignore')
-    base = base.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'], errors='ignore')
+    if base is not None:
+        base = base.rename(map, axis='columns')
+        base = base.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'], errors='ignore')
+        base = base.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'],
+                         errors='ignore')
 
     if semsn is not None:
         semsn = semsn.rename(map, axis='columns')
         semsn = semsn.drop(columns=['seed', 'acc', 'auc', 'pyr_acc', 'in_acc', 'f1', 'mcc'], errors='ignore')
-        semsn = semsn.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'], errors='ignore')
+        semsn = semsn.drop(columns=['dev_acc', 'dev_auc', 'dev_pyr_acc', 'dev_in_acc', 'dev_f1', 'dev_mcc'],
+                           errors='ignore')
 
     for m_name, m_places in modalities:
         df_m = df.xs(m_name, level="modality").dropna(axis=1)
         sems_m = sems.xs(m_name, level="modality").dropna(axis=1)
-        base_m = base.xs(m_name, level="modality").dropna(axis=1)
+        base_m = None if base is None else base.xs(m_name, level="modality").dropna(axis=1)
         semsn_m = None
         if semsn is not None:
             semsn_m = semsn.xs(m_name, level="modality").dropna(axis=1)
@@ -277,7 +281,7 @@ def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modali
         for i, cz in enumerate(chunk_size):
             df_cz = np.asarray(df_m.xs(cz, level="chunk_size"))[:, order].flatten()
             sems_cz = np.asarray(sems_m.xs(cz, level="chunk_size"))[:, order].flatten()
-            base_cz = np.asarray(base_m.xs(cz, level="chunk_size"))[:, order].flatten()
+            base_cz = None if base is None else np.asarray(base_m.xs(cz, level="chunk_size"))[:, order].flatten()
             if semsn_m is not None:
                 semsn_cz = 2 * df_cz - np.asarray(semsn_m.xs(cz, level="chunk_size"))[:, order].flatten()
                 sems_cz = np.concatenate((np.expand_dims(semsn_cz, axis=0), np.expand_dims(sems_cz, axis=0))) - df_cz
@@ -286,8 +290,9 @@ def plot_fet_imp(df, sems, restriction, base, name=None, chunk_size=None, modali
 
             ax.bar(x - (i - len(chunk_size) // 2) * width, df_cz, width, label=f'chunk_size = {cz}', yerr=sems_cz,
                    color=colors[i])
-            ax.hlines(base_cz, x - (i - len(chunk_size) // 2) * width - (width / 2),
-                      x - (i - len(chunk_size) // 2) * width + (width / 2), linestyles='dashed', color='k')
+            if base is not None:
+                ax.hlines(base_cz, x - (i - len(chunk_size) // 2) * width - (width / 2),
+                          x - (i - len(chunk_size) // 2) * width + (width / 2), linestyles='dashed', color='k')
         # Add some text for labels, title and custom x-axis tick labels, etc.
         ax.set_ylabel('Importance (SHAP value)')
         # ax.set_title(title)
@@ -369,8 +374,9 @@ def plot_auc_chunks_bp(df, name=None, plot=True, ax_inp=None, edge_color='k', sh
         # Since highlighting is a bit to much
         # ax.axhspan(ymin=np.quantile(df_m.auc[chunk_sizes_m == 0].to_numpy(), 0.25),
         #            ymax=np.quantile(df_m.auc[chunk_sizes_m == 0].to_numpy(), 0.75), color='k', alpha=0.2)
-        bp = ax.boxplot(chunk_aucs, labels=chunk_sizes.astype(np.int32), positions=2.5 * np.arange(len(chunk_sizes)) + shift,
-                   flierprops=dict(markeredgecolor=edge_color, marker='+'), notch=True, bootstrap=1_000)
+        bp = ax.boxplot(chunk_aucs, labels=chunk_sizes.astype(np.int32),
+                        positions=2.5 * np.arange(len(chunk_sizes)) + shift,
+                        flierprops=dict(markeredgecolor=edge_color, marker='+'), notch=True, bootstrap=1_000)
 
         for element in ['boxes', 'whiskers', 'fliers', 'means', 'medians', 'caps']:
             plt.setp(bp[element], color=edge_color)
@@ -415,10 +421,10 @@ def plot_test_vs_dev_bp(df, chunk_sizes=(0, 0, 0), name=None, diff=False):
                        flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
                        patch_artist=True, widths=0.4, notch=True, bootstrap=1_000)
         else:
-            ax.boxplot(val, positions=[x[i]+0.25],
+            ax.boxplot(val, positions=[x[i] + 0.25],
                        flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
                        patch_artist=True, widths=0.4, notch=True, bootstrap=1_000)
-            ax.boxplot(dev_val, positions=[x[i]-0.25],
+            ax.boxplot(dev_val, positions=[x[i] - 0.25],
                        flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
                        patch_artist=True, widths=0.4, notch=True, bootstrap=1_000)
 

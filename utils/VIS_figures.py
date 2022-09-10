@@ -181,7 +181,7 @@ def load_df(features, trans_labels=True, path=DATA_PATH):
 def corr_mat(df, modality, order):
     pvals = io.loadmat('../statistics/spearman.mat')['pvals']
     inds = [feature_mapping[fet_name] for fet_name in order]
-    pvals = pvals[inds][:, inds]
+    pvals = pvals[inds, inds]
     if modality == 'temporal':
         print("correlation significance of dkl_start and unif_dist", pvals[0, 1])
     annotations = np.where(pvals < 0.05, '*', '')
@@ -192,9 +192,35 @@ def corr_mat(df, modality, order):
     mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
     plt.yticks(rotation=30)
     cmap = sns.color_palette("vlag", as_cmap=True)
+    print(cmap.colors)
     _ = sns.heatmap(correlation_matrix, annot=annotations, mask=mask, fmt='s', vmin=-1, vmax=1, cmap=cmap,
                     annot_kws={"fontsize": 6})
     plt.savefig(SAVE_PATH + f"{modality}_cor_mat.pdf", transparent=True)
+    clear()
+
+
+def mi_mat(columns, modality, order):
+    mip_mat = io.loadmat('../statistics/MIs.mat')
+    mis, pvals = mip_mat['mis'], mip_mat['pvals']
+    inds = [feature_mapping[fet_name] for fet_name in order]
+    pvals = pvals[inds, inds]
+
+    annotations = np.where(pvals < 0.05, '*', '')
+    annotations = np.where(pvals < 0.01, '**', annotations)
+    annotations = np.where(pvals < 0.001, '***', annotations)
+
+    mi_mat = pd.DataFrame(data=mis, index=columns, columns=columns)
+    mask = np.triu(np.ones_like(mi_mat, dtype=bool))
+    vmax = mi_mat.to_numpy()[~mask].max()
+
+    mi_mat = mi_mat.loc[order, order]
+
+    mask = np.triu(np.ones_like(mi_mat, dtype=bool))
+    plt.yticks(rotation=30)
+    cmap = sns.light_palette([0.66080672, 0.21526712, 0.23069468], as_cmap=True)
+    _ = sns.heatmap(mi_mat, annot=annotations, mask=mask, fmt='s', vmin=0, vmax=vmax, cmap=cmap,
+                    annot_kws={"fontsize": 6})
+    plt.savefig(SAVE_PATH + f"{modality}_mi_mat.pdf", transparent=True)
     clear()
 
 
@@ -563,7 +589,8 @@ def unif_dist(hist, name):
     lin = np.linspace(cdf[0], cdf[-1], len(cdf))
     dists = abs(lin - cdf)
     ax.plot(np.arange(len(cdf)) - (UPSAMPLE // 2), lin, c='k')
-    ax.vlines((np.arange(len(cdf)) - (UPSAMPLE // 2))[::UPSAMPLE], np.minimum(lin, cdf)[::UPSAMPLE], np.maximum(lin, cdf)[::UPSAMPLE],
+    ax.vlines((np.arange(len(cdf)) - (UPSAMPLE // 2))[::UPSAMPLE], np.minimum(lin, cdf)[::UPSAMPLE],
+              np.maximum(lin, cdf)[::UPSAMPLE],
               colors='k', linestyles='dashed')
     ax.set_ylim(ymin=0, ymax=1.1)
     ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
@@ -795,25 +822,19 @@ def chunk_results(res_name='results_rf_combined'):
 
 
 def get_comp_results(chunk_sizes=(BEST_WF_CHUNK, BEST_TEMPORAL_CHUNK, BEST_SPATIAL_CHUNK),
-                     res_name='results_rf_030822_rich_region'):
+                     res_name='results_rf_region_ca1'):
     results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
 
-    drop = [col for col in complete.columns.values if col not in ['restriction', 'modality', 'chunk_size', 'seed',
-                                                                  'acc', 'pyr_acc', 'in_acc', 'dev_acc',
-                                                                  'dev_pyr_acc', 'dev_in_acc', 'auc', 'fpr', 'tpr',
-                                                                  'dev_auc', 'dev_fpr', 'dev_tpr']]
-
     complete = complete[complete.chunk_size.isin(chunk_sizes)]
-    complete = complete.drop(columns=drop)
 
-    for mod_name, mod_fets, cs in [('spatial', SPATIAL, BEST_SPATIAL_CHUNK),
-                                   ('temporal', TEMPORAL, BEST_TEMPORAL_CHUNK),
-                                   ('morphological', BEST_WF_CHUNK, 50)]:
+    for mod_name, cs in [('spatial', BEST_SPATIAL_CHUNK),
+                                   ('temporal', BEST_TEMPORAL_CHUNK),
+                                   ('morphological', BEST_WF_CHUNK)]:
         # ROC curves
-        plot_roc_curve(complete, name='NCX', chunk_size=[cs], use_dev=False, modalities=[(mod_name, mod_fets)])
+        plot_roc_curve(complete, name='NCX', chunk_size=[cs], use_dev=False, modalities=[mod_name])
         clear()
-        plot_roc_curve(complete, name='CA1', chunk_size=[cs], use_dev=True, modalities=[(mod_name, mod_fets)])
+        plot_roc_curve(complete, name='CA1', chunk_size=[cs], use_dev=True, modalities=[mod_name])
         clear()
 
     #  AUC
@@ -825,8 +846,22 @@ def get_comp_results(chunk_sizes=(BEST_WF_CHUNK, BEST_TEMPORAL_CHUNK, BEST_SPATI
                         name='ncx_vs_ca1_auc', diff=True)
     clear()
 
+    grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
+
+    d = {'spatial': SPATIAL, 'morphological': MORPHOLOGICAL, 'temporal': TEMPORAL}
+
+    for modality, chunk_size in zip(('morphological', 'temporal', 'spatial'), chunk_sizes):
+        modalities = [(modality, d[modality])]
+
+        plot_fet_imp(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', None,
+                     chunk_size=[chunk_size], name=f'{modality}_ca1', modalities=modalities,
+                     semsn=grouped_complete.quantile(0.25))
+        clear()
+
 
 def main_figs():
+    get_comp_results()
+    raise AssertionError
     # Load wanted units - no light
     pyr_cluster = load_cluster(TEMP_PATH_NO_LIGHT, pyr_name)
     pv_cluster = load_cluster(TEMP_PATH_NO_LIGHT, pv_name)
@@ -987,7 +1022,9 @@ def costume_imp(modality, chunk_size, res_name, base_name, imp_inds, name_mappin
                  fet_names_map=name_mapping)
     clear()
 
-def chunks_comp(res_name_a='results_rf_combined', res_name_b='results_rf_290322_fix_imp', res_name_c='results_rf_spatial_combined'):
+
+def chunks_comp(res_name_a='results_rf_combined', res_name_b='results_rf_290322_fix_imp',
+                res_name_c='results_rf_spatial_combined'):
     results_a = pd.read_csv(f'../ml/{res_name_a}.csv', index_col=0)
     complete_a = results_a[results_a.restriction == 'complete']
 
@@ -1002,7 +1039,8 @@ def chunks_comp(res_name_a='results_rf_combined', res_name_b='results_rf_290322_
     for mod in ['temporal', 'morphological']:
         ax = plot_auc_chunks_bp(complete_a[complete_a.modality == mod], plot=False, shift=-0.45)
 
-        plot_auc_chunks_bp(complete_b[complete_b.modality == mod], name='chunks_rf_comp', ax_inp=ax, edge_color='r', shift=0.45)
+        plot_auc_chunks_bp(complete_b[complete_b.modality == mod], name='chunks_rf_comp', ax_inp=ax, edge_color='r',
+                           shift=0.45)
         clear()
 
     mod = 'spatial'
@@ -1015,7 +1053,9 @@ def chunks_comp(res_name_a='results_rf_combined', res_name_b='results_rf_290322_
                        shift=0.45)
     clear()
 
-def comp_chunk_roc_curves(modality, cs_a, cs_b, res_name_a='results_rf_combined', res_name_b='results_rf_290322_fix_imp'):
+
+def comp_chunk_roc_curves(modality, cs_a, cs_b, res_name_a='results_rf_combined',
+                          res_name_b='results_rf_290322_fix_imp'):
     results_a = pd.read_csv(f'../ml/{res_name_a}.csv', index_col=0)
     results_b = pd.read_csv(f'../ml/{res_name_b}.csv', index_col=0)
 
@@ -1039,6 +1079,7 @@ def comp_chunk_roc_curves(modality, cs_a, cs_b, res_name_a='results_rf_combined'
 
     plot_roc_curve(complete_roc, name='comp', chunk_size=chunk_size_list, modalities=modalities)
     clear()
+
 
 def spatial_var(path):
     arr = []
@@ -1093,55 +1134,49 @@ def spatial_var(path):
         print(f"{col}: pyr={round(pyr, 3)}, pv={round(pv, 3)}. p-val={p}")
         ax.plot([pyr, pv], 'k' if p < 0.05 else '0.7', marker='o')
 
-    yerr = [[np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25), np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25)],
-            [np.quantile(arr_pv_med, 0.75) - np.median(arr_pv_med), np.quantile(arr_pv_med, 0.75) - np.median(arr_pv_med)]]
+    yerr = [[np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25),
+             np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25)],
+            [np.quantile(arr_pv_med, 0.75) - np.median(arr_pv_med),
+             np.quantile(arr_pv_med, 0.75) - np.median(arr_pv_med)]]
     ax.bar([0, 1], [np.median(arr_pyr_med), np.median(arr_pv_med)], color='#A0A0A0', tick_label=['PYR', 'PV'],
            yerr=yerr)
 
     plt.savefig(SAVE_PATH + f"spatial_var.pdf", transparent=True)
     clear()
 
+
 def appendix_figs():
-    spatial_var(f'../cluster_data/clusterData_no_light_29_03_22/{BEST_SPATIAL_CHUNK}')
-    raise AssertionError
     # Appendix A
     # Correlation matrices
     # Waveform
-    features = ['break_measure', 'fwhm', 'get_acc', 'max_speed', 'peak2peak', 'trough2peak', 'rise_coef', 'smile_cry',
-                'label']
-    df = load_df(features)
+    df = load_df(feature_names_org)
 
     order_morph = ['trough2peak', 'peak2peak', 'fwhm', 'rise_coef', 'max_speed', 'break_measure', 'smile_cry',
                    'get_acc']
     corr_mat(df, 'morph', order_morph)
+    mi_mat(df.columns, 'morph', order_morph)
 
     # Spike-timing
-    features = ['d_kl_start', 'd_kl_mid', 'jump', 'psd_center', 'der_psd_center', 'rise_time', 'unif_dist',
-                'firing_rate', 'label']
-    df = load_df(features)
-
     order_temp = ['unif_dist', 'd_kl_start', 'rise_time', 'jump', 'd_kl_mid', 'psd_center', 'der_psd_center',
                   'firing_rate']
     corr_mat(df, 'temporal', order_temp)
+    mi_mat(df.columns, 'temporal', order_temp)
 
     # Spatial
-    features = ['spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area', 'dep_red', 'dep_sd',
-                'fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'dep_graph_avg_speed', 'dep_graph_slowest_path',
-                'dep_graph_fastest_path', 'fzc_graph_avg_speed', 'fzc_graph_slowest_path', 'fzc_graph_fastest_path',
-                'szc_graph_avg_speed', 'szc_graph_slowest_path', 'szc_graph_fastest_path', 'label']
-    df = load_df(features)
-
     order_spat = ['dep_red', 'dep_sd', 'fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'dep_graph_avg_speed',
                   'dep_graph_slowest_path', 'dep_graph_fastest_path', 'fzc_graph_avg_speed', 'fzc_graph_slowest_path',
                   'fzc_graph_fastest_path', 'szc_graph_avg_speed', 'szc_graph_slowest_path', 'szc_graph_fastest_path',
                   'spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area']
     corr_mat(df, 'spatial', order_spat)
+    mi_mat(df.columns, 'spatial', order_spat)
+    raise AssertionError
 
     # Appendix B
     chunks_comp()
     comp_chunk_roc_curves('morphological', BEST_WF_CHUNK, BEST_OLD_WF_CHUNK)
     comp_chunk_roc_curves('temporal', BEST_TEMPORAL_CHUNK, BEST_OLD_TEMPORAL_CHUNK)
-    comp_chunk_roc_curves('spatial', BEST_SPATIAL_CHUNK, BEST_OLD_SPATIAL_CHUNK, res_name_b='results_rf_spatial_combined')
+    comp_chunk_roc_curves('spatial', BEST_SPATIAL_CHUNK, BEST_OLD_SPATIAL_CHUNK,
+                          res_name_b='results_rf_spatial_combined')
 
     # Appendix C
     # Moments importances
