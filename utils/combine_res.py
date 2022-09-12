@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import glob
 
 from constants import SPATIAL, feature_names_org
 from constants import SPATIAL_R, feature_names_rich
@@ -32,10 +33,15 @@ PATH_SPAT_V2 = '../ml/results_rf_110822_rich_v2.csv'
 PATH_WF_ST_V2 = '../ml/results_rf_160822_rich_v2_wf_st.csv'
 DEST_V2 = '../ml/results_rf_combined_v2.csv'
 
-# region
+# region CA1
 PATH_REGION = '../ml/results_rf_080922_rich_region_imp.csv'
 PATH_RAW_CA1 = '../ml/raw_imps_dev_rf_080922_rich_region_imp.npy'
 DEST_REGION = '../ml/results_rf_region_ca1.csv'
+
+# region nCX
+PATH_REGION_NCX = '../ml/results_rf_110922_rich_region_imp_ncx.csv'
+PATH_RAW_NCX = '../ml/raw_imps_rf_110922_rich_region_imp_ncx.npy'
+DEST_REGION_NCX = '../ml/results_rf_region_ncx.csv'
 
 NUM_FETS = 34
 NUM_MOMENTS = 5
@@ -215,9 +221,9 @@ if __name__ == "__main__":
 
     df = df_a.append((df_b_wf, df_b_st), ignore_index=True)
 
-    df.to_csv(DEST_V2)"""
+    df.to_csv(DEST_V2)
 
-    # region
+    # region CA1
     imps = np.load(PATH_RAW_CA1)
     df_c = pd.read_csv(PATH_REGION, index_col=0)
 
@@ -234,4 +240,79 @@ if __name__ == "__main__":
     df_c = df_c.rename(columns=mapper)
 
     df_c.to_csv(DEST_REGION)
+
+    # region nCX
+    imps = np.load(PATH_RAW_NCX)
+    df_c = pd.read_csv(PATH_REGION_NCX, index_col=0)
+
+    for i in range(NUM_FETS):
+        inds = [i * (NUM_MOMENTS + 1) + j for j in range(NUM_MOMENTS + 1)]
+        new_imp = get_family_imp(inds, imps)
+        df_c[f'test feature new {i + 1}'] = new_imp
+
+    drop = [f'test feature {i + 1}' for i in range(NUM_FETS * (NUM_MOMENTS + 1))] + [f'dev feature {i + 1}' for i in
+                                                                                     range(
+                                                                                         NUM_FETS * (NUM_MOMENTS + 1))]
+    df_c = df_c.drop(columns=drop)
+    mapper = {f'test feature new {i + 1}': f'test feature {i + 1}' for i in range(NUM_FETS)}
+    df_c = df_c.rename(columns=mapper)
+
+    df_c.to_csv(DEST_REGION_NCX)
+
+    # shuffle fix slow run
+    root_dir = '../ml/shuffle_results/'
+    a = root_dir + '060922_shuffles_640_680/results_rf_060922_shuffles_640_680_659.csv'
+    b = root_dir + '060922_shuffles_660_680/results_rf_060922_shuffles_660_680.csv'
+    a_df = pd.read_csv(a, index_col=0)
+    b_df = pd.read_csv(b, index_col=0)
+    join_df = a_df.append(b_df)
+    join_df.to_csv(root_dir + '060922_shuffles_640_680/results_rf_060922_shuffles_640_680.csv')
+
+    a = root_dir + '060922_shuffles_640_680/raw_imps_rf_060922_shuffles_640_680_659.npy'
+    b = root_dir + '060922_shuffles_660_680/raw_imps_rf_060922_shuffles_660_680.npy'
+    a_np = np.load(a)
+    b_np = np.load(b)
+    join_np = np.concatenate((a_np, b_np))
+    np.save(root_dir + '060922_shuffles_640_680/raw_imps_rf_060922_shuffles_640_680.npy', join_np)
+
+    a = root_dir + '060922_shuffles_640_680/preds_rf_060922_shuffles_640_680_659.npy'
+    b = root_dir + '060922_shuffles_660_680/preds_rf_060922_shuffles_660_680.npy'
+    a_np = np.load(a)
+    b_np = np.load(b)
+    join_np = np.concatenate((a_np, b_np))
+    np.save(root_dir + '060922_shuffles_640_680/preds_rf_060922_shuffles_640_680.npy', join_np)"""
+
+    # shuffle fix imps
+    for n in range(25):
+        path_csv = f'../ml/shuffle_results/060922_shuffles_{n * 40}_{(n + 1) * 40}/results_rf_060922_shuffles_{n * 40}_{(n + 1) * 40}.csv'
+        path_npy = f'../ml/shuffle_results/060922_shuffles_{n * 40}_{(n + 1) * 40}/raw_imps_rf_060922_shuffles_{n * 40}_{(n + 1) * 40}.npy'
+        df_temp = pd.read_csv(path_csv, index_col=0)
+        imps_temp = np.load(path_npy)
+
+        for i in range(NUM_FETS):
+            inds = [i * (NUM_MOMENTS + 1) + j for j in range(NUM_MOMENTS + 1)]
+            new_imp = get_family_imp(inds, imps_temp)
+            df_temp[f'test feature new {i + 1}'] = new_imp
+
+        drop = [f'test feature {i + 1}' for i in range(NUM_FETS * (NUM_MOMENTS + 1))] + [f'dev feature {i + 1}' for i in
+                                                                                         range(NUM_FETS * (
+                                                                                                     NUM_MOMENTS + 1))]
+        df_temp = df_temp.drop(columns=drop)
+        mapper = {f'test feature new {i + 1}': f'test feature {i + 1}' for i in range(NUM_FETS)}
+        df_temp = df_temp.rename(columns=mapper)
+
+        df_temp.to_csv(f'../ml/shuffle_results/060922_shuffles_{n * 40}_{(n + 1) * 40}/results_rf_060922_shuffles_{n * 40}_{(n + 1) * 40}_imps.csv')
+
+        # shuffle combine all
+
+        df = None
+        for n in range(25):
+            path = f'../ml/shuffle_results/060922_shuffles_{n * 40}_{(n + 1) * 40}/results_rf_060922_shuffles_{n * 40}_{(n + 1) * 40}_imps.csv'
+            df_temp = pd.read_csv(path, index_col=0)
+            if df is None:
+                df = df_temp
+            else:
+                df = df.append(df_temp)
+
+        df.to_csv('../ml/shuffle_results/060922_shuffles_combined.csv')
 

@@ -23,7 +23,8 @@ dataset_identifier = '0.800.2'
 NUM_FETS = 204  # Total number of features in data (all modalities)
 NUM_ITER = 50  # Number of iterations for every modality x chunk size
 SKIP_0_IMP = True  # do not calculate importance for chunk size 0
-SKIP_TEST_IMP = True  # do not calculate importance for the test set
+SKIP_TEST_IMP = False  # do not calculate importance for the test set
+SKIP_DEV_IMP = True  # do not calculate importance for the dev set
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -178,7 +179,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
     x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
     dev_raw_imp = np.ones((1000, NUM_FETS)) * np.nan
     if len(x) > 0:
-        dev_importance, dev_raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP)
+        dev_importance, dev_raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP or SKIP_DEV_IMP)
         dev_raw_imp[:min(1000, len(x)), fet_inds[:-1]] = dev_raw_imp_temp
     else:
         dev_importance = np.ones(importance.shape) * np.nan
@@ -213,7 +214,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
         x, _ = get_test_set(data_path + f"/{chunk_size}_{dataset_identifier}/", region_based, get_dev=True)
         dev_raw_imp = np.ones((1000, NUM_FETS)) * np.nan
         if len(x) > 0:
-            dev_importance, dev_raw_imp_temp = get_shap_imp(clf, x, seed)
+            dev_importance, dev_raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_DEV_IMP)
             dev_raw_imp[:min(1000, len(x)), fet_inds[:-1]] = dev_raw_imp_temp
         else:
             dev_importance = np.ones(importance.shape) * np.nan
@@ -284,7 +285,7 @@ if __name__ == "__main__":
     """
 
     model = 'rf'
-    modifier = '080922_rich_region_imp'
+    modifier = '110922_rich_region_imp_ncx'
     load_iter = None
     animal_based = False
     region_based = True
@@ -332,15 +333,15 @@ if __name__ == "__main__":
             preds = pred if preds is None else np.vstack((preds, pred))
             raw_imps = raw_imp if raw_imps is None else np.vstack((raw_imps, raw_imp))
 
-            np.save(f'preds_{model}_{modifier}_{i}', preds)
-            np.save(f'raw_imps_{model}_{modifier}_{i}', raw_imps)
+            np.save(f'preds_{model}_{modifier}_temp', preds)
+            np.save(f'raw_imps_{model}_{modifier}_temp', raw_imps)
 
             if region_based:
                 dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
                 dev_raw_imps = dev_raw_imp if dev_raw_imps is None else np.vstack((dev_raw_imps, dev_raw_imp))
-                np.save(f'preds_dev_{model}_{modifier}_{i}', dev_preds)
-                np.save(f'raw_imps_dev_{model}_{modifier}_{i}', dev_raw_imps)
-            results.to_csv(f'results_{model}_{modifier}_{i}.csv')
+                np.save(f'preds_dev_{model}_{modifier}_temp', dev_preds)
+                np.save(f'raw_imps_dev_{model}_{modifier}_temp', dev_raw_imps)
+            results.to_csv(f'results_{model}_{modifier}_temp.csv')
 
     results.to_csv(f'results_{model}_{modifier}.csv')
     np.save(f'preds_{model}_{modifier}', preds)

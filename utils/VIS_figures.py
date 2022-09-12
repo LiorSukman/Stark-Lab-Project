@@ -217,11 +217,43 @@ def mi_mat(columns, modality, order):
 
     mask = np.triu(np.ones_like(mi_mat, dtype=bool))
     plt.yticks(rotation=30)
-    cmap = sns.light_palette([0.66080672, 0.21526712, 0.23069468], as_cmap=True)
+    light_red = [0.66080672, 0.21526712, 0.23069468]  # This is the shade of red used in the vlag palette
+    cmap = sns.light_palette(light_red, as_cmap=True)
     _ = sns.heatmap(mi_mat, annot=annotations, mask=mask, fmt='s', vmin=0, vmax=vmax, cmap=cmap,
                     annot_kws={"fontsize": 6})
     plt.savefig(SAVE_PATH + f"{modality}_mi_mat.pdf", transparent=True)
     clear()
+
+def cor_x_mi(df):
+    mi_mat = io.loadmat('../statistics/MIs.mat')['mis']
+    corr_mat = np.absolute(df.corr(method="spearman").to_numpy())
+
+    mods = [('spatial', SPATIAL[:-1]), ('morphological', MORPHOLOGICAL[:-1]), ('temporal', TEMPORAL[:-1])]
+
+    for name, inds in mods:
+        mi_m = mi_mat[inds][:, inds]
+        corr_m = corr_mat[inds][:, inds]
+
+        mask = np.triu(np.ones_like(mi_m, dtype=bool))
+        mi_m = mi_m[~mask].flatten()
+        corr_m = corr_m[~mask].flatten()
+
+        r, _ = stats.pearsonr(mi_m, corr_m)
+        print(f'spearman r for {name} is {r}')
+
+        ax = sns.regplot(x=mi_m, y=corr_m, ci=False)
+        ax.set_ylabel('Correlations (absolute)')
+        ax.set_ylim(0, 1.1)
+        ax.set_xlabel('Mutual information')
+
+        textstr = f"Spearman's r={r: .3f}\nR^2={r**2: .3f}\np={0: .3f}"
+
+        # place a text box in upper left in axes coords
+        ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=6)
+
+        plt.savefig(SAVE_PATH + f"{name}_corr_x_mi.pdf", transparent=True)
+        clear()
+
 
 
 def density_plots(df, d_features, modality, values):
@@ -822,7 +854,7 @@ def chunk_results(res_name='results_rf_combined'):
 
 
 def get_comp_results(chunk_sizes=(BEST_WF_CHUNK, BEST_TEMPORAL_CHUNK, BEST_SPATIAL_CHUNK),
-                     res_name='results_rf_region_ca1'):
+                     res_name='results_rf_region_ncx'):
     results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
 
@@ -854,14 +886,12 @@ def get_comp_results(chunk_sizes=(BEST_WF_CHUNK, BEST_TEMPORAL_CHUNK, BEST_SPATI
         modalities = [(modality, d[modality])]
 
         plot_fet_imp(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', None,
-                     chunk_size=[chunk_size], name=f'{modality}_ca1', modalities=modalities,
+                     chunk_size=[chunk_size], name=f'{modality}_ncx', modalities=modalities,
                      semsn=grouped_complete.quantile(0.25))
         clear()
 
 
 def main_figs():
-    get_comp_results()
-    raise AssertionError
     # Load wanted units - no light
     pyr_cluster = load_cluster(TEMP_PATH_NO_LIGHT, pyr_name)
     pv_cluster = load_cluster(TEMP_PATH_NO_LIGHT, pv_name)
@@ -1080,6 +1110,25 @@ def comp_chunk_roc_curves(modality, cs_a, cs_b, res_name_a='results_rf_combined'
     plot_roc_curve(complete_roc, name='comp', chunk_size=chunk_size_list, modalities=modalities)
     clear()
 
+def calc_aw(a, b):
+    a, b = a.copy(), b.copy()
+    a.sort()
+    b.sort()
+
+    na = len(a)
+    nb = len(b)
+
+    smaller = np.median(a) < np.median(b)
+    aw = 0
+    for v in a:
+        if smaller:
+            aw_v = (v < b).sum() + 0.5 * (b == v).sum()
+        else:
+            aw_v = (v > b).sum() + 0.5 * (b == v).sum()
+        aw += aw_v / nb
+        if (aw_v / nb) > 1:
+            raise AssertionError
+    return aw / na
 
 def spatial_var(path):
     arr = []
@@ -1107,12 +1156,12 @@ def spatial_var(path):
         label = df_temp.label.to_numpy()[0]
         labels.append(int(label))
 
+    labels = np.asarray(labels)
     columns = df_temp.columns.values[SPATIAL[:-1]]
 
-    arr, labels = np.asarray(arr), np.asarray(labels)
-
-    arr_pyr = arr[labels == 1]
-    arr_pv = arr[labels == 0]
+    arr_m = np.asarray(arr)[:, SPATIAL[:-1]]
+    arr_pyr = arr_m[labels == 1]
+    arr_pv = arr_m[labels == 0]
 
     p = stats.mannwhitneyu(arr_pyr.flatten(), arr_pv.flatten()).pvalue
     print('PYR', np.quantile(arr_pyr, q=[0.25, 0.5, 0.75]))
@@ -1121,17 +1170,17 @@ def spatial_var(path):
 
     arr_pyr_med = np.median(arr_pyr, axis=0)
     arr_pv_med = np.median(arr_pv, axis=0)
-
     p = stats.wilcoxon(arr_pyr_med, arr_pv_med).pvalue
     print('PYR', np.quantile(arr_pyr_med, q=[0.25, 0.5, 0.75]))
     print('PV', np.quantile(arr_pv_med, q=[0.25, 0.5, 0.75]))
     print(f'Wilcoxon for PYR compared to PV in general: p-val={p}')
 
     fig, ax = plt.subplots(figsize=(6, 10))
-
     for pyr, pv, pyr_all, pv_all, col in zip(arr_pyr_med, arr_pv_med, arr_pyr.T, arr_pv.T, columns):
         p = stats.mannwhitneyu(pyr_all, pv_all).pvalue
-        print(f"{col}: pyr={round(pyr, 3)}, pv={round(pv, 3)}. p-val={p}")
+        print(f"{col}: p-val={p}; effect size={calc_aw(pyr_all, pv_all)}")
+        print(f"    PYR: {np.quantile(pyr_all, q=[0.25, 0.5, 0.75])}")
+        print(f"    PV: {np.quantile(pv_all, q=[0.25, 0.5, 0.75])}")
         ax.plot([pyr, pv], 'k' if p < 0.05 else '0.7', marker='o')
 
     yerr = [[np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25),
@@ -1141,7 +1190,7 @@ def spatial_var(path):
     ax.bar([0, 1], [np.median(arr_pyr_med), np.median(arr_pv_med)], color='#A0A0A0', tick_label=['PYR', 'PV'],
            yerr=yerr)
 
-    plt.savefig(SAVE_PATH + f"spatial_var.pdf", transparent=True)
+    plt.savefig(SAVE_PATH + "spatial_var.pdf", transparent=True)
     clear()
 
 
@@ -1150,6 +1199,8 @@ def appendix_figs():
     # Correlation matrices
     # Waveform
     df = load_df(feature_names_org)
+    cor_x_mi(df)
+    raise AssertionError
 
     order_morph = ['trough2peak', 'peak2peak', 'fwhm', 'rise_coef', 'max_speed', 'break_measure', 'smile_cry',
                    'get_acc']
@@ -1169,7 +1220,6 @@ def appendix_figs():
                   'spatial_dispersion_count', 'spatial_dispersion_sd', 'spatial_dispersion_area']
     corr_mat(df, 'spatial', order_spat)
     mi_mat(df.columns, 'spatial', order_spat)
-    raise AssertionError
 
     # Appendix B
     chunks_comp()
@@ -1204,5 +1254,5 @@ def appendix_figs():
 
 
 if __name__ == '__main__':
-    main_figs()
-    #appendix_figs()
+    #main_figs()
+    appendix_figs()
