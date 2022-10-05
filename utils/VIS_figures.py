@@ -173,7 +173,8 @@ def load_df(features, trans_labels=True, path=DATA_PATH):
     df.region = df.region.map({0: 0, 1: 1, 3: 1, 4: 1})
     if trans_labels:
         df.label = df.label.map({1: 'PYR', 0: 'PV'})
-    df = df[features]
+    if features is not None:
+        df = df[features]
 
     return df
 
@@ -181,7 +182,7 @@ def load_df(features, trans_labels=True, path=DATA_PATH):
 def corr_mat(df, modality, order):
     pvals = io.loadmat('../statistics/spearman.mat')['pvals']
     inds = [feature_mapping[fet_name] for fet_name in order]
-    pvals = pvals[inds, inds]
+    pvals = pvals[inds][:, inds]
     if modality == 'temporal':
         print("correlation significance of dkl_start and unif_dist", pvals[0, 1])
     annotations = np.where(pvals < 0.05, '*', '')
@@ -192,7 +193,6 @@ def corr_mat(df, modality, order):
     mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
     plt.yticks(rotation=30)
     cmap = sns.color_palette("vlag", as_cmap=True)
-    print(cmap.colors)
     _ = sns.heatmap(correlation_matrix, annot=annotations, mask=mask, fmt='s', vmin=-1, vmax=1, cmap=cmap,
                     annot_kws={"fontsize": 6})
     plt.savefig(SAVE_PATH + f"{modality}_cor_mat.pdf", transparent=True)
@@ -203,7 +203,7 @@ def mi_mat(columns, modality, order):
     mip_mat = io.loadmat('../statistics/MIs.mat')
     mis, pvals = mip_mat['mis'], mip_mat['pvals']
     inds = [feature_mapping[fet_name] for fet_name in order]
-    pvals = pvals[inds, inds]
+    pvals = pvals[inds][:, inds]
 
     annotations = np.where(pvals < 0.05, '*', '')
     annotations = np.where(pvals < 0.01, '**', annotations)
@@ -227,6 +227,7 @@ def mi_mat(columns, modality, order):
 def cor_x_mi(df):
     mi_mat = io.loadmat('../statistics/MIs.mat')['mis']
     corr_mat = np.absolute(df.corr(method="spearman").to_numpy())
+    mat = {'mi': [], 'corr': []}
 
     mods = [('spatial', SPATIAL[:-1]), ('morphological', MORPHOLOGICAL[:-1]), ('temporal', TEMPORAL[:-1])]
 
@@ -238,15 +239,20 @@ def cor_x_mi(df):
         mi_m = mi_m[~mask].flatten()
         corr_m = corr_m[~mask].flatten()
 
-        r, _ = stats.pearsonr(mi_m, corr_m)
-        print(f'spearman r for {name} is {r}')
+        mat['mi'].append(mi_m)
+        mat['corr'].append(corr_m)
 
-        ax = sns.regplot(x=mi_m, y=corr_m, ci=False)
-        ax.set_ylabel('Correlations (absolute)')
-        ax.set_ylim(0, 1.1)
-        ax.set_xlabel('Mutual information')
+        r, _ = stats.spearmanr(mi_m, corr_m)
+        print(f'spearman r for {name} is {r: .3f}')
 
-        textstr = f"Spearman's r={r: .3f}\nR^2={r**2: .3f}\np={0: .3f}"
+        ax = sns.regplot(x=corr_m, y=mi_m, ci=False)
+        ax.set_xlabel('Correlation coefficient (absolute)')
+        ax.set_xlim(0, 1.1)
+        ax.set_xticks([0, 0.5, 1])
+        ax.set_ylabel('Mutual information')
+        ax.set_yticks([0, 0.5, 1, 1.5])
+
+        textstr = f"Spearman's r={r: .3f}\nR^2={r**2: .3f}\np="
 
         # place a text box in upper left in axes coords
         ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=6)
@@ -254,6 +260,7 @@ def cor_x_mi(df):
         plt.savefig(SAVE_PATH + f"{name}_corr_x_mi.pdf", transparent=True)
         clear()
 
+    io.savemat('../statistics/mi_x_corr.mat', mat)
 
 
 def density_plots(df, d_features, modality, values):
@@ -334,7 +341,7 @@ def thr_confusion_mats(preds_path='../ml/predictions/preds_rf_290322_fix_imp.npy
     clear()
 
 
-def get_results(modality, chunk_size, res_name='results_rf_combined', base_name='results_rf_combined_chance_balanced'):
+def get_results(modality, chunk_size, res_name='results_rf_combined', base_name='shuffle_results/060922_shuffles_combined'):
     results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
     complete = complete[complete.modality == modality]
@@ -368,7 +375,7 @@ def get_results(modality, chunk_size, res_name='results_rf_combined', base_name=
     complete_roc = complete_roc[complete_roc.chunk_size.isin(chunk_size_list)]
     complete_roc = complete_roc.dropna(how='all', axis=1)
 
-    plot_roc_curve(complete_roc, name=modality, chunk_size=chunk_size_list, modalities=modalities)
+    plot_roc_curve(complete_roc, name=modality, chunk_size=chunk_size_list, modalities=[modality])
     clear()
 
 
@@ -494,10 +501,6 @@ def time_lags_graph(df):
         # ax.plot(xs + x_shift * counter - 0.5 * x_shift, meds, c=c)
         counter += 1
 
-        print(f'{label} Wilcoxon for FMC->NEG:', stats.wilcoxon(fmc_temp, neg_temp))
-        print(f'{label} Wilcoxon for NEG->SMC:', stats.wilcoxon(neg_temp, smc_temp))
-        print(f'{label} Wilcoxon for FMC->SMC:', stats.wilcoxon(fmc_temp, smc_temp))
-
     plt.savefig(SAVE_PATH + f"time_lag_graph.pdf", transparent=True)
     clear()
 
@@ -567,14 +570,14 @@ def graph_vals(clu, clu_delta, name):
     return avg_vel
 
 
-def ach(bin_range, name, clu, min_range=0):
-    N = 2 * bin_range + 1
-    offset = 1 / 2
+def ach(bin_range, name, clu, min_range=0, bins_in_ms=1):
+    N = 2 * bin_range * bins_in_ms + 1
+    offset = 1 / (2 * bins_in_ms)
     bins = np.linspace(-bin_range - offset, bin_range + offset, N + 1)
     c = PV_COLOR if 'pv' in name else PYR_COLOR
 
     try:
-        hist = np.load(f'./ach_{name}_{bin_range}.npy')
+        hist = np.load(f'./ach_{name}_{bin_range}_{bins_in_ms}.npy')
     except FileNotFoundError:
         chunks = np.array([np.arange(len(clu.timings))])
         hist = calc_temporal_histogram(clu.timings, bins, chunks)[0]
@@ -591,10 +594,10 @@ def ach(bin_range, name, clu, min_range=0):
     fig, ax = plt.subplots()
     ax.bar(bin_inds, hist_up, color=c, width=bins[1] - bins[0])
     ax.set_ylim(0, 60)
-    plt.savefig(SAVE_PATH + f"{name}_ACH_{bin_range}.pdf", transparent=True)
+    plt.savefig(SAVE_PATH + f"{name}_ACH_{bin_range}_{bins_in_ms}.pdf", transparent=True)
     clear()
 
-    np.save(f'./ach_{name}_{bin_range}.npy', hist)
+    np.save(f'./ach_{name}_{bin_range}_{bins_in_ms}.npy', hist)
 
     center_ind = len(hist_up) // 2
     side = (hist_up + hist_up[::-1])[center_ind + min_range:] / 2
@@ -617,7 +620,7 @@ def unif_dist(hist, name):
     cdf = np.cumsum(hist_up) / np.sum(hist_up)
 
     fig, ax = plt.subplots()
-    ax.bar(np.arange(len(cdf)) - (UPSAMPLE // 2), cdf, color=c)
+    ax.bar(np.arange(len(cdf)) - (UPSAMPLE // 2), cdf, color=c, width=1)
     lin = np.linspace(cdf[0], cdf[-1], len(cdf))
     dists = abs(lin - cdf)
     ax.plot(np.arange(len(cdf)) - (UPSAMPLE // 2), lin, c='k')
@@ -626,7 +629,7 @@ def unif_dist(hist, name):
               colors='k', linestyles='dashed')
     ax.set_ylim(ymin=0, ymax=1.1)
     ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
-    ax.set_xticks([0, 40, 80, 120, 160, 200, 240, 280, 320, 360, 400])
+    ax.set_xticks(np.asarray([0, 40, 80, 120, 160, 200, 240, 280, 320, 360, 400]) * 2)
     ret = np.sum(dists) / len(cdf)
     print(f"{name} unif_dist is {ret}")
     plt.savefig(SAVE_PATH + f"{name}_unif_dist.pdf", transparent=True)
@@ -725,7 +728,7 @@ def get_delta_results(modality, chunk_size=[0], res_name='results_rf_030422_tran
                    data_path='../Datasets/data_sets_030422_trans_wf/complete_0/trans_wf/0_0.800.2/')
     clear()
 
-    plot_roc_curve(complete, name='delta', chunk_size=chunk_size, modalities=modalities)
+    plot_roc_curve(complete, name='delta', chunk_size=chunk_size, modalities=[modality])
     clear()
 
 
@@ -961,8 +964,8 @@ def main_figs():
 
     # ACHs
 
-    hist_pv = ach(50, 'pv_no_light', pv_cluster)
-    hist_pyr = ach(50, 'pyr_no_light', pyr_cluster)
+    hist_pv = ach(50, 'pv_no_light', pv_cluster, bins_in_ms=2)
+    hist_pyr = ach(50, 'pyr_no_light', pyr_cluster, bins_in_ms=2)
     hist_pv_long = ach(1000, 'pv_no_light', pv_cluster, min_range=50)
     hist_pyr_long = ach(1000, 'pyr_no_light', pyr_cluster, min_range=50)
 
@@ -1104,10 +1107,9 @@ def comp_chunk_roc_curves(modality, cs_a, cs_b, res_name_a='results_rf_combined'
     complete_roc = complete_roc[complete_roc.chunk_size.isin(chunk_size_list)]
     complete_roc = complete_roc.dropna(how='all', axis=1)
 
-    d = {'spatial': SPATIAL, 'morphological': MORPHOLOGICAL, 'temporal': TEMPORAL, 'trans_wf': TRANS_MORPH}
-    modalities = [(modality, d[modality])]
+    print(complete_roc.head())
 
-    plot_roc_curve(complete_roc, name='comp', chunk_size=chunk_size_list, modalities=modalities)
+    plot_roc_curve(complete_roc, name='comp', chunk_size=chunk_size_list, modalities=[modality])
     clear()
 
 def calc_aw(a, b):
@@ -1184,8 +1186,8 @@ def spatial_var(path):
         ax.plot([pyr, pv], 'k' if p < 0.05 else '0.7', marker='o')
 
     yerr = [[np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25),
-             np.median(arr_pyr_med) - np.quantile(arr_pyr_med, 0.25)],
-            [np.quantile(arr_pv_med, 0.75) - np.median(arr_pv_med),
+             np.median(arr_pv_med) - np.quantile(arr_pv_med, 0.25)],
+            [np.quantile(arr_pyr_med, 0.75) - np.median(arr_pyr_med),
              np.quantile(arr_pv_med, 0.75) - np.median(arr_pv_med)]]
     ax.bar([0, 1], [np.median(arr_pyr_med), np.median(arr_pv_med)], color='#A0A0A0', tick_label=['PYR', 'PV'],
            yerr=yerr)
@@ -1222,18 +1224,11 @@ def appendix_figs():
     mi_mat(df.columns, 'spatial', order_spat)
 
     # Appendix B
-    chunks_comp()
-    comp_chunk_roc_curves('morphological', BEST_WF_CHUNK, BEST_OLD_WF_CHUNK)
-    comp_chunk_roc_curves('temporal', BEST_TEMPORAL_CHUNK, BEST_OLD_TEMPORAL_CHUNK)
-    comp_chunk_roc_curves('spatial', BEST_SPATIAL_CHUNK, BEST_OLD_SPATIAL_CHUNK,
-                          res_name_b='results_rf_spatial_combined')
-
-    # Appendix C
     # Moments importances
     imp_inds = np.arange(NUM_MOMENTS + 2)  # extra +1 as a workaround for usual case where last value is -1
     name_mapping = ['Original', 'Mean', 'SD', 'Q25%', 'Median', 'Q75%']
     res_name = 'results_rf_moments'
-    base_name = 'results_rf_moments_chance_balanced'
+    base_name = 'shuffle_results/060922_shuffles_moments'
     name = 'moments'
     # Waveform
     costume_imp('morphological', BEST_WF_CHUNK, res_name, base_name, imp_inds, name_mapping, name)
@@ -1246,11 +1241,17 @@ def appendix_figs():
     imp_inds = np.arange(NUM_EVENTS + 1)  # extra +1 as a workaround for usual case where last value is -1
     name_mapping = ['FMC', 'NEG', 'SMC']
     res_name = 'results_rf_events'
-    base_name = 'results_rf_events_chance_balanced'
+    base_name = 'shuffle_results/060922_shuffles_events'
     name = 'events'
     costume_imp('spatial', BEST_SPATIAL_CHUNK, res_name, base_name, imp_inds, name_mapping, name)
 
     spatial_var(f'../cluster_data/clusterData_no_light_29_03_22/{BEST_SPATIAL_CHUNK}')
+
+    # Appendix C
+    chunks_comp()
+    comp_chunk_roc_curves('morphological', BEST_WF_CHUNK, BEST_OLD_WF_CHUNK)
+    comp_chunk_roc_curves('temporal', BEST_TEMPORAL_CHUNK, BEST_OLD_TEMPORAL_CHUNK)
+    comp_chunk_roc_curves('spatial', BEST_SPATIAL_CHUNK, BEST_OLD_SPATIAL_CHUNK, res_name_b='results_rf_spatial_combined')
 
 
 if __name__ == '__main__':

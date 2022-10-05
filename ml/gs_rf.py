@@ -10,6 +10,40 @@ from constants import INF
 import ML_util
 
 N = 10
+SAMPLE_N = 5_000
+
+def get_inds_unsq(cum_c, inds):
+    pairs = []
+    for i in inds:
+        if i == 0:
+            pairs.append((0, cum_c[i]))
+        else:
+            pairs.append((cum_c[i - 1], cum_c[i]))
+
+    new_inds_raw = [np.arange(pair[0], pair[1]) for pair in pairs]
+    new_inds = np.concatenate(new_inds_raw)
+    return new_inds
+
+def cv_gen(unsqueezed, n, seed):
+    ret = []
+    sham_data = np.asarray([elem[0] for elem in unsqueezed])
+    sham_features, labels = ML_util.split_features(sham_data)
+    cum_c = np.cumsum([len(elem) for elem in unsqueezed])
+    basic_split = StratifiedKFold(n_splits=n, shuffle=True, random_state=seed)
+    i = 1
+    for inds_train, inds_test in basic_split.split(sham_features, labels):
+        new_inds_train_full = get_inds_unsq(cum_c, inds_train)
+        new_inds_test = get_inds_unsq(cum_c, inds_test)
+
+        np.random.seed(seed * n + i)
+        l = len(new_inds_train_full)
+        inds = np.random.choice(l, min(SAMPLE_N, l), replace=False)
+        new_inds_train_sample = new_inds_train_full[inds]
+
+        ret.append((new_inds_train_sample, new_inds_test))
+        i += 1
+
+    return ret
 
 def grid_search(dataset_path, n_estimators_min, n_estimators_max, n_estimators_num,
                 max_depth_min, max_depth_max, max_depth_num, min_samples_splits_min, min_samples_splits_max,
@@ -40,6 +74,11 @@ def grid_search(dataset_path, n_estimators_min, n_estimators_max, n_estimators_n
     scaler.fit(features)
     features = scaler.transform(features)
 
+    cv = StratifiedKFold(n_splits=n, shuffle=True, random_state=seed)
+    if len(features) > SAMPLE_N:
+        assert region_based
+        cv = cv_gen(train, n, seed)
+
     n_estimatorss = np.logspace(n_estimators_min, n_estimators_max, n_estimators_num).astype('int')
     max_depths = np.logspace(max_depth_min, max_depth_max, max_depth_num).astype('int')
     min_samples_splits = np.logspace(min_samples_splits_min, min_samples_splits_max, min_samples_splits_num,
@@ -51,7 +90,7 @@ def grid_search(dataset_path, n_estimators_min, n_estimators_max, n_estimators_n
     parameters = {'n_estimators': n_estimatorss, 'max_depth': max_depths, 'min_samples_split': min_samples_splits,
                   'min_samples_leaf': min_samples_leafs}
     model = RandomForestClassifier(random_state=seed, class_weight='balanced')
-    clf = GridSearchCV(model, parameters, cv=StratifiedKFold(n_splits=n, shuffle=True, random_state=seed), verbose=0,
+    clf = GridSearchCV(model, parameters, cv=cv, verbose=0,
                        scoring='roc_auc')
     print('Starting grid search...')
     start = time.time()

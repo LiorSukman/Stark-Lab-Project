@@ -4,9 +4,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from clusters import Spike
-from sklearn.model_selection import GroupShuffleSplit, StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit
 
-from constants import SEED, SESSION_TO_ANIMAL
+from constants import SEED
 
 
 def split_features(data):
@@ -111,7 +111,8 @@ def was_created(paths, per_train, per_dev, per_test):
 
 
 def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.txt', mode='complete', should_filter=True,
-                    save_path='../data_sets', verbos=False, keep=None, seed=None, region_based=False, perm_labels=False):
+                    save_path='../data_sets', verbos=False, keep=None, seed=None, region_based=False, perm_labels=False,
+                    train_ca1=True):
     """
    The function creates all datasets from the data referenced by the datasets file and saves them
    """
@@ -154,12 +155,11 @@ def create_datasets(per_train=0.6, per_dev=0.2, per_test=0.2, datasets='datas.tx
         else:
             data = None  # only because we need to send something to split_data()
             cluster_names = None
-            recording_names = None
             regions = None
         print('Splitting %s set...' % name)
         split_data(data, cluster_names,  per_train=per_train, per_dev=per_dev, per_test=per_test,
                    path=save_path, data_name=name, should_load=should_load, verbos=verbos, seed=seed,
-                   region_based=region_based, regions=regions, perm_labels=perm_labels)
+                   region_based=region_based, regions=regions, perm_labels=perm_labels, train_ca1=train_ca1)
 
 
 def get_dataset(path, verbose=False):
@@ -229,7 +229,8 @@ def permutate_labels(org):
 
 
 def split_data(data, names, per_train=0.6, per_dev=0.2, per_test=0.2, path='../data_sets', should_load=True,
-               data_name='', verbos=False, seed=None, region_based=False, regions=None, perm_labels=False):
+               data_name='', verbos=False, seed=None, region_based=False, regions=None, perm_labels=False,
+               train_ca1=True):
     """
    This function recieves the data as an ndarray. The first level is the different clusters, i.e each file,
    the second level is the different waveforms whithin each clusters and the third is the actual features
@@ -250,9 +251,9 @@ def split_data(data, names, per_train=0.6, per_dev=0.2, per_test=0.2, path='../d
         per_dev += per_train
 
         if region_based:
-            train, train_names = take_region_data(data, names, True, regions)
+            train, train_names = take_region_data(data, names, True and train_ca1, regions)
             train, train_names, dev, dev_names = split_region_data(train, train_names, seed, per_test)
-            test, test_names = take_region_data(data, names, False, regions)
+            test, test_names = take_region_data(data, names, not train_ca1, regions)
         else:
             train = take_partial_data(data, 0, per_train)
             train_names = take_partial_data(names, 0, per_train)

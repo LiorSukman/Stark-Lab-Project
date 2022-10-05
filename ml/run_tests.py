@@ -24,7 +24,7 @@ NUM_FETS = 204  # Total number of features in data (all modalities)
 NUM_ITER = 50  # Number of iterations for every modality x chunk size
 SKIP_0_IMP = True  # do not calculate importance for chunk size 0
 SKIP_TEST_IMP = False  # do not calculate importance for the test set
-SKIP_DEV_IMP = True  # do not calculate importance for the dev set
+SKIP_DEV_IMP = False  # do not calculate importance for the dev set
 
 n_estimators_min = 0
 n_estimators_max = 2
@@ -78,7 +78,8 @@ def get_shap_imp(clf, test, seed, skip=False):
     df = pd.DataFrame(test)
     df_shap = df.sample(min(1000, len(test)), random_state=int(seed) + 1)
     rf_explainer = shap.TreeExplainer(clf)  # define explainer
-    shap_values = rf_explainer(df_shap, check_additivity=False)  # calculate shap values; check_aditivity set to overcome a possible bug in the shap library
+    shap_values = rf_explainer(df_shap,
+                               check_additivity=False)  # calculate shap values; check_aditivity set to overcome a possible bug in the shap library
     pyr_shap_values = shap_values[..., 1]
     return np.mean(np.abs(pyr_shap_values.values), axis=0), pyr_shap_values.values
 
@@ -148,7 +149,7 @@ def calc_auc(clf, data_path, region_based=False, use_dev=False):
     return auc_val, fpr, tpr
 
 
-def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_labels=False, modality=None):
+def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_labels=False, gs_zero=True):
     lists = ['aucs', 'fprs', 'tprs', 'importances', 'dev_aucs', 'dev_fprs', 'dev_tprs', 'dev_importances',
              'preds', 'dev_preds', 'raw_imps', 'dev_raw_imps']
 
@@ -157,36 +158,37 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
     preds, dev_preds = [], []
     raw_imps, dev_raw_imps = [], []
 
-    print(f"            Starting chunk size = 0")
+    if gs_zero:
+        print(f"            Starting chunk size = 0")
 
-    clf, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
-        data_path + f"/0_{dataset_identifier}/", n_estimators_min,
-        n_estimators_max, n_estimators_num, max_depth_min, max_depth_max, max_depth_num,
-        min_samples_splits_min, min_samples_splits_max, min_samples_splits_num,
-        min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed=seed,
-        region_based=region_based, shuffle_labels=shuffle_labels)
+        clf, n_estimators, max_depth, min_samples_split, min_samples_leaf = grid_search_rf(
+            data_path + f"/0_{dataset_identifier}/", n_estimators_min,
+            n_estimators_max, n_estimators_num, max_depth_min, max_depth_max, max_depth_num,
+            min_samples_splits_min, min_samples_splits_max, min_samples_splits_num,
+            min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed=seed,
+            region_based=region_based, shuffle_labels=shuffle_labels)
 
-    pred, dev_pred = get_preds(clf, data_path + f"/0_{dataset_identifier}/", region_based)
+        pred, dev_pred = get_preds(clf, data_path + f"/0_{dataset_identifier}/", region_based)
 
-    auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
-    dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
+        auc, fpr, tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based)
+        dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/0_{dataset_identifier}/", region_based, use_dev=True)
 
-    x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
-    raw_imp = np.ones((1000, NUM_FETS)) * np.nan
-    importance, raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP or SKIP_TEST_IMP)
-    raw_imp[:min(1000, len(x)), fet_inds[:-1]] = raw_imp_temp
+        x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based)
+        raw_imp = np.ones((1000, NUM_FETS)) * np.nan
+        importance, raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP or SKIP_TEST_IMP)
+        raw_imp[:min(1000, len(x)), fet_inds[:-1]] = raw_imp_temp
 
-    x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
-    dev_raw_imp = np.ones((1000, NUM_FETS)) * np.nan
-    if len(x) > 0:
-        dev_importance, dev_raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP or SKIP_DEV_IMP)
-        dev_raw_imp[:min(1000, len(x)), fet_inds[:-1]] = dev_raw_imp_temp
-    else:
-        dev_importance = np.ones(importance.shape) * np.nan
+        x, _ = get_test_set(data_path + f"/0_{dataset_identifier}/", region_based, get_dev=True)
+        dev_raw_imp = np.ones((1000, NUM_FETS)) * np.nan
+        if len(x) > 0:
+            dev_importance, dev_raw_imp_temp = get_shap_imp(clf, x, seed, skip=SKIP_0_IMP or SKIP_DEV_IMP)
+            dev_raw_imp[:min(1000, len(x)), fet_inds[:-1]] = dev_raw_imp_temp
+        else:
+            dev_importance = np.ones(importance.shape) * np.nan
 
-    for var in lists:
-        assignment = f"{var}.append({var[:-1]})"
-        exec(assignment)
+        for var in lists:
+            assignment = f"{var}.append({var[:-1]})"
+            exec(assignment)
 
     restriction, modality = data_path.split('/')[-2:]
     restriction = '_'.join(restriction.split('_')[:-1])
@@ -194,9 +196,16 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
     chunks_iter = chunks if modality is None else chunks_map[modality]
     for chunk_size in chunks_iter:
         print(f"            Starting chunk size = {chunk_size}")
-        clf = run_model(n_estimators, max_depth, min_samples_split, min_samples_leaf,
-                        data_path + f"/{chunk_size}_{dataset_identifier}/",
-                        seed, region_based, shuffle_labels)
+        if gs_zero:
+            clf = run_model(n_estimators, max_depth, min_samples_split, min_samples_leaf,
+                            data_path + f"/{chunk_size}_{dataset_identifier}/",
+                            seed, region_based, shuffle_labels)
+        else:
+            clf, _, _, _, _ = grid_search_rf(data_path + f"/{chunk_size}_{dataset_identifier}/", n_estimators_min,
+                                 n_estimators_max, n_estimators_num, max_depth_min, max_depth_max, max_depth_num,
+                                 min_samples_splits_min, min_samples_splits_max, min_samples_splits_num,
+                                 min_samples_leafs_min, min_samples_leafs_max, min_samples_leafs_num, n, seed=seed,
+                                 region_based=region_based, shuffle_labels=shuffle_labels)
 
         auc, fpr, tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based)
         dev_auc, dev_fpr, dev_tpr = calc_auc(clf, data_path + f"/{chunk_size}_{dataset_identifier}/", region_based,
@@ -223,8 +232,9 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
             assignment = f"{var}.append({var[:-1]})"
             exec(assignment)
 
+    chunk_size_df = [0] + chunks_iter if gs_zero else chunks_iter
     df = pd.DataFrame(
-        {'restriction': restriction, 'modality': modality, 'chunk_size': [0] + chunks_iter,
+        {'restriction': restriction, 'modality': modality, 'chunk_size': chunk_size_df,
          'seed': [str(seed)] * len(aucs),
          'auc': aucs, 'fpr': fprs, 'tpr': tprs, 'dev_auc': dev_aucs, 'dev_fpr': dev_fprs, 'dev_tpr': dev_tprs})
 
@@ -242,7 +252,7 @@ def get_modality_results(data_path, seed, fet_inds, region_based=False, shuffle_
         tuple(dev_raw_imps))
 
 
-def get_folder_results(data_path, seed, region_based=False, shuffle_labels=0):
+def get_folder_results(data_path, seed, region_based=False, shuffle_labels=0, gs_zero=True):
     df_cols = ['restriction', 'modality', 'chunk_size', 'seed', 'auc', 'fpr', 'tpr', 'dev_auc', 'dev_fpr', 'dev_tpr'] + \
               [f"test feature {f + 1}" for f in range(NUM_FETS)] + [f"dev feature {f + 1}" for f in range(NUM_FETS)]
     preds, dev_preds = None, None
@@ -256,7 +266,7 @@ def get_folder_results(data_path, seed, region_based=False, shuffle_labels=0):
                 new_seed = seed * shuffle_labels + iter
                 modality_df, pred, dev_pred, raw_imp, dev_raw_imp = get_modality_results(
                     data_path + '/' + modality[0], new_seed, modality[1], region_based=region_based,
-                    shuffle_labels=True, modality=modality)
+                    shuffle_labels=True, gs_zero=gs_zero)
                 df = df.append(modality_df, ignore_index=True)
                 preds = pred if preds is None else np.vstack((preds, pred))
                 dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
@@ -265,7 +275,7 @@ def get_folder_results(data_path, seed, region_based=False, shuffle_labels=0):
         else:
             modality_df, pred, dev_pred, raw_imp, dev_raw_imp = get_modality_results(
                 data_path + '/' + modality[0], seed, modality[1], region_based=region_based,
-                shuffle_labels=False, modality=modality)
+                shuffle_labels=False, gs_zero=gs_zero)
             df = df.append(modality_df, ignore_index=True)
             preds = pred if preds is None else np.vstack((preds, pred))
             dev_preds = dev_pred if dev_preds is None else np.vstack((dev_preds, dev_pred))
@@ -285,12 +295,14 @@ if __name__ == "__main__":
     """
 
     model = 'rf'
-    modifier = '110922_rich_region_imp_ncx'
+    modifier = '011022_rich_region_ca1_imp'
     load_iter = None
     animal_based = False
     region_based = True
     perm_labels = False  # This is done in creation of dataset and only once
     shuffle_labels = 0  # This is done in loading and happens the number of times specified - 0 means no shuffling
+    train_ca1 = True  # relevant only when region_based is true, then dictates whether trained on CA1 or NCX data
+    gs_zero = False
     results = None if load_iter is None else pd.read_csv(f'results_{model}_{modifier}_{load_iter}.csv', index_col=0)
     preds = None if load_iter is None else np.load(f'preds_{model}_{modifier}_{load_iter}.npy')
     raw_imps = None if load_iter is None else np.load(f'raw_imps_{model}_{modifier}_{load_iter}.npy')
@@ -321,10 +333,11 @@ if __name__ == "__main__":
                 with HiddenPrints():
                     ML_util.create_datasets(per_train=0.8, per_dev=0, per_test=0.2, datasets='datas.txt', seed=i,
                                             should_filter=True, save_path=new_new_path, verbos=False, keep=keep, mode=r,
-                                            region_based=region_based, perm_labels=perm_labels)
+                                            region_based=region_based, perm_labels=perm_labels, train_ca1=train_ca1)
 
             result, pred, dev_pred, raw_imp, dev_raw_imp = get_folder_results(new_path, i, region_based,
-                                                                              shuffle_labels=shuffle_labels)
+                                                                              shuffle_labels=shuffle_labels,
+                                                                              gs_zero=gs_zero)
             if results is None:
                 results = result
             else:
