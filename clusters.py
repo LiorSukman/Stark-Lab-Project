@@ -15,13 +15,12 @@ class Spike(object):
         """
         The function checks if a spike is of a positive-unit and returns the result
         """
-        median = 0  # reference value, it is assumed that the spikes are aligned to zero
         main_channel = self.data[np.argmax(np.absolute(self.data)) // self.data.shape[-1]]
         main_channel = main_channel[3:-3]  # in some cases the hyperpolarization at the edges was stronger than the
         # depolarization, causing wrong conclusion
-        abs_diff = np.absolute(main_channel - median)
+        abs_diff = np.absolute(main_channel)
         arg_max = np.argmax(abs_diff, axis=0)  # the axis specification has no effect, just for clarification
-        if main_channel[arg_max] > median:
+        if main_channel[arg_max] > 0:
             return True
         return False
 
