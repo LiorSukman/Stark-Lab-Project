@@ -13,7 +13,7 @@ import matplotlib as mpl
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
 
-SAVE_PATH = '../../../data for figures/New/'
+SAVE_PATH = '../../../data for figures/'
 
 
 def gaussian_func(sig, x):
@@ -77,7 +77,7 @@ def calc_hist(spike_train, stims, bins, c=20):
         conv_hist = np.convolve(mirr_hist, g_wind, mode='valid')
         ret[i] = conv_hist
 
-    ret *= 1 / (c * 1_000)
+    ret = ret * (c * 1_000)
 
     return ret.mean(axis=0), stats.sem(ret, axis=0)
 

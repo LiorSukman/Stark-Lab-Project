@@ -402,11 +402,13 @@ def plot_auc_chunks_bp(df, name=None, plot=True, ax_inp=None, edge_color='k', sh
             plt.close('all')
 
 
-def plot_test_vs_dev_bp(df, chunk_sizes=(0, 0, 0), name=None, diff=False):
+def plot_test_vs_dev_bp(df, chunk_sizes=(0, 0, 0), name=None, diff=False, df2=None):
     labels = ['morphological', 'temporal', 'spatial']
-    fig, ax = plt.subplots(figsize=(6, 7.5))  # 8.5 10 for FENS
+    figsize = (13, 7.5) if not diff else (6, 7.5)
+    fig, ax = plt.subplots(figsize=figsize)
 
     x = np.arange(len(labels)) + 1  # the label locations
+    width = 0.4
 
     for i, (mod, cz) in enumerate(zip(labels, chunk_sizes)):
         filter1 = df.chunk_size == cz
@@ -415,25 +417,51 @@ def plot_test_vs_dev_bp(df, chunk_sizes=(0, 0, 0), name=None, diff=False):
         val = df[filter1 & filter2].auc.to_numpy()
         dev_val = df[filter1 & filter2].dev_auc.to_numpy()
 
+        val2, dev_val2 = None, None
+        if df2 is not None:
+            filter1 = df2.chunk_size == cz
+            filter2 = df2.modality == mod
+
+            val2 = df2[filter1 & filter2].auc.to_numpy()
+            dev_val2 = df2[filter1 & filter2].dev_auc.to_numpy()
+
         if diff:
+            positions = [x[i]] if df2 is None else [x[i] - width * 0.63]
             diff_vals = 100 * (dev_val - val) / dev_val
-            ax.boxplot(diff_vals, positions=[x[i]],
+            ax.boxplot(diff_vals, positions=positions, boxprops={"facecolor": "k"},
                        flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
-                       patch_artist=True, widths=0.4, notch=True, bootstrap=1_000)
+                       patch_artist=True, widths=width, notch=True, bootstrap=1_000)
+            if df2 is not None:
+                positions = [x[i] + width * 0.63]
+                diff_vals = 100 * (dev_val2 - val2) / dev_val2
+                ax.boxplot(diff_vals, positions=positions, boxprops={"facecolor": "b"},
+                           flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
+                           patch_artist=True, widths=width, notch=True, bootstrap=1_000)
         else:
-            ax.boxplot(val, positions=[x[i] + 0.25],
+            position = [x[i] - width * 0.63]
+            ax.boxplot(val, positions=position, boxprops={"facecolor": "k"},
                        flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
-                       patch_artist=True, widths=0.4, notch=True, bootstrap=1_000)
-            ax.boxplot(dev_val, positions=[x[i] - 0.25],
+                       patch_artist=True, widths=width, notch=True, bootstrap=1_000)
+            position = [x[i] + width * 0.63]
+            ax.boxplot(dev_val, positions=position, boxprops={"facecolor": "k"},
                        flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
-                       patch_artist=True, widths=0.4, notch=True, bootstrap=1_000)
+                       patch_artist=True, widths=width, notch=True, bootstrap=1_000)
+            if df2 is not None:
+                ax.boxplot(dev_val2, positions=[x[i] + len(x) + 0.3 - width * 0.63], boxprops={"facecolor": "b"},
+                           flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
+                           patch_artist=True, widths=width, notch=True, bootstrap=1_000)
+                ax.boxplot(val2, positions=[x[i] + len(x) + 0.3 + width * 0.63], boxprops={"facecolor": "b"},
+                           flierprops=dict(markerfacecolor='#808080', marker='+'), medianprops={"color": "k"},
+                           patch_artist=True, widths=width, notch=True, bootstrap=1_000)
 
     if diff:
         ticks = x
     else:
         ticks = []
         for t in x:
-            ticks += [t - 0.25, t + 0.25]
+            ticks += [t - width * 0.63, t + width * 0.63]
+        for t in x:
+            ticks += [t + len(x) + 0.3 - width * 0.63, t + len(x) + 0.3 + width * 0.63]
     ax.set_xticks(ticks)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -595,82 +623,6 @@ def plot_results(df, sems, restriction, acc=True, name=None, chunk_size=None, mo
         plt.savefig(SAVE_PATH + f"{name}_{'acc' if acc else 'auc'}.pdf", transparent=True)
 
 
-if __name__ == "__main__":
-    """
-    checks:
-    1) Is the name of the model correct?
-    2) Are we passing all the modalities we wish to plot?
-    3) Have we the correct path for the confusion matrix?
-    """
-    import warnings
-
-    # warnings.simplefilter("error")
-    cs = 0
-    m = 'spatial'
-    results = pd.read_csv(f'results_rf_090522_region.csv', index_col=0)
-
-    """complete = results[results.restriction == 'complete']
-    complete = complete[complete.modality == m]
-
-    complete = complete[complete.chunk_size.isin([cs])]
-    complete = complete.dropna(how='all', axis=1)
-
-    grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
-
-    base = pd.read_csv(f'../ml/results_rf_100522_chance_balanced.csv', index_col=0)
-    base = base[base.restriction == 'complete']
-    base = base[base.modality == m]
-
-    base = base[base.chunk_size.isin([cs])]
-    base = base.dropna(how='all', axis=1)
-
-    grouped_base = base.groupby(by=['restriction', 'modality', 'chunk_size'])
-
-    complete_0 = complete[complete.chunk_size == cs]
-    complete_0 = complete_0.dropna(how='all', axis=1)
-
-    grouped_complete_0 = complete_0.groupby(by=['restriction', 'modality', 'chunk_size'])
-
-    plot_fet_imp(grouped_complete_0.median(), grouped_complete_0.quantile(0.75), 'complete', grouped_base.median(),
-                 chunk_size=[cs], name=None, modalities=[(m, SPATIAL)], semsn=grouped_complete_0.quantile(0.25))"""
-
-    plot_test_vs_dev_bp(results, chunk_sizes=(800, 25, 800))
-
-    """train, dev, test, _, _, _ = ML_util.get_dataset('../data_sets_090522_region/complete_2/spatial/0_0.800.2/')
-    train_labels = train[:, :,  -1].flatten()
-    ca1_labels = dev[:, :,  -1].flatten()
-    ncx_labels = test[:, :,  -1].flatten()
-    print(f"training PYR: {train_labels.sum()}, PV: {train_labels.size - train_labels.sum()}")
-    print(f"CA1 PYR: {ca1_labels.sum()}, PV: {ca1_labels.size - ca1_labels.sum()}")
-    print(f"nCX PYR: {ncx_labels.sum()}, PV: {ncx_labels.size - ncx_labels.sum()}")
-
-    print()
-
-    train, dev, test, _, _, _ = ML_util.get_dataset('../data_sets_290322/complete_2/spatial/0_0.800.2/')
-    train_labels = train[:, :, -1].flatten()
-    dev_labels = dev[:, :, -1].flatten()
-    test_labels = test[:, :, -1].flatten()
-    print(f"training PYR: {train_labels.sum()}, PV: {train_labels.size - train_labels.sum()}")
-    print(f"dev PYR: {ca1_labels.sum()}, PV: {ca1_labels.size - ca1_labels.sum()}")
-    print(f"test PYR: {ncx_labels.sum()}, PV: {ncx_labels.size - ncx_labels.sum()}")"""
-
-    # plot_acc_vs_auc(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', name=None,
-    #                semsn=grouped_complete.quantile(0.25))
-    # plot_acc_vs_auc_new(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', name=None,
-    #                     semsn=grouped_complete.quantile(0.25))
-
-    """_, _, _, train_names_25, dev_names_25, test_names_25 = ML_util.get_dataset('../data_sets_290322/complete_2/spatial/25_0.800.2/')
-
-    set_train_25 = set(train_names_25)
-    set_test_25 = set(test_names_25)
-
-    print(set_train_25.intersection(set_test_25))
-
-    _, _, _, train_names_0, dev_names_0, test_names_0 = ML_util.get_dataset('../data_sets_290322/complete_2/spatial/0_0.800.2/')
-
-    set_train_0 = set(train_names_0)
-    set_test_0 = set(test_names_0)
-
-    print(set_train_0.intersection(set_test_0))
-
-    print(set_train_0.intersection(set_test_25))"""
+if __name__ == '__main__':
+    t= np.load('F:/Users/Lior/Desktop/University/Masters Degree/Stark Lab/Code/Stark Lab Project/Datasets/data_sets_030422_trans_wf/complete_0/trans_wf/0_0.800.2/test.npy')
+    print(t[:, 83:, -1].sum())

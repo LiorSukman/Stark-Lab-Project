@@ -7,7 +7,6 @@ import scipy.signal as signal
 import scipy.stats as stats
 import scipy.io as io
 from sklearn.preprocessing import StandardScaler
-import os
 from os import listdir
 from os.path import isfile, join
 import seaborn as sns
@@ -161,7 +160,7 @@ def acceleration(clu, color, sec_color, name):
 
 def load_df(features, trans_labels=True, path=DATA_PATH):
     df = None
-    files = os.listdir(path)
+    files = listdir(path)
     for file in sorted(files):
         if df is None:
             df = pd.read_csv(path + '/' + file)
@@ -263,19 +262,21 @@ def cor_x_mi(df):
     io.savemat('../statistics/mi_x_corr.mat', mat)
 
 
-def density_plots(df, d_features, modality, values):
+def density_plots(df, d_features, modality, values=None):
+    if values is None:
+        values = [None] * len(d_features)
     palette = {"PYR": PYR_COLOR, "PV": PV_COLOR}
     for c in df.columns:
         if c not in d_features:
             continue
         if c in ['fwhm', 'trough2peak']:
-            df[c] = 1.6 * df[c] / 256  # transform index to time
-        if c in ['fzc_sd']:
+            df[c] = 1.6 * df[c] / 256  # transform index to time micro s
+        if c in ['fzc_sd', 'szc_sd']:
             df[c] = 1600 * df[c] / 256
-        if c in ['fzc_red']:
-            df[c] = df[c] * ((1600 / 256) ** 2)  # transform index to time
-        if c in ['fzc_graph_avg_speed']:
-            df[c] = 256 * df[c] / 1.6  # transform index to time
+        if c in ['fzc_red', 'szc_red']:
+            df[c] = df[c] * ((1.6 / 256) ** 2) * 1000  # transform index to time 1000 * (micros s) ^ 2
+        if c in ['fzc_graph_avg_speed', 'fzc_graph_slowest_path']:
+            df[c] = 256 * df[c] / 1600  # transform index to time m/s
 
     for c, vals in zip(d_features, values):
         col_pyr = df[c][df.label == 'PYR'].to_numpy()
@@ -286,11 +287,11 @@ def density_plots(df, d_features, modality, values):
 
         ax_cdf = sns.ecdfplot(data=df, x=c, hue="label", palette=palette)
 
-        ax_cdf.scatter(vals[0], (np.sum(col_pyr < vals[0]) + np.sum(col_pyr <= vals[0])) / (2 * len(col_pyr)),
-                       color=PYR_COLOR, s=20)
-        ax_cdf.scatter(vals[1], (np.sum(col_pv < vals[1]) + np.sum(col_pv <= vals[1])) / (2 * len(col_pv)),
-                       color=PV_COLOR,
-                       s=20)
+        if vals is not None:
+            ax_cdf.scatter(vals[0], (np.sum(col_pyr < vals[0]) + np.sum(col_pyr <= vals[0])) / (2 * len(col_pyr)),
+                        color=PYR_COLOR, s=20)
+            ax_cdf.scatter(vals[1], (np.sum(col_pv < vals[1]) + np.sum(col_pv <= vals[1])) / (2 * len(col_pv)),
+                        color=PV_COLOR, s=20)
 
         if c in ['d_kl_mid', 'get_acc']:
             ax_cdf.set_xscale('log')
@@ -857,31 +858,42 @@ def chunk_results(res_name='results_rf_combined'):
 
 
 def get_comp_results(chunk_sizes=(BEST_WF_CHUNK, BEST_TEMPORAL_CHUNK, BEST_SPATIAL_CHUNK),
-                     res_name='results_rf_region_ncx'):
+                     res_name='results_rf_ca1_train_ca1_imp', train_name='CA1',
+                     res_name2='results_rf_ncx_train_ncx_imp', train_name2='NCX'):
     results = pd.read_csv(f'../ml/{res_name}.csv', index_col=0)
     complete = results[results.restriction == 'complete']
 
     complete = complete[complete.chunk_size.isin(chunk_sizes)]
 
+    results2 = pd.read_csv(f'../ml/{res_name2}.csv', index_col=0)
+    complete2 = results2[results2.restriction == 'complete']
+
+    complete2 = complete2[complete2.chunk_size.isin(chunk_sizes)]
+
     for mod_name, cs in [('spatial', BEST_SPATIAL_CHUNK),
                                    ('temporal', BEST_TEMPORAL_CHUNK),
                                    ('morphological', BEST_WF_CHUNK)]:
         # ROC curves
-        plot_roc_curve(complete, name='NCX', chunk_size=[cs], use_dev=False, modalities=[mod_name])
+        plot_roc_curve(complete, name=f'{train_name}_NCX', chunk_size=[cs], use_dev=False, modalities=[mod_name])
         clear()
-        plot_roc_curve(complete, name='CA1', chunk_size=[cs], use_dev=True, modalities=[mod_name])
+        plot_roc_curve(complete, name=f'{train_name}_CA1', chunk_size=[cs], use_dev=True, modalities=[mod_name])
+        clear()
+        plot_roc_curve(complete2, name=f'{train_name2}_CA1', chunk_size=[cs], use_dev=False, modalities=[mod_name])
+        clear()
+        plot_roc_curve(complete2, name=f'{train_name2}_NCX', chunk_size=[cs], use_dev=True, modalities=[mod_name])
         clear()
 
     #  AUC
     # chunk sizes correspond to morphological, temporal spatial
     plot_test_vs_dev_bp(complete, chunk_sizes=(BEST_WF_CHUNK, BEST_TEMPORAL_CHUNK, BEST_SPATIAL_CHUNK),
-                        name='ncx_vs_ca1_auc')
+                        name=f'ncx_vs_ca1_auc', df2=complete2)
     clear()
     plot_test_vs_dev_bp(complete, chunk_sizes=(BEST_WF_CHUNK, BEST_TEMPORAL_CHUNK, BEST_SPATIAL_CHUNK),
-                        name='ncx_vs_ca1_auc', diff=True)
+                        name=f'ncx_vs_ca1_auc', diff=True, df2=complete2)
     clear()
 
     grouped_complete = complete.groupby(by=['restriction', 'modality', 'chunk_size'])
+    grouped_complete2 = complete2.groupby(by=['restriction', 'modality', 'chunk_size'])
 
     d = {'spatial': SPATIAL, 'morphological': MORPHOLOGICAL, 'temporal': TEMPORAL}
 
@@ -889,8 +901,13 @@ def get_comp_results(chunk_sizes=(BEST_WF_CHUNK, BEST_TEMPORAL_CHUNK, BEST_SPATI
         modalities = [(modality, d[modality])]
 
         plot_fet_imp(grouped_complete.median(), grouped_complete.quantile(0.75), 'complete', None,
-                     chunk_size=[chunk_size], name=f'{modality}_ncx', modalities=modalities,
+                     chunk_size=[chunk_size], name=f'{train_name}_{modality}', modalities=modalities,
                      semsn=grouped_complete.quantile(0.25))
+        clear()
+
+        plot_fet_imp(grouped_complete2.median(), grouped_complete2.quantile(0.75), 'complete', None,
+                     chunk_size=[chunk_size], name=f'{train_name2}_{modality}', modalities=modalities,
+                     semsn=grouped_complete2.quantile(0.25))
         clear()
 
 
@@ -1023,7 +1040,7 @@ def main_figs():
 
     chunk_results()
 
-    # nCX vs CA1 - fig 7
+    # nCX vs CA1 - fig 6
 
     get_comp_results()
 
@@ -1135,7 +1152,7 @@ def calc_aw(a, b):
 def spatial_var(path):
     arr = []
     labels = []
-    files = os.listdir(path)
+    files = listdir(path)
     df = None
 
     for file in sorted(files):
@@ -1200,8 +1217,9 @@ def appendix_figs():
     # Appendix A
     # Correlation matrices
     # Waveform
-    df = load_df(feature_names_org)
-    cor_x_mi(df)
+    df = load_df(feature_names_org + ['label'])
+    important_features = ['fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'fzc_graph_avg_speed', 'fzc_graph_slowest_path']
+    density_plots(df, important_features, 'fig5-1_spatial')
     raise AssertionError
 
     order_morph = ['trough2peak', 'peak2peak', 'fwhm', 'rise_coef', 'max_speed', 'break_measure', 'smile_cry',
@@ -1252,6 +1270,10 @@ def appendix_figs():
     comp_chunk_roc_curves('morphological', BEST_WF_CHUNK, BEST_OLD_WF_CHUNK)
     comp_chunk_roc_curves('temporal', BEST_TEMPORAL_CHUNK, BEST_OLD_TEMPORAL_CHUNK)
     comp_chunk_roc_curves('spatial', BEST_SPATIAL_CHUNK, BEST_OLD_SPATIAL_CHUNK, res_name_b='results_rf_spatial_combined')
+
+    # Fig 5-1: CDFs
+    important_features = ['fzc_red', 'fzc_sd', 'szc_red', 'szc_sd', 'fzc_graph_avg_speed', 'fzc_graph_slowest_path']
+    density_plots(df, important_features, 'spatial')
 
 
 if __name__ == '__main__':
