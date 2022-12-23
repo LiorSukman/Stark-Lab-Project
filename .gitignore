@@ -9,6 +9,7 @@
 **/.idea
 **/temps_to_save
 **/statistics/*Toolbox*
+**/ml/shuffle_results*
 ml/results*
 ml/raw*
 **/ml/predictions
